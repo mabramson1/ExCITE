@@ -1,27 +1,15 @@
 import type { Metadata } from "next";
-import localFont from "next/font/local";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff2",
+const geistSans = Geist({
   variable: "--font-geist-sans",
-  weight: "100 900",
-  display: "swap",
-  fallback: [
-    "-apple-system",
-    "BlinkMacSystemFont",
-    "Segoe UI",
-    "Roboto",
-    "sans-serif",
-  ],
+  subsets: ["latin"],
 });
 
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff2",
+const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
-  weight: "100 900",
-  display: "swap",
-  fallback: ["ui-monospace", "SFMono-Regular", "monospace"],
+  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {

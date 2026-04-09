@@ -4,5 +4,11 @@ import * as schema from "./schema";
 
 const connectionString = process.env.DATABASE_URL!;
 
-const client = postgres(connectionString, { prepare: false });
+// Supabase uses connection pooling via PgBouncer in transaction mode,
+// which requires prepare: false
+const client = postgres(connectionString, {
+  prepare: false,
+  ssl: process.env.NODE_ENV === "production" ? "require" : false,
+});
+
 export const db = drizzle(client, { schema });
