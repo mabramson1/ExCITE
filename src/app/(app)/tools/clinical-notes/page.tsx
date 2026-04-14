@@ -13,6 +13,7 @@ interface CodeSuggestion {
   code: string;
   description: string;
   confidence: string;
+  supporting_text?: string;
 }
 
 interface Reference {
@@ -28,6 +29,7 @@ interface AnalysisResult {
   missing_elements?: string[];
   references?: Reference[];
   summary?: string;
+  disclaimer?: string;
   raw?: string;
 }
 
@@ -169,12 +171,19 @@ export default function ClinicalNotesPage() {
               <CardContent>
                 <div className="space-y-3">
                   {result.icd10_codes.map((code, i) => (
-                    <div key={i} className="flex items-start justify-between gap-4 p-3 rounded-lg bg-muted/50">
-                      <div>
-                        <code className="text-sm font-mono font-bold text-primary">{code.code}</code>
-                        <p className="text-sm mt-0.5">{code.description}</p>
+                    <div key={i} className="p-3 rounded-lg bg-muted/50 space-y-1.5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <code className="text-sm font-mono font-bold text-primary">{code.code}</code>
+                          <p className="text-sm mt-0.5">{code.description}</p>
+                        </div>
+                        <Badge variant={confidenceColor(code.confidence)}>{code.confidence}</Badge>
                       </div>
-                      <Badge variant={confidenceColor(code.confidence)}>{code.confidence}</Badge>
+                      {code.supporting_text && (
+                        <p className="text-xs text-muted-foreground italic border-l-2 border-primary/20 pl-2">
+                          &ldquo;{code.supporting_text}&rdquo;
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -191,12 +200,19 @@ export default function ClinicalNotesPage() {
               <CardContent>
                 <div className="space-y-3">
                   {result.cpt_codes.map((code, i) => (
-                    <div key={i} className="flex items-start justify-between gap-4 p-3 rounded-lg bg-muted/50">
-                      <div>
-                        <code className="text-sm font-mono font-bold text-primary">{code.code}</code>
-                        <p className="text-sm mt-0.5">{code.description}</p>
+                    <div key={i} className="p-3 rounded-lg bg-muted/50 space-y-1.5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <code className="text-sm font-mono font-bold text-primary">{code.code}</code>
+                          <p className="text-sm mt-0.5">{code.description}</p>
+                        </div>
+                        <Badge variant={confidenceColor(code.confidence)}>{code.confidence}</Badge>
                       </div>
-                      <Badge variant={confidenceColor(code.confidence)}>{code.confidence}</Badge>
+                      {code.supporting_text && (
+                        <p className="text-xs text-muted-foreground italic border-l-2 border-primary/20 pl-2">
+                          &ldquo;{code.supporting_text}&rdquo;
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -260,6 +276,13 @@ export default function ClinicalNotesPage() {
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* Disclaimer */}
+          {result.disclaimer && (
+            <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 italic">
+              {result.disclaimer}
+            </p>
           )}
         </div>
       )}

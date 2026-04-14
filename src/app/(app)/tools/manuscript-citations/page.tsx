@@ -12,10 +12,14 @@ import { PhiWarning } from "@/components/phi-warning";
 interface ClaimCitation {
   text: string;
   location: string;
+  why_citation_needed?: string;
+  search_terms?: string;
   suggested_citations: {
     formatted: string;
     doi?: string;
     relevance: string;
+    verified?: boolean;
+    note?: string;
   }[];
 }
 
@@ -23,6 +27,7 @@ interface ExistingCitation {
   original: string;
   status: string;
   corrected?: string;
+  note?: string;
 }
 
 interface ManuscriptResult {
@@ -30,6 +35,7 @@ interface ManuscriptResult {
   existing_citations_review?: ExistingCitation[];
   bibliography?: string[];
   summary?: string;
+  disclaimer?: string;
   raw?: string;
 }
 
@@ -194,18 +200,34 @@ export default function ManuscriptCitationsPage() {
                 {result.claims_needing_citations.map((claim, i) => (
                   <div key={i} className="p-4 rounded-lg border bg-muted/30">
                     <p className="text-sm italic mb-1">&ldquo;{claim.text}&rdquo;</p>
-                    <p className="text-xs text-muted-foreground mb-3">{claim.location}</p>
+                    <p className="text-xs text-muted-foreground mb-1">{claim.location}</p>
+                    {claim.why_citation_needed && (
+                      <p className="text-xs text-muted-foreground mb-3">{claim.why_citation_needed}</p>
+                    )}
                     <div className="space-y-2">
                       {claim.suggested_citations.map((cit, j) => (
                         <div key={j} className="pl-3 border-l-2 border-primary/30">
-                          <p className="text-sm">{cit.formatted}</p>
+                          <div className="flex items-start gap-2">
+                            <p className="text-sm flex-1">{cit.formatted}</p>
+                            {cit.verified === false && (
+                              <Badge variant="warning" className="text-[10px] shrink-0">VERIFY</Badge>
+                            )}
+                          </div>
                           {cit.doi && (
                             <p className="text-xs text-muted-foreground mt-0.5">DOI: {cit.doi}</p>
                           )}
                           <p className="text-xs text-muted-foreground">{cit.relevance}</p>
+                          {cit.note && (
+                            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">{cit.note}</p>
+                          )}
                         </div>
                       ))}
                     </div>
+                    {claim.search_terms && (
+                      <p className="text-xs text-muted-foreground mt-2 pt-2 border-t">
+                        Search: <span className="font-mono">{claim.search_terms}</span>
+                      </p>
+                    )}
                   </div>
                 ))}
               </CardContent>
@@ -250,6 +272,13 @@ export default function ManuscriptCitationsPage() {
                 </ol>
               </CardContent>
             </Card>
+          )}
+
+          {/* Disclaimer */}
+          {result.disclaimer && (
+            <p className="text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg p-3 italic">
+              {result.disclaimer}
+            </p>
           )}
         </div>
       )}
