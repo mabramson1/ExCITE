@@ -10,7 +10,7 @@
  */
 
 const HF_API_URL =
-  "https://api-inference.huggingface.co/models/openai-community/roberta-base-openai-detector";
+  "https://router.huggingface.co/hf-inference/models/openai-community/roberta-base-openai-detector";
 
 interface HfClassificationResult {
   label: string; // "LABEL_0" (Real/Human) or "LABEL_1" (Fake/AI)
@@ -37,12 +37,22 @@ export async function detectWithRoberta(
   text: string
 ): Promise<ExternalDetectionResult> {
   try {
+    if (!process.env.HF_API_TOKEN) {
+      return {
+        source: "HuggingFace",
+        model: "openai-community/roberta-base-openai-detector",
+        ai_probability: 0,
+        human_probability: 0,
+        verdict: "unavailable",
+        available: false,
+        error: "HF_API_TOKEN not configured. Add a HuggingFace token to enable RoBERTa detection.",
+      };
+    }
+
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
+      "Authorization": `Bearer ${process.env.HF_API_TOKEN}`,
     };
-    if (process.env.HF_API_TOKEN) {
-      headers["Authorization"] = `Bearer ${process.env.HF_API_TOKEN}`;
-    }
 
     // Split long text into chunks (~400 words each to stay within token limits)
     const chunks = splitIntoChunks(text, 400);
