@@ -230,7 +230,8 @@ ${skeleton}
 
 Respond with this exact JSON structure:
 {
-  "assessment_and_plan": "The full A/P text, formatted with numbered problems. Each problem should include: diagnosis with specificity, clinical status, clinical reasoning, data interpretation, management plan, and follow-up.",
+  "assessment_and_plan": "The full A/P text, formatted with numbered problems. Each problem should include: diagnosis with specificity, clinical status, clinical reasoning, data interpretation, management plan, and follow-up. At the very end, include the E&M attestation statement (the em_statement below) as the final paragraph.",
+  "em_statement": "A ready-to-copy E&M attestation statement for the note. Format: 'Medical decision making for this [encounter type] visit is [complexity level] based on [# problems] problem(s) addressed including [list key problems with severity], [data element summary], and [risk summary including specific management decisions]. This encounter supports CPT [code].' Make it specific to the actual clinical content — not generic.",
   "problems": [
     {
       "number": 1,

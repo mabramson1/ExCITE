@@ -126,6 +126,7 @@ interface ApProblem {
 
 interface ApResult {
   assessment_and_plan?: string;
+  em_statement?: string;
   problems?: ApProblem[];
   supported_em_level?: {
     code: string;
@@ -622,6 +623,7 @@ function ApWriterTab() {
   const [result, setResult] = useState<ApResult | null>(null);
   const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
   const [copiedAp, setCopiedAp] = useState(false);
+  const [copiedEm, setCopiedEm] = useState(false);
 
   // Clarification dialog state
   const [showClarificationDialog, setShowClarificationDialog] = useState(false);
@@ -864,6 +866,33 @@ function ApWriterTab() {
               <CardContent>
                 <div className="whitespace-pre-wrap text-sm leading-relaxed bg-muted/30 rounded-lg p-4 border">
                   {result.assessment_and_plan}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* E&M Attestation Statement */}
+          {result.em_statement && (
+            <Card className="border-blue-300 dark:border-blue-700">
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-2 flex-1 min-w-0">
+                    <Activity className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
+                    <p className="text-sm leading-relaxed">{result.em_statement}</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-950/20"
+                    onClick={() => {
+                      navigator.clipboard.writeText(result.em_statement!);
+                      setCopiedEm(true);
+                      setTimeout(() => setCopiedEm(false), 2000);
+                    }}
+                  >
+                    {copiedEm ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                    {copiedEm ? "Copied" : "Copy E&M"}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
