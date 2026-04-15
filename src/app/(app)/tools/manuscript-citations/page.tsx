@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BookOpen, Loader2, Copy, Check, Download } from "lucide-react";
+import { BookOpen, Loader2, Copy, Check, Download, ExternalLink, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,18 +9,44 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PhiWarning } from "@/components/phi-warning";
 
+interface PubMedMatch {
+  pmid: string;
+  title: string;
+  authors: string;
+  journal: string;
+  year: string;
+  doi: string | null;
+}
+
+interface PubMedSuggestion {
+  pmid: string;
+  title: string;
+  authors: string;
+  journal: string;
+  year: string;
+  doi: string | null;
+  source: string;
+}
+
+interface SuggestedCitation {
+  formatted: string;
+  doi?: string | null;
+  pmid?: string | null;
+  relevance: string;
+  verified?: boolean;
+  note?: string;
+  pubmed_verified?: boolean;
+  verification_confidence?: string;
+  pubmed_match?: PubMedMatch;
+}
+
 interface ClaimCitation {
   text: string;
   location: string;
   why_citation_needed?: string;
   search_terms?: string;
-  suggested_citations: {
-    formatted: string;
-    doi?: string;
-    relevance: string;
-    verified?: boolean;
-    note?: string;
-  }[];
+  suggested_citations: SuggestedCitation[];
+  pubmed_suggestions?: PubMedSuggestion[];
 }
 
 interface ExistingCitation {
@@ -209,11 +235,58 @@ export default function ManuscriptCitationsPage() {
                         <div key={j} className="pl-3 border-l-2 border-primary/30">
                           <div className="flex items-start gap-2">
                             <p className="text-sm flex-1">{cit.formatted}</p>
-                            {cit.verified === false && (
-                              <Badge variant="warning" className="text-[10px] shrink-0">VERIFY</Badge>
-                            )}
+                            <div className="flex items-center gap-1 shrink-0">
+                              {cit.pubmed_verified === true ? (
+                                <Badge variant="success" className="text-[10px] flex items-center gap-0.5">
+                                  <CheckCircle2 className="h-2.5 w-2.5" />
+                                  PubMed Verified
+                                </Badge>
+                              ) : cit.pubmed_verified === false && cit.verification_confidence === "partial" ? (
+                                <Badge variant="warning" className="text-[10px] flex items-center gap-0.5">
+                                  <AlertTriangle className="h-2.5 w-2.5" />
+                                  Partial Match
+                                </Badge>
+                              ) : cit.pubmed_verified === false ? (
+                                <Badge variant="destructive" className="text-[10px] flex items-center gap-0.5">
+                                  <XCircle className="h-2.5 w-2.5" />
+                                  Not Found
+                                </Badge>
+                              ) : (
+                                <Badge variant="warning" className="text-[10px]">VERIFY</Badge>
+                              )}
+                            </div>
                           </div>
-                          {cit.doi && (
+                          {cit.pubmed_match && (
+                            <div className="mt-1.5 p-2 rounded bg-muted/60 text-xs space-y-0.5">
+                              <p className="font-medium">{cit.pubmed_match.title}</p>
+                              <p className="text-muted-foreground">
+                                {cit.pubmed_match.authors} - {cit.pubmed_match.journal} ({cit.pubmed_match.year})
+                              </p>
+                              <div className="flex items-center gap-2 pt-0.5">
+                                <a
+                                  href={`https://pubmed.ncbi.nlm.nih.gov/${cit.pubmed_match.pmid}/`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-primary hover:underline"
+                                >
+                                  <ExternalLink className="h-2.5 w-2.5" />
+                                  PMID: {cit.pubmed_match.pmid}
+                                </a>
+                                {cit.pubmed_match.doi && (
+                                  <a
+                                    href={`https://doi.org/${cit.pubmed_match.doi}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-primary hover:underline"
+                                  >
+                                    <ExternalLink className="h-2.5 w-2.5" />
+                                    DOI
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          {!cit.pubmed_match && cit.doi && (
                             <p className="text-xs text-muted-foreground mt-0.5">DOI: {cit.doi}</p>
                           )}
                           <p className="text-xs text-muted-foreground">{cit.relevance}</p>
@@ -223,9 +296,54 @@ export default function ManuscriptCitationsPage() {
                         </div>
                       ))}
                     </div>
+                    {/* PubMed Alternative Suggestions */}
+                    {claim.pubmed_suggestions && claim.pubmed_suggestions.length > 0 && (
+                      <div className="mt-3 pt-3 border-t space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          PubMed found these related articles:
+                        </p>
+                        {claim.pubmed_suggestions.map((ps, k) => (
+                          <div key={k} className="pl-3 border-l-2 border-emerald-300 dark:border-emerald-700">
+                            <p className="text-sm font-medium">{ps.title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {ps.authors} - {ps.journal} ({ps.year})
+                            </p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <a
+                                href={`https://pubmed.ncbi.nlm.nih.gov/${ps.pmid}/`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                              >
+                                <ExternalLink className="h-2.5 w-2.5" />
+                                PMID: {ps.pmid}
+                              </a>
+                              {ps.doi && (
+                                <a
+                                  href={`https://doi.org/${ps.doi}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                >
+                                  <ExternalLink className="h-2.5 w-2.5" />
+                                  DOI
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     {claim.search_terms && (
                       <p className="text-xs text-muted-foreground mt-2 pt-2 border-t">
-                        Search: <span className="font-mono">{claim.search_terms}</span>
+                        Search: <a
+                          href={`https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(claim.search_terms)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-mono text-primary hover:underline"
+                        >
+                          {claim.search_terms}
+                        </a>
                       </p>
                     )}
                   </div>

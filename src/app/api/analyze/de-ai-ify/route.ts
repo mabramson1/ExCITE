@@ -4,14 +4,14 @@ import { scanAndCensorPhi } from "@/lib/phi-detection";
 
 export async function POST(req: NextRequest) {
   try {
-    const { text } = await req.json();
+    const { text, writingStyle = "general" } = await req.json();
 
     if (!text || typeof text !== "string") {
       return NextResponse.json({ error: "Text is required" }, { status: 400 });
     }
 
     const phiResult = scanAndCensorPhi(text);
-    const analysis = await deAiifyText(phiResult.censoredText);
+    const analysis = await deAiifyText(phiResult.censoredText, writingStyle);
 
     let parsed;
     try {

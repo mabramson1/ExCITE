@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FileText, Loader2, Copy, Check, Download } from "lucide-react";
+import { FileText, Loader2, Copy, Check, Download, BookOpen, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,12 +22,27 @@ interface Reference {
   relevance: string;
 }
 
+interface PublicationCitation {
+  condition: string;
+  title: string;
+  authors?: string;
+  journal?: string;
+  year?: string;
+  pmid?: string | null;
+  doi?: string | null;
+  type?: string;
+  relevance: string;
+  verified?: boolean;
+  search_terms?: string;
+}
+
 interface AnalysisResult {
   icd10_codes?: CodeSuggestion[];
   cpt_codes?: CodeSuggestion[];
   documentation_suggestions?: string[];
   missing_elements?: string[];
   references?: Reference[];
+  publication_citations?: PublicationCitation[];
   summary?: string;
   disclaimer?: string;
   raw?: string;
@@ -274,6 +289,83 @@ export default function ClinicalNotesPage() {
                     </div>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Publication Citations */}
+          {result.publication_citations && result.publication_citations.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <BookOpen className="h-4 w-4" />
+                  Publication Citations ({result.publication_citations.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {result.publication_citations.map((pub, i) => (
+                  <div key={i} className="p-4 rounded-lg border bg-muted/30 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="space-y-1 flex-1">
+                        <p className="text-sm font-medium">{pub.title}</p>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                          {pub.authors && <span>{pub.authors}</span>}
+                          {pub.journal && <span>- {pub.journal}</span>}
+                          {pub.year && <span>({pub.year})</span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {pub.type && (
+                          <Badge variant="outline" className="text-[10px]">
+                            {pub.type.replace(/_/g, " ")}
+                          </Badge>
+                        )}
+                        {pub.verified === false && (
+                          <Badge variant="warning" className="text-[10px]">VERIFY</Badge>
+                        )}
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="font-medium">Condition:</span> {pub.condition}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{pub.relevance}</p>
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      {pub.pmid && (
+                        <a
+                          href={`https://pubmed.ncbi.nlm.nih.gov/${pub.pmid}/`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          PubMed: {pub.pmid}
+                        </a>
+                      )}
+                      {pub.doi && (
+                        <a
+                          href={`https://doi.org/${pub.doi}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          DOI
+                        </a>
+                      )}
+                      {pub.search_terms && (
+                        <a
+                          href={`https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(pub.search_terms)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary hover:underline"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Search PubMed
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </CardContent>
             </Card>
           )}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ScanSearch, Loader2, Copy, Check, AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
+import { ScanSearch, Loader2, Copy, Check, AlertTriangle, CheckCircle2, XCircle, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,12 +16,28 @@ interface FlaggedSection {
   suggested_rewrite: string;
 }
 
+interface ExternalDetector {
+  source: string;
+  model: string;
+  ai_probability: number;
+  human_probability: number;
+  verdict: string;
+  available: boolean;
+  error?: string;
+}
+
 interface DetectorResult {
   overall_ai_probability?: number;
   verdict?: string;
+  reasoning?: string;
   flagged_sections?: FlaggedSection[];
+  human_indicators?: string[];
   patterns_summary?: string[];
   recommendations?: string[];
+  external_detectors?: ExternalDetector[];
+  consensus_score?: number;
+  consensus_verdict?: string;
+  disclaimer?: string;
   raw?: string;
 }
 
@@ -124,24 +140,99 @@ export default function AiDetectorPage() {
 
       {result && !result.raw && (
         <div className="space-y-4">
-          {/* Overall Score */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  {verdict && <verdict.icon className={`h-5 w-5 ${verdict.color}`} />}
-                  <span className="font-semibold">
-                    {verdict?.label || "Analysis Complete"}
+          {/* Consensus Score (if available) */}
+          {result.consensus_score !== undefined && (
+            <Card className="border-primary/30">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-primary" />
+                    <span className="font-semibold">Multi-Source Consensus</span>
+                  </div>
+                  <span className="text-2xl font-bold">
+                    {Math.round(result.consensus_score * 100)}%
                   </span>
                 </div>
-                <span className="text-2xl font-bold">{overallPercent}%</span>
-              </div>
-              <Progress value={overallPercent} />
-              <p className="text-xs text-muted-foreground mt-2">
-                AI probability score: {overallPercent}% chance this text is AI-generated
-              </p>
-            </CardContent>
-          </Card>
+                <Progress value={Math.round(result.consensus_score * 100)} />
+                <p className="text-xs text-muted-foreground mt-2">
+                  Combined score from Claude analysis (60%) and open-source detectors (40%)
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Individual Source Scores */}
+          <div className="grid md:grid-cols-2 gap-4">
+            {/* Claude Analysis */}
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    {verdict && <verdict.icon className={`h-5 w-5 ${verdict.color}`} />}
+                    <div>
+                      <span className="font-semibold text-sm">
+                        {verdict?.label || "Analysis Complete"}
+                      </span>
+                      <p className="text-[10px] text-muted-foreground">Claude Pattern Analysis</p>
+                    </div>
+                  </div>
+                  <span className="text-xl font-bold">{overallPercent}%</span>
+                </div>
+                <Progress value={overallPercent} />
+                {result.reasoning && (
+                  <p className="text-xs text-muted-foreground mt-2">{result.reasoning}</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* External Detectors */}
+            {result.external_detectors?.map((detector, i) => {
+              const detectorPercent = Math.round(detector.ai_probability * 100);
+              const detectorVerdict = detector.available
+                ? verdictConfig[detector.verdict]
+                : null;
+              return (
+                <Card key={i}>
+                  <CardContent className="pt-6">
+                    {detector.available ? (
+                      <>
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            {detectorVerdict && (
+                              <detectorVerdict.icon
+                                className={`h-5 w-5 ${detectorVerdict.color}`}
+                              />
+                            )}
+                            <div>
+                              <span className="font-semibold text-sm">
+                                {detectorVerdict?.label || detector.verdict}
+                              </span>
+                              <p className="text-[10px] text-muted-foreground">
+                                RoBERTa AI Detector (Open Source)
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-xl font-bold">{detectorPercent}%</span>
+                        </div>
+                        <Progress value={detectorPercent} />
+                        <p className="text-xs text-muted-foreground mt-2">
+                          {detector.model}
+                        </p>
+                      </>
+                    ) : (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <AlertTriangle className="h-4 w-4" />
+                        <div>
+                          <p className="text-sm font-medium">RoBERTa Detector Unavailable</p>
+                          <p className="text-xs">{detector.error}</p>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
 
           {/* Patterns Summary */}
           {result.patterns_summary && result.patterns_summary.length > 0 && (
@@ -217,6 +308,27 @@ export default function AiDetectorPage() {
             </Card>
           )}
 
+          {/* Human Indicators */}
+          {result.human_indicators && result.human_indicators.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  Human Writing Indicators
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {result.human_indicators.map((h, i) => (
+                    <Badge key={i} variant="outline" className="border-green-300 dark:border-green-700 text-green-700 dark:text-green-400">
+                      {h}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Recommendations */}
           {result.recommendations && result.recommendations.length > 0 && (
             <Card>
@@ -234,6 +346,13 @@ export default function AiDetectorPage() {
                 </ul>
               </CardContent>
             </Card>
+          )}
+
+          {/* Disclaimer */}
+          {result.disclaimer && (
+            <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 italic">
+              {result.disclaimer}
+            </p>
           )}
         </div>
       )}

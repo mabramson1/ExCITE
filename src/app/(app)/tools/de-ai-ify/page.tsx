@@ -7,7 +7,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PhiWarning } from "@/components/phi-warning";
+
+const WRITING_STYLES = [
+  { value: "general", label: "General", description: "Natural, versatile rewrite" },
+  { value: "manuscript", label: "Academic Manuscript", description: "Formal scholarly tone" },
+  { value: "blog", label: "Blog Post", description: "Conversational and engaging" },
+  { value: "email", label: "Professional Email", description: "Concise and warm" },
+  { value: "social-media", label: "Social Media", description: "Punchy and authentic" },
+  { value: "grant-proposal", label: "Grant Proposal", description: "Confident and precise" },
+  { value: "patient-communication", label: "Patient Communication", description: "Plain language, empathetic" },
+];
 
 interface DeAiResult {
   rewritten_text?: string;
@@ -23,6 +34,7 @@ interface DeAiResult {
 
 export default function DeAiIfyPage() {
   const [input, setInput] = useState("");
+  const [writingStyle, setWritingStyle] = useState("general");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DeAiResult | null>(null);
   const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
@@ -39,7 +51,7 @@ export default function DeAiIfyPage() {
       const res = await fetch("/api/analyze/de-ai-ify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: input }),
+        body: JSON.stringify({ text: input, writingStyle }),
       });
       const data = await res.json();
       if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
@@ -90,7 +102,24 @@ export default function DeAiIfyPage() {
             className="min-h-[200px]"
           />
           <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">{input.length} characters</p>
+            <div className="flex items-center gap-3">
+              <label className="text-sm text-muted-foreground">Rewrite for:</label>
+              <Select value={writingStyle} onValueChange={setWritingStyle}>
+                <SelectTrigger className="w-56">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {WRITING_STYLES.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>
+                      <div>
+                        <span>{s.label}</span>
+                        <span className="text-muted-foreground ml-1.5 text-xs">- {s.description}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <Button onClick={handleProcess} disabled={loading || !input.trim()}>
               {loading ? (
                 <>
@@ -117,7 +146,12 @@ export default function DeAiIfyPage() {
             <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">Human-Sounding Confidence</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Human-Sounding Confidence</span>
+                    <Badge variant="outline" className="text-[10px]">
+                      {WRITING_STYLES.find(s => s.value === writingStyle)?.label || writingStyle}
+                    </Badge>
+                  </div>
                   <span className="text-sm font-bold text-primary">{confidencePercent}%</span>
                 </div>
                 <Progress value={confidencePercent} />
