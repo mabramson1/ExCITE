@@ -132,8 +132,11 @@ interface ApResult {
     mdm_complexity: string;
     rationale: string;
     problems_level: string;
+    problems_justification?: string;
     data_level: string;
+    data_justification?: string;
     risk_level: string;
+    risk_justification?: string;
   };
   documentation_tips?: string[];
   clarification_needed?: string[];
@@ -938,25 +941,22 @@ function ApWriterTab() {
                   </Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">{result.supported_em_level.rationale}</p>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="p-2 rounded bg-muted/50 text-center">
-                    <Badge className={`${levelColor(result.supported_em_level.problems_level)} border-0 mb-1`}>
-                      {result.supported_em_level.problems_level}
-                    </Badge>
-                    <p className="text-xs text-muted-foreground">Problems</p>
-                  </div>
-                  <div className="p-2 rounded bg-muted/50 text-center">
-                    <Badge className={`${levelColor(result.supported_em_level.data_level)} border-0 mb-1`}>
-                      {result.supported_em_level.data_level}
-                    </Badge>
-                    <p className="text-xs text-muted-foreground">Data</p>
-                  </div>
-                  <div className="p-2 rounded bg-muted/50 text-center">
-                    <Badge className={`${levelColor(result.supported_em_level.risk_level)} border-0 mb-1`}>
-                      {result.supported_em_level.risk_level}
-                    </Badge>
-                    <p className="text-xs text-muted-foreground">Risk</p>
-                  </div>
+                <div className="space-y-2">
+                  {([
+                    { key: "problems", label: "Problems Addressed", level: result.supported_em_level.problems_level, justification: result.supported_em_level.problems_justification },
+                    { key: "data", label: "Data Reviewed/Ordered", level: result.supported_em_level.data_level, justification: result.supported_em_level.data_justification },
+                    { key: "risk", label: "Risk of Complications", level: result.supported_em_level.risk_level, justification: result.supported_em_level.risk_justification },
+                  ] as const).map((el) => (
+                    <div key={el.key} className="p-3 rounded-lg bg-muted/50 flex items-start gap-3">
+                      <Badge className={`${levelColor(el.level)} border-0 shrink-0 mt-0.5`}>{el.level}</Badge>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium">{el.label}</p>
+                        {el.justification && (
+                          <p className="text-xs text-muted-foreground mt-0.5">{el.justification}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
