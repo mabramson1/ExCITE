@@ -216,7 +216,7 @@ export default function AiDetectorPage() {
                                 {detectorVerdict?.label || detector.verdict}
                               </span>
                               <p className="text-[10px] text-muted-foreground">
-                                RoBERTa AI Detector (Open Source)
+                                ChatGPT Detector (Open Source)
                               </p>
                             </div>
                           </div>
@@ -231,7 +231,7 @@ export default function AiDetectorPage() {
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <AlertTriangle className="h-4 w-4" />
                         <div>
-                          <p className="text-sm font-medium">RoBERTa Detector Unavailable</p>
+                          <p className="text-sm font-medium">ChatGPT Detector Unavailable</p>
                           <p className="text-xs">{detector.error}</p>
                         </div>
                       </div>

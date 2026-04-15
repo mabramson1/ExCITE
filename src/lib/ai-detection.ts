@@ -1,19 +1,18 @@
 /**
  * Open-source AI text detection integrations.
  *
- * Uses HuggingFace Inference API with the `openai-community/roberta-base-openai-detector`
- * model — the most widely-used open-source AI text detector (based on RoBERTa,
- * trained on GPT-2 outputs, generalizes to other models).
+ * Uses HuggingFace Inference API with `Hello-SimpleAI/chatgpt-detector-roberta`
+ * — a RoBERTa model trained on ChatGPT outputs (2023). Much more accurate for
+ * modern AI text (GPT-3.5/4, Claude, Gemini) than the older GPT-2-era detector.
  *
- * Free tier: no API key required for moderate usage.
- * With HF_API_TOKEN: higher rate limits.
+ * Requires HF_API_TOKEN environment variable.
  */
 
-const HF_API_URL =
-  "https://router.huggingface.co/hf-inference/models/openai-community/roberta-base-openai-detector";
+const HF_MODEL = "Hello-SimpleAI/chatgpt-detector-roberta";
+const HF_API_URL = `https://router.huggingface.co/hf-inference/models/${HF_MODEL}`;
 
 interface HfClassificationResult {
-  label: string; // "LABEL_0" (Real/Human) or "LABEL_1" (Fake/AI)
+  label: string; // "ChatGPT" or "Human"
   score: number;
 }
 
@@ -28,7 +27,7 @@ export interface ExternalDetectionResult {
 }
 
 /**
- * Detect AI-generated text using HuggingFace's RoBERTa-based detector.
+ * Detect AI-generated text using ChatGPT-trained RoBERTa detector.
  *
  * The model has a ~512 token limit. For longer texts, we split into chunks,
  * run detection on each, and average the scores.
@@ -36,22 +35,26 @@ export interface ExternalDetectionResult {
 export async function detectWithRoberta(
   text: string
 ): Promise<ExternalDetectionResult> {
+  const unavailable = (error: string): ExternalDetectionResult => ({
+    source: "HuggingFace",
+    model: HF_MODEL,
+    ai_probability: 0,
+    human_probability: 0,
+    verdict: "unavailable",
+    available: false,
+    error,
+  });
+
   try {
     if (!process.env.HF_API_TOKEN) {
-      return {
-        source: "HuggingFace",
-        model: "openai-community/roberta-base-openai-detector",
-        ai_probability: 0,
-        human_probability: 0,
-        verdict: "unavailable",
-        available: false,
-        error: "HF_API_TOKEN not configured. Add a HuggingFace token to enable RoBERTa detection.",
-      };
+      return unavailable(
+        "HF_API_TOKEN not configured. Add a HuggingFace token to enable AI detection."
+      );
     }
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${process.env.HF_API_TOKEN}`,
+      Authorization: `Bearer ${process.env.HF_API_TOKEN}`,
     };
 
     // Split long text into chunks (~400 words each to stay within token limits)
@@ -66,17 +69,10 @@ export async function detectWithRoberta(
       });
 
       if (!res.ok) {
-        // Model might be loading (503) — return unavailable
         if (res.status === 503) {
-          return {
-            source: "HuggingFace",
-            model: "openai-community/roberta-base-openai-detector",
-            ai_probability: 0,
-            human_probability: 0,
-            verdict: "unavailable",
-            available: false,
-            error: "Model is loading. Please try again in a few seconds.",
-          };
+          return unavailable(
+            "Model is loading. Please try again in a few seconds."
+          );
         }
         throw new Error(`HuggingFace API error: ${res.status}`);
       }
@@ -92,9 +88,9 @@ export async function detectWithRoberta(
       let humanScore = 0;
 
       for (const item of classifications) {
-        if (item.label === "LABEL_0" || item.label === "Real") {
+        if (item.label === "Human" || item.label === "LABEL_0" || item.label === "Real") {
           humanScore = item.score;
-        } else if (item.label === "LABEL_1" || item.label === "Fake") {
+        } else if (item.label === "ChatGPT" || item.label === "LABEL_1" || item.label === "Fake") {
           aiScore = item.score;
         }
       }
@@ -116,17 +112,17 @@ export async function detectWithRoberta(
 
     return {
       source: "HuggingFace",
-      model: "openai-community/roberta-base-openai-detector",
+      model: HF_MODEL,
       ai_probability: Math.round(avgAi * 1000) / 1000,
       human_probability: Math.round(avgHuman * 1000) / 1000,
       verdict,
       available: true,
     };
   } catch (error) {
-    console.error("RoBERTa detection error:", error);
+    console.error("ChatGPT detector error:", error);
     return {
       source: "HuggingFace",
-      model: "openai-community/roberta-base-openai-detector",
+      model: HF_MODEL,
       ai_probability: 0,
       human_probability: 0,
       verdict: "error",
