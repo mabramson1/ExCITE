@@ -9,10 +9,17 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { PhiWarning } from "@/components/phi-warning";
 
+interface SentenceScore {
+  sentence: string;
+  ai_probability: number;
+  primary_pattern: string | null;
+}
+
 interface FlaggedSection {
   text: string;
   ai_probability: number;
   patterns_detected: string[];
+  explanation?: string;
   suggested_rewrite: string;
 }
 
@@ -30,6 +37,7 @@ interface DetectorResult {
   overall_ai_probability?: number;
   verdict?: string;
   reasoning?: string;
+  sentence_scores?: SentenceScore[];
   flagged_sections?: FlaggedSection[];
   human_indicators?: string[];
   patterns_summary?: string[];
@@ -245,6 +253,64 @@ export default function AiDetectorPage() {
                   {result.patterns_summary.map((p, i) => (
                     <Badge key={i} variant="outline">{p}</Badge>
                   ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Sentence-Level Highlighting */}
+          {result.sentence_scores && result.sentence_scores.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Sentence-Level Analysis</CardTitle>
+                <CardDescription>
+                  Each sentence is color-coded by AI probability. Hover for details.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-sm leading-relaxed space-y-0.5">
+                  {result.sentence_scores.map((s, i) => {
+                    const pct = Math.round(s.ai_probability * 100);
+                    let bgColor = "bg-transparent";
+                    let textColor = "";
+                    if (s.ai_probability >= 0.8) {
+                      bgColor = "bg-red-100 dark:bg-red-950/40";
+                      textColor = "text-red-900 dark:text-red-100";
+                    } else if (s.ai_probability >= 0.55) {
+                      bgColor = "bg-orange-100 dark:bg-orange-950/30";
+                      textColor = "text-orange-900 dark:text-orange-100";
+                    } else if (s.ai_probability >= 0.3) {
+                      bgColor = "bg-yellow-50 dark:bg-yellow-950/20";
+                      textColor = "text-yellow-900 dark:text-yellow-100";
+                    }
+                    return (
+                      <span
+                        key={i}
+                        className={`inline rounded px-0.5 ${bgColor} ${textColor} cursor-help`}
+                        title={`AI: ${pct}%${s.primary_pattern ? ` — ${s.primary_pattern}` : ""}`}
+                      >
+                        {s.sentence}{" "}
+                      </span>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center gap-4 mt-4 pt-3 border-t text-xs text-muted-foreground">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded bg-red-100 dark:bg-red-950/40 border" />
+                    Definitely AI (80%+)
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded bg-orange-100 dark:bg-orange-950/30 border" />
+                    Likely AI (55-80%)
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded bg-yellow-50 dark:bg-yellow-950/20 border" />
+                    Possibly AI (30-55%)
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-3 h-3 rounded bg-transparent border" />
+                    Likely Human (&lt;30%)
+                  </div>
                 </div>
               </CardContent>
             </Card>

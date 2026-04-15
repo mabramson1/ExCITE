@@ -40,6 +40,18 @@ interface SuggestedCitation {
   pubmed_match?: PubMedMatch;
 }
 
+interface VerifiedResult {
+  pmid?: string;
+  title: string;
+  authors: string;
+  journal: string;
+  year: string;
+  doi: string | null;
+  url?: string;
+  source: string;
+  verified?: boolean;
+}
+
 interface ClaimCitation {
   text: string;
   location: string;
@@ -47,6 +59,8 @@ interface ClaimCitation {
   search_terms?: string;
   suggested_citations: SuggestedCitation[];
   pubmed_suggestions?: PubMedSuggestion[];
+  pubmed_results?: VerifiedResult[];
+  crossref_results?: VerifiedResult[];
 }
 
 interface ExistingCitation {
@@ -230,6 +244,54 @@ export default function ManuscriptCitationsPage() {
                     {claim.why_citation_needed && (
                       <p className="text-xs text-muted-foreground mb-3">{claim.why_citation_needed}</p>
                     )}
+                    {/* PubMed-First Verified Results */}
+                    {claim.pubmed_results && claim.pubmed_results.length > 0 && (
+                      <div className="mb-3 space-y-2">
+                        <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Verified from PubMed ({claim.pubmed_results.length})
+                        </p>
+                        {claim.pubmed_results.map((pr, k) => (
+                          <div key={k} className="pl-3 border-l-2 border-emerald-400 dark:border-emerald-600 p-2 rounded-r bg-emerald-50/50 dark:bg-emerald-950/20">
+                            <p className="text-sm font-medium">{pr.title}</p>
+                            <p className="text-xs text-muted-foreground">{pr.authors} - {pr.journal} ({pr.year})</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              {pr.pmid && (
+                                <a href={`https://pubmed.ncbi.nlm.nih.gov/${pr.pmid}/`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                                  <ExternalLink className="h-2.5 w-2.5" /> PMID: {pr.pmid}
+                                </a>
+                              )}
+                              {pr.doi && (
+                                <a href={`https://doi.org/${pr.doi}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                                  <ExternalLink className="h-2.5 w-2.5" /> DOI
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {/* CrossRef Results */}
+                    {claim.crossref_results && claim.crossref_results.length > 0 && (
+                      <div className="mb-3 space-y-2">
+                        <p className="text-xs font-medium text-blue-700 dark:text-blue-400 flex items-center gap-1">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Found via CrossRef ({claim.crossref_results.length})
+                        </p>
+                        {claim.crossref_results.map((cr, k) => (
+                          <div key={k} className="pl-3 border-l-2 border-blue-400 dark:border-blue-600 p-2 rounded-r bg-blue-50/50 dark:bg-blue-950/20">
+                            <p className="text-sm font-medium">{cr.title}</p>
+                            <p className="text-xs text-muted-foreground">{cr.authors} - {cr.journal} ({cr.year})</p>
+                            {cr.doi && (
+                              <a href={`https://doi.org/${cr.doi}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1">
+                                <ExternalLink className="h-2.5 w-2.5" /> DOI: {cr.doi}
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {/* AI-Suggested Citations */}
                     <div className="space-y-2">
                       {claim.suggested_citations.map((cit, j) => (
                         <div key={j} className="pl-3 border-l-2 border-primary/30">

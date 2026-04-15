@@ -230,3 +230,83 @@ function similarity(a: string, b: string): number {
   }
   return intersection / Math.max(wordsA.size, wordsB.size);
 }
+
+// ── CrossRef Integration ───────────────────────────────────────────
+
+export interface CrossRefArticle {
+  title: string;
+  authors: string;
+  journal: string;
+  year: string;
+  doi: string;
+  url: string;
+  type: string;
+  score: number;
+}
+
+/**
+ * Search CrossRef for articles matching a query.
+ * Free API, covers non-biomedical journals PubMed misses.
+ */
+export async function searchCrossRef(
+  query: string,
+  maxResults = 3
+): Promise<{ found: boolean; articles: CrossRefArticle[] }> {
+  try {
+    const params = new URLSearchParams({
+      query,
+      rows: String(maxResults),
+      sort: "relevance",
+      select: "DOI,title,author,container-title,published,type,score",
+    });
+
+    const res = await fetch(
+      `https://api.crossref.org/works?${params}`,
+      {
+        headers: {
+          "User-Agent": "ExCITE/1.0 (mailto:support@ex-cite.vercel.app)",
+        },
+      }
+    );
+
+    if (!res.ok) return { found: false, articles: [] };
+
+    const data = await res.json();
+    const items = data.message?.items || [];
+
+    const articles: CrossRefArticle[] = items.map(
+      (item: {
+        title?: string[];
+        author?: { family?: string; given?: string }[];
+        "container-title"?: string[];
+        published?: { "date-parts"?: number[][] };
+        DOI?: string;
+        type?: string;
+        score?: number;
+      }) => {
+        const authors = (item.author || [])
+          .slice(0, 3)
+          .map((a) => `${a.family || ""} ${(a.given || "")[0] || ""}`.trim())
+          .join(", ");
+        const authorStr =
+          (item.author?.length || 0) > 3 ? `${authors}, et al.` : authors;
+
+        return {
+          title: item.title?.[0] || "Unknown Title",
+          authors: authorStr || "Unknown Authors",
+          journal: item["container-title"]?.[0] || "Unknown Journal",
+          year: String(item.published?.["date-parts"]?.[0]?.[0] || ""),
+          doi: item.DOI || "",
+          url: `https://doi.org/${item.DOI}`,
+          type: item.type || "unknown",
+          score: item.score || 0,
+        };
+      }
+    );
+
+    return { found: articles.length > 0, articles };
+  } catch (error) {
+    console.error("CrossRef search error:", error);
+    return { found: false, articles: [] };
+  }
+}

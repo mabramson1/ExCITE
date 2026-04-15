@@ -4,9 +4,20 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
+// Helper to create a cached system prompt block (Anthropic prompt caching)
+function cachedSystem(text: string): Anthropic.Messages.TextBlockParam[] {
+  return [
+    {
+      type: "text",
+      text,
+      cache_control: { type: "ephemeral" },
+    },
+  ];
+}
+
 // ── Clinical Note Analysis ─────────────────────────────────────────
 
-const CLINICAL_SYSTEM = `You are a medical coding, documentation, and clinical research specialist with deep expertise in ICD-10-CM and CPT coding guidelines as well as evidence-based medicine. Your role is to assist medical professionals with accurate code suggestions, documentation improvement, and relevant clinical literature.
+const CLINICAL_SYSTEM = `You are a medical coding, documentation, and clinical research specialist with deep expertise in ICD-10-CM, CPT coding guidelines, E/M level determination, and evidence-based medicine.
 
 CRITICAL RULES - FOLLOW THESE EXACTLY:
 1. ONLY suggest ICD-10 and CPT codes that are DIRECTLY supported by the text provided. Every code MUST have a specific quote from the note that justifies it.
@@ -17,29 +28,35 @@ CRITICAL RULES - FOLLOW THESE EXACTLY:
    - "low" = the documentation hints at this but is insufficient; needs clarification
 4. Do NOT invent or guess codes. If the note is vague, say what additional documentation is needed rather than guessing a code.
 5. For documentation suggestions, be specific about WHAT is missing and WHY it matters for coding.
-6. Always include a disclaimer that codes should be verified by a certified coder.
+
+E/M LEVEL DETERMINATION:
+6. Analyze the note for E/M level based on the 2021 AMA/CMS guidelines (medical decision making):
+   - Number and complexity of problems addressed
+   - Amount and complexity of data reviewed/ordered
+   - Risk of complications, morbidity, or mortality
+7. Suggest the appropriate E/M code (99202-99215 for office visits, 99221-99223 for initial hospital, etc.)
+8. Explain the rationale for the E/M level with specific references to what's documented.
+
+SPECIFICITY ANALYSIS:
+9. When a code is "unspecified" (e.g., ends in .9 or .0), flag it and suggest what additional documentation would allow a more specific code.
+10. For each unspecified code, list the specific alternatives and what clinical detail is needed.
 
 PUBLICATION CITATIONS:
-7. For each major diagnosis or clinical finding in the note, suggest relevant clinical literature including:
-   - Current clinical practice guidelines (e.g., AHA, ACC, ACS, IDSA, NICE)
-   - Landmark/seminal studies or trials relevant to the condition
-   - Systematic reviews or meta-analyses
-   - Relevant diagnostic or treatment guidelines
-8. ONLY suggest publications you are confident are REAL. Include PMID (PubMed ID) when known.
-9. Mark every citation with "verified": false — the user must confirm each one.
-10. If you cannot identify a specific publication, describe what type of reference would be relevant and provide PubMed search terms.
+11. For each major diagnosis, suggest relevant clinical literature (guidelines, landmark trials, systematic reviews).
+12. ONLY suggest publications you are confident are REAL. Include PMID when known.
+13. Mark every citation with "verified": false — the user must confirm each one.
 
 Respond ONLY with valid JSON. No markdown, no code fences, no explanation outside the JSON.`;
 
 export async function analyzeClinicalNote(noteText: string): Promise<string> {
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
-    max_tokens: 4096,
-    system: CLINICAL_SYSTEM,
+    max_tokens: 6144,
+    system: cachedSystem(CLINICAL_SYSTEM),
     messages: [
       {
         role: "user",
-        content: `Analyze this clinical note and suggest appropriate codes. For every code you suggest, quote the specific text from the note that supports it.
+        content: `Analyze this clinical note. For every code, quote supporting text. Determine the E/M level. Flag unspecified codes with specificity suggestions.
 
 Clinical Note:
 """
@@ -48,12 +65,28 @@ ${noteText}
 
 Respond with this exact JSON structure:
 {
+  "em_level": {
+    "code": "E/M CPT code (e.g., 99214)",
+    "description": "E/M level description",
+    "mdm_complexity": "straightforward|low|moderate|high",
+    "problems": "description of problems addressed and their complexity",
+    "data": "data reviewed/ordered complexity",
+    "risk": "risk level and why",
+    "rationale": "1-2 sentence summary of why this E/M level is supported",
+    "documentation_gaps": ["what's missing that could support a higher level, if anything"]
+  },
   "icd10_codes": [
     {
       "code": "exact ICD-10-CM code",
       "description": "official code description",
       "confidence": "high|medium|low",
-      "supporting_text": "exact quote from the note that supports this code"
+      "supporting_text": "exact quote from note",
+      "specificity_alert": null or {
+        "issue": "why this code is unspecified",
+        "specific_alternatives": [
+          {"code": "more specific code", "description": "description", "documentation_needed": "what to add to the note"}
+        ]
+      }
     }
   ],
   "cpt_codes": [
@@ -61,38 +94,30 @@ Respond with this exact JSON structure:
       "code": "exact CPT code",
       "description": "official code description",
       "confidence": "high|medium|low",
-      "supporting_text": "exact quote from the note that supports this code"
+      "supporting_text": "exact quote from note"
     }
   ],
-  "documentation_suggestions": [
-    "Specific, actionable suggestion about what to add or clarify"
-  ],
-  "missing_elements": [
-    "Specific clinical element that should be documented but isn't"
-  ],
+  "documentation_suggestions": ["specific actionable suggestion"],
+  "missing_elements": ["specific clinical element that should be documented"],
   "references": [
-    {
-      "title": "Coding guideline or reference name",
-      "source": "e.g., ICD-10-CM Official Guidelines Section I.C.4",
-      "relevance": "How this guideline applies to this note"
-    }
+    {"title": "Coding guideline name", "source": "e.g., ICD-10-CM Official Guidelines Section I.C.4", "relevance": "how it applies"}
   ],
   "publication_citations": [
     {
-      "condition": "the diagnosis or clinical finding this citation relates to",
-      "title": "full title of the publication",
+      "condition": "diagnosis this relates to",
+      "title": "publication title",
       "authors": "first author et al.",
       "journal": "journal name",
-      "year": "publication year",
-      "pmid": "PubMed ID if known, otherwise null",
-      "doi": "DOI if known, otherwise null",
+      "year": "year",
+      "pmid": "PubMed ID or null",
+      "doi": "DOI or null",
       "type": "guideline|landmark_trial|systematic_review|meta_analysis|clinical_study",
-      "relevance": "why this publication is relevant to the clinical note",
+      "relevance": "why relevant",
       "verified": false,
-      "search_terms": "PubMed search terms to find this or similar publications"
+      "search_terms": "PubMed search terms"
     }
   ],
-  "summary": "Brief overall assessment of coding completeness",
+  "summary": "Brief overall assessment",
   "disclaimer": "These suggestions are for reference only and should be verified by a certified medical coder. Codes may change with annual updates. All publication citations must be independently verified."
 }`,
       },
@@ -105,23 +130,18 @@ Respond with this exact JSON structure:
 
 // ── Manuscript Citation Analysis ───────────────────────────────────
 
-const MANUSCRIPT_SYSTEM = `You are an expert academic citation and research methodology specialist. Your role is to help academics identify claims that need citations, verify existing citations, and suggest relevant references.
+const MANUSCRIPT_SYSTEM = `You are an expert academic citation and research methodology specialist. Your role is to help academics identify claims that need citations and suggest relevant references.
 
-CRITICAL RULES - FOLLOW THESE EXACTLY:
-1. NEVER fabricate citations. Do NOT invent author names, paper titles, journal names, DOIs, or publication dates.
-2. If you know a real, well-established reference that is relevant, provide it. If you are unsure whether a reference is real, mark it with "verified": false and note "VERIFY - this citation should be confirmed before use."
-3. For suggested citations, prefer:
-   - Seminal/foundational papers in the field that are widely known
-   - Major systematic reviews or meta-analyses
-   - Well-known textbooks or guidelines
-4. ALWAYS include "verified": false on every suggested citation. The user must verify all suggestions independently.
-5. When identifying claims that need citations, focus on:
-   - Empirical claims (statistics, prevalence, outcomes)
-   - Causal claims
-   - Claims about consensus or "studies show"
-   - Methodological claims
-6. Do NOT flag common knowledge, definitions, or logical arguments as needing citations.
-7. Be honest about the limits of your knowledge. If you cannot suggest a specific citation, describe what TYPE of source would be appropriate (e.g., "a systematic review of X published in the last 5 years").
+CRITICAL RULES:
+1. NEVER fabricate citations. Do NOT invent author names, paper titles, journal names, DOIs, or dates.
+2. For each claim needing a citation, provide:
+   - Specific PubMed/Google Scholar search terms to find real papers
+   - The TYPE of source needed (systematic review, RCT, guideline, etc.)
+   - If you know a real, well-established reference, provide it but ALWAYS mark "verified": false
+3. Prefer seminal/foundational papers, major systematic reviews, and well-known guidelines.
+4. Focus on empirical claims, causal claims, prevalence stats, and "studies show" statements.
+5. Do NOT flag common knowledge, definitions, or logical arguments.
+6. Be honest about limits. If you can't suggest a specific citation, say what type of source is needed.
 
 Respond ONLY with valid JSON. No markdown, no code fences.`;
 
@@ -131,14 +151,14 @@ export async function generateManuscriptCitations(
 ): Promise<string> {
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
-    max_tokens: 4096,
-    system: MANUSCRIPT_SYSTEM,
+    max_tokens: 6144,
+    system: cachedSystem(MANUSCRIPT_SYSTEM),
     messages: [
       {
         role: "user",
-        content: `Analyze this manuscript text. Identify claims needing citations, review any existing citations, and suggest references. Use ${style.toUpperCase()} citation style for formatting.
+        content: `Analyze this manuscript text. Identify claims needing citations, review existing citations, and suggest references. Use ${style.toUpperCase()} format.
 
-IMPORTANT: Do not make up citations. If you're unsure about a reference, say so. Mark every suggestion with "verified": false.
+IMPORTANT: Do not make up citations. Mark every suggestion "verified": false. Provide search terms for each claim.
 
 Manuscript Text:
 """
@@ -149,32 +169,32 @@ Respond with this exact JSON structure:
 {
   "claims_needing_citations": [
     {
-      "text": "the exact claim from the manuscript",
+      "text": "exact claim from the manuscript",
       "location": "paragraph or sentence indicator",
-      "why_citation_needed": "brief explanation of why this needs a citation",
+      "why_citation_needed": "brief explanation",
       "suggested_citations": [
         {
           "formatted": "full citation in ${style} format",
           "doi": "DOI if known, otherwise null",
           "relevance": "why this source is relevant",
           "verified": false,
-          "note": "VERIFY before use - confirm this reference exists and is accurate"
+          "note": "VERIFY before use"
         }
       ],
-      "search_terms": "suggested search terms to find appropriate citations in PubMed/Google Scholar"
+      "search_terms": "PubMed/Google Scholar search terms to find real citations for this claim"
     }
   ],
   "existing_citations_review": [
     {
-      "original": "the citation as it appears in the text",
+      "original": "citation as it appears",
       "status": "valid|needs_correction|not_found|cannot_verify",
-      "corrected": "corrected version if needed, null otherwise",
-      "note": "explanation of any issues found"
+      "corrected": "corrected version or null",
+      "note": "explanation"
     }
   ],
   "bibliography": ["formatted reference - VERIFY EACH BEFORE USE"],
-  "summary": "Brief assessment of citation completeness and quality",
-  "disclaimer": "All suggested citations must be independently verified. AI can suggest plausible references but cannot guarantee their accuracy, existence, or current availability."
+  "summary": "Brief assessment of citation completeness",
+  "disclaimer": "All suggested citations must be independently verified."
 }`,
       },
     ],
@@ -186,18 +206,18 @@ Respond with this exact JSON structure:
 
 // ── De-AI-ify Text ─────────────────────────────────────────────────
 
-const DEAI_SYSTEM_BASE = `You are an expert editor who specializes in transforming AI-generated text into authentic, human-sounding prose. You understand the subtle patterns that make text sound AI-generated and know how to fix them.
+const DEAI_SYSTEM_BASE = `You are an expert editor who transforms AI-generated text into authentic, human-sounding prose.
 
-Common AI writing patterns you should fix:
+Common AI writing patterns to fix:
 - "It's important to note that..." / "It's worth mentioning..."
 - "In today's rapidly evolving landscape..."
-- "Furthermore," "Moreover," "Additionally," at the start of every paragraph
+- "Furthermore," "Moreover," "Additionally," at every paragraph start
 - Perfectly parallel sentence structures throughout
-- Every paragraph being exactly the same length
+- Uniform paragraph lengths
 - Overly hedged language: "may potentially," "it could be argued that"
 - Lists of exactly 3-5 items with parallel structure
-- Conclusion that restates every point made
-- Lack of contractions in casual/semi-formal contexts
+- Conclusion that restates every point
+- No contractions in casual/semi-formal contexts
 - No personality, opinion, or voice
 - Overly smooth transitions between every idea
 - "Delve," "Utilize," "Leverage," "Facilitate," "Paramount"
@@ -206,80 +226,68 @@ Respond ONLY with valid JSON. No markdown, no code fences.`;
 
 const STYLE_INSTRUCTIONS: Record<string, string> = {
   general: `When rewriting:
-- Vary sentence length dramatically (some short. Some much longer with subclauses and asides)
+- Vary sentence length dramatically (some short. Some much longer with subclauses)
 - Use contractions where natural
 - Allow some roughness - not every transition needs to be smooth
 - Let some ideas connect implicitly without a transition word
 - Add occasional parenthetical asides or dashes
-- Keep the author's apparent expertise level and tone
-- Preserve all factual content and arguments exactly
-- Don't dumb it down - just make it sound like a real person wrote it`,
+- Preserve all factual content exactly
+- Don't dumb it down - just make it sound like a real person`,
 
-  manuscript: `You are rewriting for an ACADEMIC MANUSCRIPT. When rewriting:
-- Maintain formal academic tone — do NOT add colloquialisms or contractions
+  manuscript: `Rewriting for ACADEMIC MANUSCRIPT:
+- Maintain formal academic tone — NO colloquialisms or contractions
 - Vary sentence structure but keep it scholarly
-- Use precise, discipline-specific terminology naturally
-- Avoid AI-typical hedging ("it could be argued") but keep appropriate academic hedging ("these findings suggest")
-- Let arguments flow logically without forced transition words at every paragraph
-- Allow some sentences to be direct and assertive
-- Keep citation placeholders and technical terms exactly as they are
-- Vary paragraph length — some short, punchy paragraphs are fine in academic writing
+- Use discipline-specific terminology naturally
+- Replace AI hedging with appropriate academic hedging ("these findings suggest")
+- Let arguments flow without forced transition words
+- Keep citation placeholders and technical terms exactly
 - Preserve all factual content and arguments exactly`,
 
-  blog: `You are rewriting for a BLOG POST. When rewriting:
-- Use a conversational, engaging tone
+  blog: `Rewriting for BLOG POST:
+- Conversational, engaging tone
 - Use contractions freely (it's, don't, we're)
-- Address the reader directly with "you" where appropriate
-- Vary sentence length dramatically — mix punchy one-liners with longer explanations
-- Add personality and occasional humor where appropriate
-- Use rhetorical questions to engage the reader
-- Break up long paragraphs — shorter paragraphs work better online
-- Use dashes, ellipses, and parentheticals for a natural flow
-- Feel free to start sentences with "And," "But," "So"
+- Address reader with "you" where appropriate
+- Mix punchy one-liners with longer explanations
+- Add personality and occasional humor
+- Use rhetorical questions
+- Short paragraphs — better for online reading
+- Start sentences with "And," "But," "So"
 - Preserve all factual content exactly`,
 
-  email: `You are rewriting for a PROFESSIONAL EMAIL. When rewriting:
-- Keep it concise and scannable — people skim emails
-- Use a warm but professional tone
-- Use contractions naturally (I'm, we'll, don't)
-- Get to the point quickly — front-load the key information
-- Use short paragraphs (2-3 sentences max)
-- Include natural transitions between topics but don't force them
+  email: `Rewriting for PROFESSIONAL EMAIL:
+- Concise and scannable — people skim emails
+- Warm but professional tone with contractions
+- Front-load key information
+- Short paragraphs (2-3 sentences max)
 - Sound like a real person writing quickly but thoughtfully
-- Avoid overly formal or stiff language
 - Preserve all factual content and action items exactly`,
 
-  "social-media": `You are rewriting for SOCIAL MEDIA. When rewriting:
-- Be punchy, direct, and engaging
-- Use very short sentences and fragments
-- Sound authentic and personal
-- Use casual language and contractions
+  "social-media": `Rewriting for SOCIAL MEDIA:
+- Punchy, direct, engaging
+- Very short sentences and fragments
+- Authentic and personal
+- Casual language and contractions
 - Break ideas into digestible chunks
 - Add personality — opinions, reactions, emphasis
-- Use line breaks between ideas for readability
-- Avoid jargon unless your audience expects it
-- Preserve the core message but make it shareable`,
+- Preserve core message but make it shareable`,
 
-  "grant-proposal": `You are rewriting for a GRANT PROPOSAL. When rewriting:
-- Maintain a confident, authoritative academic tone
-- Be precise and specific — avoid vague language
-- Use active voice more than passive ("We will investigate" not "It will be investigated")
-- Make the significance and innovation clear without overselling
-- Keep technical accuracy but ensure accessibility for review panel
-- Use strong topic sentences that convey the key point of each paragraph
-- Avoid filler phrases — every sentence should add substance
-- Vary sentence structure while maintaining clarity
-- Preserve all factual claims, methodology, and specific aims exactly`,
+  "grant-proposal": `Rewriting for GRANT PROPOSAL:
+- Confident, authoritative academic tone
+- Precise and specific — no vague language
+- Active voice ("We will investigate" not "It will be investigated")
+- Clear significance and innovation without overselling
+- Strong topic sentences
+- Every sentence adds substance — no filler
+- Preserve all factual claims and methodology exactly`,
 
-  "patient-communication": `You are rewriting for PATIENT COMMUNICATION (letters, portal messages, educational materials). When rewriting:
-- Use plain language — aim for 6th-8th grade reading level
-- Avoid medical jargon; when technical terms are necessary, explain them
-- Use short sentences and simple structure
-- Be warm, empathetic, and reassuring
-- Use "you" and "your" to address the patient directly
-- Break complex information into numbered steps or short paragraphs
-- Use contractions naturally (you'll, it's, don't)
-- Preserve all medical accuracy and key information exactly`,
+  "patient-communication": `Rewriting for PATIENT COMMUNICATION:
+- Plain language — 6th-8th grade reading level
+- Avoid jargon; explain technical terms when necessary
+- Short sentences and simple structure
+- Warm, empathetic, reassuring
+- Address patient with "you" and "your"
+- Break complex info into numbered steps or short paragraphs
+- Preserve all medical accuracy exactly`,
 };
 
 function getDeAiSystem(writingStyle: string): string {
@@ -292,11 +300,11 @@ export async function deAiifyText(text: string, writingStyle = "general"): Promi
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 4096,
-    system: getDeAiSystem(writingStyle),
+    system: cachedSystem(getDeAiSystem(writingStyle)),
     messages: [
       {
         role: "user",
-        content: `Rewrite this text to sound naturally human-written, optimized for the "${styleName}" writing style. Preserve all meaning and factual content exactly. Only change the style and voice.
+        content: `Rewrite this text for the "${styleName}" style. Preserve all meaning and factual content exactly.
 
 Text:
 """
@@ -305,20 +313,16 @@ ${text}
 
 Respond with this exact JSON structure:
 {
-  "rewritten_text": "the full rewritten text preserving all content",
+  "rewritten_text": "the full rewritten text",
   "changes_made": [
-    {
-      "original": "the AI-sounding phrase",
-      "replacement": "the human-sounding replacement",
-      "reason": "specific AI pattern this fixes"
-    }
+    {"original": "AI-sounding phrase", "replacement": "human-sounding replacement", "reason": "specific pattern fixed"}
   ],
   "ai_patterns_found": ["specific pattern 1", "specific pattern 2"],
   "confidence_score": 0.85,
   "style_applied": "${styleName}"
 }
 
-For confidence_score: 1.0 = definitely reads as human, 0.0 = still obviously AI. Be honest.`,
+confidence_score: 1.0 = definitely human, 0.0 = still obviously AI. Be honest.`,
       },
     ],
   });
@@ -329,45 +333,30 @@ For confidence_score: 1.0 = definitely reads as human, 0.0 = still obviously AI.
 
 // ── AI Text Detection ──────────────────────────────────────────────
 
-const DETECTOR_SYSTEM = `You are an expert at analyzing text for AI-generated patterns. You provide honest, nuanced assessments.
+const DETECTOR_SYSTEM = `You are an expert at analyzing text for AI-generated patterns. You provide honest, nuanced, calibrated assessments.
 
 CRITICAL RULES:
-1. Be CALIBRATED in your assessments. Not everything is AI-generated. Human writing can also be formal and structured.
-2. Consider that the text might be:
-   - Entirely human-written
-   - Entirely AI-generated
-   - Human-written with AI assistance/editing
-   - AI-generated with human editing
-3. Factors that suggest AI generation:
-   - Unnaturally consistent paragraph lengths
-   - Every paragraph starts with a transition word
-   - Perfect parallel structure throughout
-   - Generic hedging language ("it's important to note")
-   - No personal voice, opinions, or idiosyncrasies
-   - Suspiciously comprehensive coverage of a topic
-   - "Delve," "utilize," "landscape," "tapestry," "multifaceted"
-4. Factors that suggest human writing:
-   - Inconsistent formatting or structure
-   - Personal anecdotes or first-person experience
-   - Strong opinions or voice
-   - Domain-specific jargon used naturally
-   - Typos or grammatical quirks
-   - Varied paragraph lengths with some very short ones
-   - Incomplete thoughts or tangents
-5. DO NOT be overconfident. If the text could go either way, say so. A score of 0.5 is a valid answer.
-6. For suggested rewrites, make minimal changes - just enough to address the specific AI pattern.
+1. Be CALIBRATED. Not everything is AI-generated. Human writing can be formal and structured.
+2. Consider: entirely human, entirely AI, human+AI assistance, AI+human editing.
+3. AI indicators: uniform paragraph lengths, every paragraph starts with transition word, perfect parallel structure, generic hedging ("it's important to note"), no voice/personality, "delve/utilize/landscape/tapestry/multifaceted", suspiciously comprehensive coverage.
+4. Human indicators: inconsistent formatting, personal anecdotes, strong opinions, domain jargon used naturally, typos/quirks, varied paragraph lengths, incomplete thoughts.
+5. DO NOT be overconfident. 0.5 is a valid score when uncertain.
+6. SENTENCE-LEVEL ANALYSIS: Score EVERY sentence individually for AI probability.
+7. For suggested rewrites, make minimal changes — just enough to fix the specific AI pattern.
 
 Respond ONLY with valid JSON. No markdown, no code fences.`;
 
 export async function detectAiText(text: string): Promise<string> {
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
-    max_tokens: 4096,
-    system: DETECTOR_SYSTEM,
+    max_tokens: 6144,
+    system: cachedSystem(DETECTOR_SYSTEM),
     messages: [
       {
         role: "user",
-        content: `Analyze this text for AI-generation patterns. Be honest and calibrated - not everything is AI-generated.
+        content: `Analyze this text for AI-generation patterns. Be honest and calibrated.
+
+IMPORTANT: Provide sentence-level scoring — assign an AI probability to each sentence.
 
 Text:
 """
@@ -378,27 +367,30 @@ Respond with this exact JSON structure:
 {
   "overall_ai_probability": 0.75,
   "verdict": "likely_human|possibly_ai|likely_ai|definitely_ai",
-  "reasoning": "2-3 sentence explanation of your overall assessment",
-  "flagged_sections": [
+  "reasoning": "2-3 sentence explanation",
+  "sentence_scores": [
     {
-      "text": "the exact suspicious passage",
+      "sentence": "the exact sentence from the text",
       "ai_probability": 0.8,
-      "patterns_detected": ["specific pattern name"],
-      "explanation": "why this section seems AI-generated",
-      "suggested_rewrite": "minimal rewrite that fixes the AI pattern while preserving meaning"
+      "primary_pattern": "the most notable AI pattern in this sentence, or null if human-sounding"
     }
   ],
-  "human_indicators": ["any indicators that suggest human authorship"],
-  "patterns_summary": ["list of overall AI patterns detected"],
-  "recommendations": ["specific, actionable suggestions to make the text sound more human"],
+  "flagged_sections": [
+    {
+      "text": "exact suspicious passage",
+      "ai_probability": 0.8,
+      "patterns_detected": ["specific pattern"],
+      "explanation": "why this seems AI-generated",
+      "suggested_rewrite": "minimal rewrite preserving meaning"
+    }
+  ],
+  "human_indicators": ["indicators suggesting human authorship"],
+  "patterns_summary": ["overall AI patterns detected"],
+  "recommendations": ["specific actionable suggestions"],
   "disclaimer": "AI detection is probabilistic, not definitive. This analysis identifies patterns commonly associated with AI writing but cannot prove authorship with certainty."
 }
 
-Verdict thresholds:
-- likely_human: 0.0-0.3
-- possibly_ai: 0.3-0.55
-- likely_ai: 0.55-0.8
-- definitely_ai: 0.8-1.0`,
+Verdict thresholds: likely_human 0.0-0.3, possibly_ai 0.3-0.55, likely_ai 0.55-0.8, definitely_ai 0.8-1.0`,
       },
     ],
   });

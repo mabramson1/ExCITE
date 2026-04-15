@@ -1,12 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { FileText, Loader2, Copy, Check, Download, BookOpen, ExternalLink } from "lucide-react";
+import { FileText, Loader2, Copy, Check, Download, BookOpen, ExternalLink, AlertTriangle, CheckCircle2, XCircle, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { PhiWarning } from "@/components/phi-warning";
 
 interface CodeSuggestion {
@@ -14,6 +13,25 @@ interface CodeSuggestion {
   description: string;
   confidence: string;
   supporting_text?: string;
+  specificity_alert?: {
+    issue: string;
+    specific_alternatives: {
+      code: string;
+      description: string;
+      documentation_needed: string;
+    }[];
+  } | null;
+}
+
+interface EmLevel {
+  code: string;
+  description: string;
+  mdm_complexity: string;
+  problems: string;
+  data: string;
+  risk: string;
+  rationale: string;
+  documentation_gaps?: string[];
 }
 
 interface Reference {
@@ -34,9 +52,28 @@ interface PublicationCitation {
   relevance: string;
   verified?: boolean;
   search_terms?: string;
+  pubmed_verified?: boolean;
+  verification_confidence?: string;
+  pubmed_match?: {
+    pmid: string;
+    title: string;
+    authors: string;
+    journal: string;
+    year: string;
+    doi: string | null;
+  };
+  pubmed_alternatives?: {
+    pmid: string;
+    title: string;
+    authors: string;
+    journal: string;
+    year: string;
+    doi: string | null;
+  }[];
 }
 
 interface AnalysisResult {
+  em_level?: EmLevel;
   icd10_codes?: CodeSuggestion[];
   cpt_codes?: CodeSuggestion[];
   documentation_suggestions?: string[];
@@ -105,6 +142,15 @@ export default function ClinicalNotesPage() {
     }
   };
 
+  const mdmColor = (c: string) => {
+    switch (c) {
+      case "high": return "text-red-600 bg-red-50 dark:bg-red-950/40";
+      case "moderate": return "text-orange-600 bg-orange-50 dark:bg-orange-950/40";
+      case "low": return "text-yellow-600 bg-yellow-50 dark:bg-yellow-950/40";
+      default: return "text-green-600 bg-green-50 dark:bg-green-950/40";
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
@@ -114,7 +160,7 @@ export default function ClinicalNotesPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Clinical Note Citation</h1>
           <p className="text-sm text-muted-foreground">
-            Analyze clinical notes for ICD-10/CPT codes and documentation improvements
+            Analyze clinical notes for ICD-10/CPT codes, E/M level, and publication citations
           </p>
         </div>
       </div>
@@ -177,6 +223,57 @@ export default function ClinicalNotesPage() {
             </Card>
           )}
 
+          {/* E/M Level */}
+          {result.em_level && (
+            <Card className="border-primary/30">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Activity className="h-4 w-4" />
+                  E/M Level Determination
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <code className="text-lg font-mono font-bold text-primary">{result.em_level.code}</code>
+                  <span className="text-sm">{result.em_level.description}</span>
+                  <Badge className={`${mdmColor(result.em_level.mdm_complexity)} border-0`}>
+                    MDM: {result.em_level.mdm_complexity}
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">{result.em_level.rationale}</p>
+                <div className="grid md:grid-cols-3 gap-3 pt-2">
+                  <div className="p-2 rounded bg-muted/50">
+                    <p className="text-xs font-medium mb-1">Problems Addressed</p>
+                    <p className="text-xs text-muted-foreground">{result.em_level.problems}</p>
+                  </div>
+                  <div className="p-2 rounded bg-muted/50">
+                    <p className="text-xs font-medium mb-1">Data Reviewed</p>
+                    <p className="text-xs text-muted-foreground">{result.em_level.data}</p>
+                  </div>
+                  <div className="p-2 rounded bg-muted/50">
+                    <p className="text-xs font-medium mb-1">Risk Level</p>
+                    <p className="text-xs text-muted-foreground">{result.em_level.risk}</p>
+                  </div>
+                </div>
+                {result.em_level.documentation_gaps && result.em_level.documentation_gaps.length > 0 && (
+                  <div className="pt-2 border-t">
+                    <p className="text-xs font-medium text-amber-600 dark:text-amber-400 mb-1">
+                      Documentation gaps (could support higher level):
+                    </p>
+                    <ul className="space-y-1">
+                      {result.em_level.documentation_gaps.map((gap, i) => (
+                        <li key={i} className="text-xs text-muted-foreground flex items-start gap-1.5">
+                          <AlertTriangle className="h-3 w-3 text-amber-500 mt-0.5 shrink-0" />
+                          {gap}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {/* ICD-10 Codes */}
           {result.icd10_codes && result.icd10_codes.length > 0 && (
             <Card>
@@ -198,6 +295,24 @@ export default function ClinicalNotesPage() {
                         <p className="text-xs text-muted-foreground italic border-l-2 border-primary/20 pl-2">
                           &ldquo;{code.supporting_text}&rdquo;
                         </p>
+                      )}
+                      {code.specificity_alert && (
+                        <div className="mt-2 p-2 rounded bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+                          <p className="text-xs font-medium text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Specificity Alert: {code.specificity_alert.issue}
+                          </p>
+                          {code.specificity_alert.specific_alternatives.map((alt, j) => (
+                            <div key={j} className="mt-1.5 pl-4">
+                              <p className="text-xs">
+                                <code className="font-mono font-bold">{alt.code}</code> — {alt.description}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Document: {alt.documentation_needed}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </div>
                   ))}
@@ -307,11 +422,15 @@ export default function ClinicalNotesPage() {
                   <div key={i} className="p-4 rounded-lg border bg-muted/30 space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="space-y-1 flex-1">
-                        <p className="text-sm font-medium">{pub.title}</p>
+                        <p className="text-sm font-medium">{pub.pubmed_match?.title || pub.title}</p>
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                          {pub.authors && <span>{pub.authors}</span>}
-                          {pub.journal && <span>- {pub.journal}</span>}
-                          {pub.year && <span>({pub.year})</span>}
+                          <span>{pub.pubmed_match?.authors || pub.authors}</span>
+                          {(pub.pubmed_match?.journal || pub.journal) && (
+                            <span>- {pub.pubmed_match?.journal || pub.journal}</span>
+                          )}
+                          {(pub.pubmed_match?.year || pub.year) && (
+                            <span>({pub.pubmed_match?.year || pub.year})</span>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
@@ -320,7 +439,22 @@ export default function ClinicalNotesPage() {
                             {pub.type.replace(/_/g, " ")}
                           </Badge>
                         )}
-                        {pub.verified === false && (
+                        {pub.pubmed_verified === true ? (
+                          <Badge variant="success" className="text-[10px] flex items-center gap-0.5">
+                            <CheckCircle2 className="h-2.5 w-2.5" />
+                            Verified
+                          </Badge>
+                        ) : pub.pubmed_verified === false && pub.verification_confidence === "partial" ? (
+                          <Badge variant="warning" className="text-[10px] flex items-center gap-0.5">
+                            <AlertTriangle className="h-2.5 w-2.5" />
+                            Partial
+                          </Badge>
+                        ) : pub.pubmed_verified === false ? (
+                          <Badge variant="destructive" className="text-[10px] flex items-center gap-0.5">
+                            <XCircle className="h-2.5 w-2.5" />
+                            Not Found
+                          </Badge>
+                        ) : (
                           <Badge variant="warning" className="text-[10px]">VERIFY</Badge>
                         )}
                       </div>
@@ -330,20 +464,20 @@ export default function ClinicalNotesPage() {
                     </p>
                     <p className="text-xs text-muted-foreground">{pub.relevance}</p>
                     <div className="flex flex-wrap items-center gap-2 pt-1">
-                      {pub.pmid && (
+                      {(pub.pubmed_match?.pmid || pub.pmid) && (
                         <a
-                          href={`https://pubmed.ncbi.nlm.nih.gov/${pub.pmid}/`}
+                          href={`https://pubmed.ncbi.nlm.nih.gov/${pub.pubmed_match?.pmid || pub.pmid}/`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                         >
                           <ExternalLink className="h-3 w-3" />
-                          PubMed: {pub.pmid}
+                          PubMed: {pub.pubmed_match?.pmid || pub.pmid}
                         </a>
                       )}
-                      {pub.doi && (
+                      {(pub.pubmed_match?.doi || pub.doi) && (
                         <a
-                          href={`https://doi.org/${pub.doi}`}
+                          href={`https://doi.org/${pub.pubmed_match?.doi || pub.doi}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
@@ -364,6 +498,29 @@ export default function ClinicalNotesPage() {
                         </a>
                       )}
                     </div>
+                    {/* PubMed alternatives for unverified citations */}
+                    {pub.pubmed_alternatives && pub.pubmed_alternatives.length > 0 && (
+                      <div className="mt-2 pt-2 border-t space-y-1.5">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          Related articles found on PubMed:
+                        </p>
+                        {pub.pubmed_alternatives.map((alt, j) => (
+                          <div key={j} className="pl-3 border-l-2 border-emerald-300 dark:border-emerald-700">
+                            <p className="text-xs font-medium">{alt.title}</p>
+                            <p className="text-xs text-muted-foreground">{alt.authors} - {alt.journal} ({alt.year})</p>
+                            <a
+                              href={`https://pubmed.ncbi.nlm.nih.gov/${alt.pmid}/`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                            >
+                              <ExternalLink className="h-2.5 w-2.5" />
+                              PMID: {alt.pmid}
+                            </a>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </CardContent>

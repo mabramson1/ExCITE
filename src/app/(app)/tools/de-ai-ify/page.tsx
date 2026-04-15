@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Wand2, Loader2, Copy, Check, ArrowRight } from "lucide-react";
+import { Wand2, Loader2, Copy, Check, ArrowRight, ArrowDown, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +20,15 @@ const WRITING_STYLES = [
   { value: "patient-communication", label: "Patient Communication", description: "Plain language, empathetic" },
 ];
 
+interface Verification {
+  original_ai_score: number;
+  rewritten_ai_score: number;
+  improvement: number;
+  original_verdict: string;
+  rewritten_verdict: string;
+  detector_source: string;
+}
+
 interface DeAiResult {
   rewritten_text?: string;
   changes_made?: {
@@ -29,6 +38,7 @@ interface DeAiResult {
   }[];
   ai_patterns_found?: string[];
   confidence_score?: number;
+  verification?: Verification;
   raw?: string;
 }
 
@@ -162,6 +172,35 @@ export default function DeAiIfyPage() {
                     ? "Moderate confidence - some AI patterns may remain"
                     : "Consider further manual editing for best results"}
                 </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Closed-Loop Verification */}
+          {result.verification && (
+            <Card className="border-primary/30">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <Shield className="h-5 w-5 text-primary" />
+                  <span className="font-semibold text-sm">AI Detection Verification</span>
+                  <Badge variant="outline" className="text-[10px]">{result.verification.detector_source.split("/").pop()}</Badge>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 text-center p-3 rounded-lg bg-red-50/50 dark:bg-red-950/20">
+                    <p className="text-2xl font-bold text-red-600">{Math.round(result.verification.original_ai_score * 100)}%</p>
+                    <p className="text-xs text-muted-foreground">Original AI Score</p>
+                  </div>
+                  <div className="flex flex-col items-center gap-1">
+                    <ArrowDown className="h-5 w-5 text-primary" />
+                    <span className={`text-sm font-bold ${result.verification.improvement > 0 ? "text-green-600" : "text-muted-foreground"}`}>
+                      {result.verification.improvement > 0 ? "-" : ""}{Math.round(Math.abs(result.verification.improvement) * 100)}%
+                    </span>
+                  </div>
+                  <div className="flex-1 text-center p-3 rounded-lg bg-green-50/50 dark:bg-green-950/20">
+                    <p className="text-2xl font-bold text-green-600">{Math.round(result.verification.rewritten_ai_score * 100)}%</p>
+                    <p className="text-xs text-muted-foreground">Rewritten AI Score</p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           )}

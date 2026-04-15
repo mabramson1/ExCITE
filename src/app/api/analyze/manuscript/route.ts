@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateManuscriptCitations } from "@/lib/ai/claude";
 import { scanAndCensorPhi } from "@/lib/phi-detection";
-import { verifyCitation, searchPubMed } from "@/lib/pubmed";
+import { verifyCitation, searchPubMed, searchCrossRef } from "@/lib/pubmed";
 
 export async function POST(req: NextRequest) {
   try {
@@ -22,60 +22,82 @@ export async function POST(req: NextRequest) {
       parsed = { raw: analysis };
     }
 
-    // Verify suggested citations against PubMed
+    // For each claim, do PubMed-first search using the search terms,
+    // then verify Claude's suggestions, then fall back to CrossRef
     if (parsed.claims_needing_citations) {
       for (const claim of parsed.claims_needing_citations) {
-        if (!claim.suggested_citations) continue;
-
-        for (const citation of claim.suggested_citations) {
+        // 1. PubMed-first: search using the claim's search terms
+        if (claim.search_terms) {
           try {
-            const result = await verifyCitation({
-              title: citation.formatted,
-              pmid: citation.pmid || null,
-              doi: citation.doi || null,
-            });
-
-            citation.pubmed_verified = result.verified;
-            citation.verification_confidence = result.confidence;
-
-            if (result.match) {
-              citation.pubmed_match = {
-                pmid: result.match.pmid,
-                title: result.match.title,
-                authors: result.match.authors,
-                journal: result.match.journal,
-                year: result.match.year,
-                doi: result.match.doi,
-              };
-              citation.pmid = result.match.pmid;
-              if (result.match.doi) citation.doi = result.match.doi;
-            }
-          } catch {
-            citation.pubmed_verified = false;
-            citation.verification_confidence = "error";
-          }
-        }
-
-        // If no citations were verified, search PubMed with the claim's search terms
-        const allUnverified = claim.suggested_citations.every(
-          (c: { pubmed_verified?: boolean }) => !c.pubmed_verified
-        );
-        if (allUnverified && claim.search_terms) {
-          try {
-            const searchResult = await searchPubMed(claim.search_terms, 2);
-            if (searchResult.found) {
-              claim.pubmed_suggestions = searchResult.articles.map((a) => ({
+            const pubmedResult = await searchPubMed(claim.search_terms, 3);
+            if (pubmedResult.found) {
+              claim.pubmed_results = pubmedResult.articles.map((a) => ({
                 pmid: a.pmid,
                 title: a.title,
                 authors: a.authors,
                 journal: a.journal,
                 year: a.year,
                 doi: a.doi,
-                source: "pubmed_search",
+                source: "pubmed",
+                verified: true,
               }));
             }
           } catch {
-            // PubMed search failed, continue without suggestions
+            // PubMed search failed, continue
+          }
+        }
+
+        // 2. Verify Claude's AI-suggested citations against PubMed
+        if (claim.suggested_citations) {
+          for (const citation of claim.suggested_citations) {
+            try {
+              const result = await verifyCitation({
+                title: citation.formatted,
+                pmid: citation.pmid || null,
+                doi: citation.doi || null,
+              });
+
+              citation.pubmed_verified = result.verified;
+              citation.verification_confidence = result.confidence;
+
+              if (result.match) {
+                citation.pubmed_match = {
+                  pmid: result.match.pmid,
+                  title: result.match.title,
+                  authors: result.match.authors,
+                  journal: result.match.journal,
+                  year: result.match.year,
+                  doi: result.match.doi,
+                };
+                citation.pmid = result.match.pmid;
+                if (result.match.doi) citation.doi = result.match.doi;
+              }
+            } catch {
+              citation.pubmed_verified = false;
+              citation.verification_confidence = "error";
+            }
+          }
+        }
+
+        // 3. CrossRef fallback: if no PubMed results, try CrossRef
+        const hasPubmed = claim.pubmed_results?.length > 0;
+        if (!hasPubmed && claim.search_terms) {
+          try {
+            const crossrefResult = await searchCrossRef(claim.search_terms, 3);
+            if (crossrefResult.found) {
+              claim.crossref_results = crossrefResult.articles.map((a) => ({
+                title: a.title,
+                authors: a.authors,
+                journal: a.journal,
+                year: a.year,
+                doi: a.doi,
+                url: a.url,
+                source: "crossref",
+                verified: true,
+              }));
+            }
+          } catch {
+            // CrossRef failed, continue
           }
         }
       }
