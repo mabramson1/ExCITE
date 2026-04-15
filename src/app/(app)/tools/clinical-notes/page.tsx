@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { FileText, Loader2, Copy, Check, Download, BookOpen, ExternalLink, AlertTriangle, CheckCircle2, XCircle, Activity, PenTool } from "lucide-react";
+import { FileText, Loader2, Copy, Check, Download, BookOpen, ExternalLink, AlertTriangle, CheckCircle2, XCircle, Activity, PenTool, RefreshCw, SkipForward, MessageSquarePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { PhiWarning } from "@/components/phi-warning";
 
 // ── Shared Types ───────────────────────────────────────────────────
@@ -583,6 +585,33 @@ function AnalyzeTab() {
 
 // ── A/P Writer Tab ─────────────────────────────────────────────────
 
+// Detect clarification type and provide smart input options
+function detectClarificationType(text: string): { type: "dropdown" | "text"; options?: string[] } {
+  const lower = text.toLowerCase();
+  if (lower.includes("laterality") || lower.includes("which side") || lower.includes("left or right")) {
+    return { type: "dropdown", options: ["Left", "Right", "Bilateral", "Unspecified"] };
+  }
+  if (lower.includes("severity") || lower.includes("how severe") || lower.includes("mild, moderate")) {
+    return { type: "dropdown", options: ["Mild", "Moderate", "Severe", "Critical"] };
+  }
+  if (lower.includes("acute") || lower.includes("chronic") || lower.includes("acuity")) {
+    return { type: "dropdown", options: ["Acute", "Chronic", "Acute on chronic", "Subacute", "Recurrent"] };
+  }
+  if (lower.includes("status") || lower.includes("stable") || lower.includes("worsening") || lower.includes("improving")) {
+    return { type: "dropdown", options: ["Stable", "Improving", "Worsening", "Exacerbation", "In remission", "New onset"] };
+  }
+  if (lower.includes("stage") || lower.includes("staging")) {
+    return { type: "dropdown", options: ["Stage 1", "Stage 2", "Stage 3", "Stage 3a", "Stage 3b", "Stage 4", "Stage 5"] };
+  }
+  if (lower.includes("type 1") || lower.includes("type 2") || lower.includes("type of diabetes") || lower.includes("which type")) {
+    return { type: "dropdown", options: ["Type 1", "Type 2", "Gestational", "Other/Secondary"] };
+  }
+  if (lower.includes("yes") || lower.includes("no") || lower.includes("whether") || lower.includes("does the patient") || lower.includes("is the patient") || lower.includes("was there")) {
+    return { type: "dropdown", options: ["Yes", "No", "Unknown/Not documented"] };
+  }
+  return { type: "text" };
+}
+
 function ApWriterTab() {
   const [skeleton, setSkeleton] = useState("");
   const [encounterType, setEncounterType] = useState("established_office");
@@ -591,26 +620,61 @@ function ApWriterTab() {
   const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
   const [copiedAp, setCopiedAp] = useState(false);
 
-  async function handleGenerate() {
-    if (!skeleton.trim()) return;
+  // Clarification dialog state
+  const [showClarificationDialog, setShowClarificationDialog] = useState(false);
+  const [clarificationAnswers, setClarificationAnswers] = useState<Record<number, string>>({});
+  const [refining, setRefining] = useState(false);
+
+  async function handleGenerate(additionalContext?: string) {
+    const inputSkeleton = additionalContext
+      ? `${skeleton}\n\nAdditional details:\n${additionalContext}`
+      : skeleton;
+
+    if (!inputSkeleton.trim()) return;
     setLoading(true);
-    setResult(null);
+    if (!additionalContext) setResult(null);
     setPhiWarnings([]);
 
     try {
       const res = await fetch("/api/analyze/ap-writer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skeleton, encounterType }),
+        body: JSON.stringify({ skeleton: inputSkeleton, encounterType }),
       });
       const data = await res.json();
       if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
       setResult(data.result);
+
+      // Auto-show clarification dialog if there are items
+      if (data.result?.clarification_needed?.length > 0 && !additionalContext) {
+        setClarificationAnswers({});
+        setShowClarificationDialog(true);
+      }
     } catch {
       setResult({ raw: "An error occurred. Please check your API key and try again." });
     } finally {
       setLoading(false);
+      setRefining(false);
     }
+  }
+
+  function handleRefineWithClarifications() {
+    const answered = Object.entries(clarificationAnswers)
+      .filter(([, v]) => v.trim())
+      .map(([idx, answer]) => {
+        const question = result?.clarification_needed?.[Number(idx)] || "";
+        return `- ${question}: ${answer}`;
+      })
+      .join("\n");
+
+    if (!answered) {
+      setShowClarificationDialog(false);
+      return;
+    }
+
+    setShowClarificationDialog(false);
+    setRefining(true);
+    handleGenerate(answered);
   }
 
   function copyAp() {
@@ -649,6 +713,67 @@ function ApWriterTab() {
 
   return (
     <div className="space-y-6 mt-4">
+      {/* Clarification Dialog */}
+      <Dialog open={showClarificationDialog} onOpenChange={setShowClarificationDialog}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <MessageSquarePlus className="h-5 w-5 text-amber-500" />
+              Add Details to Strengthen Your A/P
+            </DialogTitle>
+            <DialogDescription>
+              The AI identified areas where more detail would improve documentation and coding. Fill in what you can — skip any that don&apos;t apply.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {result?.clarification_needed?.map((question, i) => {
+              const inputType = detectClarificationType(question);
+              return (
+                <div key={i} className="space-y-1.5">
+                  <label className="text-sm font-medium flex items-start gap-2">
+                    <span className="h-5 w-5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                      {i + 1}
+                    </span>
+                    {question}
+                  </label>
+                  {inputType.type === "dropdown" ? (
+                    <Select
+                      value={clarificationAnswers[i] || ""}
+                      onValueChange={(v) => setClarificationAnswers((prev) => ({ ...prev, [i]: v }))}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {inputType.options!.map((opt) => (
+                          <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                        ))}
+                        <SelectItem value="__custom">Other (type below)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : null}
+                  {(inputType.type === "text" || clarificationAnswers[i] === "__custom") && (
+                    <Input
+                      placeholder="Type your answer..."
+                      value={clarificationAnswers[i] === "__custom" ? "" : (clarificationAnswers[i] || "")}
+                      onChange={(e) => setClarificationAnswers((prev) => ({ ...prev, [i]: e.target.value }))}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setShowClarificationDialog(false)}>
+              <SkipForward className="h-4 w-4" /> Skip All
+            </Button>
+            <Button onClick={handleRefineWithClarifications}>
+              <RefreshCw className="h-4 w-4" /> Refine A/P
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -679,9 +804,9 @@ function ApWriterTab() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleGenerate} disabled={loading || !skeleton.trim()}>
-              {loading ? (
-                <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</>
+            <Button onClick={() => handleGenerate()} disabled={loading || refining || !skeleton.trim()}>
+              {loading || refining ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> {refining ? "Refining..." : "Generating..."}</>
               ) : (
                 <><PenTool className="h-4 w-4" /> Generate A/P</>
               )}
@@ -694,22 +819,29 @@ function ApWriterTab() {
 
       {result && !result.raw && (
         <div className="space-y-4">
-          {/* Clarification Needed */}
+          {/* Clarification banner (after dialog closed) */}
           {result.clarification_needed && result.clarification_needed.length > 0 && (
             <Card className="border-amber-300 dark:border-amber-700">
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2 text-amber-700 dark:text-amber-400">
-                  <AlertTriangle className="h-4 w-4" /> Clarification Needed
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-1">
-                  {result.clarification_needed.map((c, i) => (
-                    <li key={i} className="text-sm flex items-start gap-2">
-                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" /> {c}
-                    </li>
-                  ))}
-                </ul>
+              <CardContent className="pt-4 pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    <p className="text-sm text-amber-700 dark:text-amber-400">
+                      {result.clarification_needed.length} detail{result.clarification_needed.length > 1 ? "s" : ""} could strengthen this A/P
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/20"
+                    onClick={() => {
+                      setClarificationAnswers({});
+                      setShowClarificationDialog(true);
+                    }}
+                  >
+                    <MessageSquarePlus className="h-3 w-3" /> Add Details & Refine
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )}
