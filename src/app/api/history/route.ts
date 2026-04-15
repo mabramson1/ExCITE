@@ -22,6 +22,8 @@ export async function GET() {
         type: project.type,
         citationStyle: project.citationStyle,
         phiDetected: project.phiDetected,
+        favorite: project.favorite,
+        shareId: project.shareId,
         createdAt: project.createdAt,
         metadata: project.metadata,
       })

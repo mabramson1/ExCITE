@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { deAiifyText } from "@/lib/ai/claude";
 import { scanAndCensorPhi } from "@/lib/phi-detection";
 import { runExternalDetectors } from "@/lib/ai-detection";
+import { autoSaveProject } from "@/lib/auto-save";
 
 export async function POST(req: NextRequest) {
   try {
@@ -55,8 +56,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const savedId = await autoSaveProject({
+      type: "deai",
+      inputText: text,
+      outputText: parsed,
+      phiDetected: phiResult.hasPhi,
+      metadata: { writingStyle },
+    });
+
     return NextResponse.json({
       result: parsed,
+      savedId,
       phi: {
         detected: phiResult.hasPhi,
         warnings: phiResult.warnings,

@@ -11,10 +11,11 @@ export function middleware(request: NextRequest) {
   // No password set = no protection
   if (!sitePassword) return NextResponse.next();
 
-  // Skip API routes and the password page itself
+  // Skip API routes, password page, shared pages, and static assets
   if (
     request.nextUrl.pathname.startsWith("/api/") ||
     request.nextUrl.pathname === "/password" ||
+    request.nextUrl.pathname.startsWith("/share/") ||
     request.nextUrl.pathname.startsWith("/_next/") ||
     request.nextUrl.pathname === "/favicon.ico"
   ) {

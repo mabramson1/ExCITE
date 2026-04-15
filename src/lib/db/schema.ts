@@ -89,6 +89,8 @@ export const project = pgTable("project", {
   citationStyle: citationStyleEnum("citation_style"),
   metadata: jsonb("metadata").$type<Record<string, unknown>>(),
   phiDetected: boolean("phi_detected").notNull().default(false),
+  favorite: boolean("favorite").notNull().default(false),
+  shareId: text("share_id").unique(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

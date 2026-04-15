@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateManuscriptCitations } from "@/lib/ai/claude";
 import { scanAndCensorPhi } from "@/lib/phi-detection";
 import { verifyCitation, searchPubMed, searchCrossRef } from "@/lib/pubmed";
+import { autoSaveProject } from "@/lib/auto-save";
 
 export async function POST(req: NextRequest) {
   try {
@@ -103,8 +104,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const savedId = await autoSaveProject({
+      type: "manuscript",
+      inputText: text,
+      outputText: parsed,
+      citationStyle: style,
+      phiDetected: phiResult.hasPhi,
+    });
+
     return NextResponse.json({
       result: parsed,
+      savedId,
       phi: {
         detected: phiResult.hasPhi,
         warnings: phiResult.warnings,

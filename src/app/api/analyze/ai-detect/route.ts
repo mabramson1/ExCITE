@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { detectAiText } from "@/lib/ai/claude";
 import { scanAndCensorPhi } from "@/lib/phi-detection";
 import { runExternalDetectors } from "@/lib/ai-detection";
+import { autoSaveProject } from "@/lib/auto-save";
 
 export async function POST(req: NextRequest) {
   try {
@@ -47,8 +48,16 @@ export async function POST(req: NextRequest) {
       else parsed.consensus_verdict = "likely_human";
     }
 
+    const savedId = await autoSaveProject({
+      type: "ai_detector",
+      inputText: text,
+      outputText: parsed,
+      phiDetected: phiResult.hasPhi,
+    });
+
     return NextResponse.json({
       result: parsed,
+      savedId,
       phi: {
         detected: phiResult.hasPhi,
         warnings: phiResult.warnings,

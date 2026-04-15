@@ -8,6 +8,20 @@
       "when": 1775777941582,
       "tag": "0000_lowly_deathbird",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776291773618,
+      "tag": "0001_serious_ben_parker",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776294891066,
+      "tag": "0002_curvy_harry_osborn",
+      "breakpoints": true
     }
   ]
 }
