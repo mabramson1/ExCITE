@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FileText, BookOpen, Wand2, ScanSearch, Clock, Loader2, Trash2, Star, Share2, Link2, Check, ExternalLink } from "lucide-react";
+import { FileText, BookOpen, Wand2, ScanSearch, Clock, Loader2, Trash2, Star, Share2, Link2, ExternalLink } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ShareDialog } from "@/components/share-dialog";
 import { formatDistanceToNow } from "date-fns";
 
 interface HistoryItem {
@@ -40,7 +41,7 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("all");
-  const [copiedShareId, setCopiedShareId] = useState<string | null>(null);
+  const [shareDialogItem, setShareDialogItem] = useState<HistoryItem | null>(null);
 
   useEffect(() => {
     fetchHistory();
@@ -84,30 +85,27 @@ export default function HistoryPage() {
     }
   }
 
-  async function handleShare(id: string) {
-    try {
-      const res = await fetch(`/api/history/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "share" }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const shareId = data.project.shareId;
-        setItems((prev) =>
-          prev.map((item) =>
-            item.id === id ? { ...item, shareId } : item
-          )
-        );
-        // Copy share link to clipboard
-        const shareUrl = `${window.location.origin}/share/${shareId}`;
-        navigator.clipboard.writeText(shareUrl);
-        setCopiedShareId(id);
-        setTimeout(() => setCopiedShareId(null), 2000);
+  async function handleShare(item: HistoryItem) {
+    let shareId = item.shareId ?? null;
+    if (!shareId) {
+      try {
+        const res = await fetch(`/api/history/${item.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "share" }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          shareId = data.project.shareId;
+          setItems((prev) =>
+            prev.map((i) => (i.id === item.id ? { ...i, shareId } : i))
+          );
+        }
+      } catch {
+        return;
       }
-    } catch {
-      // Silently fail
     }
+    setShareDialogItem({ ...item, shareId });
   }
 
   async function handleDelete(id: string) {
@@ -243,12 +241,10 @@ export default function HistoryPage() {
                           variant="ghost"
                           size="sm"
                           className="h-7 w-7 p-0"
-                          onClick={() => handleShare(item.id)}
-                          title={item.shareId ? "Copy share link" : "Create share link"}
+                          onClick={() => handleShare(item)}
+                          title={item.shareId ? "Share options" : "Create share link"}
                         >
-                          {copiedShareId === item.id ? (
-                            <Check className="h-3 w-3 text-green-600" />
-                          ) : item.shareId ? (
+                          {item.shareId ? (
                             <Link2 className="h-3 w-3" />
                           ) : (
                             <Share2 className="h-3 w-3" />
@@ -279,6 +275,15 @@ export default function HistoryPage() {
           </div>
         </>
       )}
+
+      <ShareDialog
+        shareId={shareDialogItem?.shareId ?? null}
+        open={!!shareDialogItem}
+        onOpenChange={(open) => {
+          if (!open) setShareDialogItem(null);
+        }}
+        title={shareDialogItem?.title}
+      />
     </div>
   );
 }
