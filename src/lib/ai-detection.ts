@@ -1,14 +1,16 @@
 /**
  * Open-source AI text detection integrations.
  *
- * Uses HuggingFace Inference API with `SuperAnnotate/roberta-large-llm-content-detector`
- * — a 2024 RoBERTa-large model trained on multiple modern LLMs (GPT-4, Claude,
- * Gemini, Llama). Better accuracy on essay-style prose than the 2023 HC3 model.
+ * Uses HuggingFace Inference API with `Hello-SimpleAI/chatgpt-detector-roberta`
+ * — the HC3-trained RoBERTa detector. Known to underperform on modern
+ * essay-style LLM output, but it's the only AI detector currently hosted on
+ * the free `hf-inference` router. Heavier lifting on modern text is done by
+ * the Sapling detector and the local 2026 heuristic detector.
  *
  * Requires HF_API_TOKEN environment variable.
  */
 
-const HF_MODEL = "SuperAnnotate/roberta-large-llm-content-detector";
+const HF_MODEL = "Hello-SimpleAI/chatgpt-detector-roberta";
 const HF_API_URL = `https://router.huggingface.co/hf-inference/models/${HF_MODEL}`;
 
 interface HfClassificationResult {

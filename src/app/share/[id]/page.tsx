@@ -6,6 +6,8 @@ import { FileText, BookOpen, Wand2, ScanSearch, User, Calendar } from "lucide-re
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PrintButton } from "./print-button";
+import { PdfAutoDownload } from "./pdf-auto-download";
+import { Suspense } from "react";
 
 const typeConfig: Record<string, { icon: React.ElementType; label: string; color: string }> = {
   clinical_note: { icon: FileText, label: "Clinical Note Analysis", color: "text-blue-600 bg-blue-50 dark:bg-blue-950/40" },
@@ -52,7 +54,10 @@ export default async function SharedPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-4 py-8 space-y-6 print:px-0 print:py-2">
+      <Suspense fallback={null}>
+        <PdfAutoDownload title={result.title} />
+      </Suspense>
+      <div id="share-content" className="max-w-4xl mx-auto px-4 py-8 space-y-6 print:px-0 print:py-2">
         {/* Header */}
         <div className="flex items-center gap-3 print:gap-2">
           <div className={`h-10 w-10 rounded-lg flex items-center justify-center print:h-8 print:w-8 ${config.color}`}>
