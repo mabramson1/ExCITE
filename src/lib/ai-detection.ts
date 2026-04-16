@@ -1,20 +1,42 @@
 /**
  * Open-source AI text detection integrations.
  *
- * Uses HuggingFace Inference API with `Hello-SimpleAI/chatgpt-detector-roberta`
- * — the HC3-trained RoBERTa detector. Known to underperform on modern
- * essay-style LLM output, but it's the only AI detector currently hosted on
- * the free `hf-inference` router. Heavier lifting on modern text is done by
- * the Sapling detector and the local 2026 heuristic detector.
+ * Uses HuggingFace Inference API with `PirateXX/AI-Content-Detector` — a
+ * RoBERTa-based classifier (updated May 2025, ~52k downloads/month, #2 most
+ * downloaded AI detector on HF). It correctly flags modern essay-style LLM
+ * prose that the older HC3-trained model misses.
+ *
+ * Why this specific model? HF's free `hf-inference` router is CPU-only and
+ * only auto-loads models that register with `AutoModelForSequenceClassification`.
+ * Most 2024-2025 SOTA detectors (desklib, SuperAnnotate, ModernBERT-based ones,
+ * adaptive-classifier, etc.) use custom classifier heads that fail this load,
+ * so PirateXX is the most accurate detector currently available on the free
+ * tier. Heavier lifting on edge cases (e.g. marketing-speak) is done by the
+ * Sapling API and the local 2026 heuristic detector.
+ *
+ * Label convention — model-specific, see HF_LABEL_MAP below.
  *
  * Requires HF_API_TOKEN environment variable.
  */
 
-const HF_MODEL = "Hello-SimpleAI/chatgpt-detector-roberta";
+const HF_MODEL = "PirateXX/AI-Content-Detector";
 const HF_API_URL = `https://router.huggingface.co/hf-inference/models/${HF_MODEL}`;
 
+// Per-model label conventions. Different detectors invert LABEL_0/LABEL_1,
+// so lookup by HF_MODEL id rather than hardcoding either convention.
+const HF_LABEL_MAP: Record<string, { ai: Set<string>; human: Set<string> }> = {
+  "PirateXX/AI-Content-Detector": {
+    ai: new Set(["label_0", "fake", "ai", "generated", "machine", "llm"]),
+    human: new Set(["label_1", "real", "human"]),
+  },
+  "Hello-SimpleAI/chatgpt-detector-roberta": {
+    ai: new Set(["label_1", "chatgpt", "ai", "fake", "generated", "machine", "llm"]),
+    human: new Set(["label_0", "human", "real"]),
+  },
+};
+
 interface HfClassificationResult {
-  label: string; // "ChatGPT" or "Human"
+  label: string;
   score: number;
 }
 
@@ -89,24 +111,11 @@ export async function detectWithRoberta(
       let aiScore = 0;
       let humanScore = 0;
 
+      const map = HF_LABEL_MAP[HF_MODEL];
       for (const item of classifications) {
         const label = (item.label || "").toLowerCase();
-        const isHuman =
-          label === "human" ||
-          label === "real" ||
-          label === "label_0" ||
-          label === "0";
-        const isAi =
-          label === "ai" ||
-          label === "chatgpt" ||
-          label === "generated" ||
-          label === "machine" ||
-          label === "fake" ||
-          label === "llm" ||
-          label === "label_1" ||
-          label === "1";
-        if (isHuman) humanScore = item.score;
-        else if (isAi) aiScore = item.score;
+        if (map.ai.has(label)) aiScore = item.score;
+        else if (map.human.has(label)) humanScore = item.score;
       }
       // If only one label came back, infer the complement
       if (aiScore === 0 && humanScore > 0) aiScore = 1 - humanScore;
