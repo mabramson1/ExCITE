@@ -209,7 +209,7 @@ function AiDetectorContent() {
                 </div>
                 <Progress value={Math.round(result.consensus_score * 100)} />
                 <p className="text-xs text-muted-foreground mt-2">
-                  Combined score: Claude analysis (60%) + open-source + 2026 heuristics (40%)
+                  Combined score: Claude (60%) + external detectors (40%, avg of SuperAnnotate RoBERTa + Sapling + 2026 heuristics)
                 </p>
               </CardContent>
             </Card>
