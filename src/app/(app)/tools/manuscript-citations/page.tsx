@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PhiWarning } from "@/components/phi-warning";
+import { ResultActions } from "@/components/result-actions";
 
 interface PubMedMatch {
   pmid: string;
@@ -93,6 +94,7 @@ export default function ManuscriptCitationsPage() {
   const [style, setStyle] = useState("apa");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ManuscriptResult | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(null);
   const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
 
@@ -100,6 +102,7 @@ export default function ManuscriptCitationsPage() {
     if (!input.trim()) return;
     setLoading(true);
     setResult(null);
+    setSavedId(null);
     setPhiWarnings([]);
 
     try {
@@ -111,6 +114,7 @@ export default function ManuscriptCitationsPage() {
       const data = await res.json();
       if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
       setResult(data.result);
+      setSavedId(data.savedId || null);
     } catch {
       setResult({ raw: "An error occurred. Please check your API key and try again." });
     } finally {
@@ -206,9 +210,10 @@ export default function ManuscriptCitationsPage() {
 
       {result && !result.raw && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="text-lg font-semibold">Citation Results</h2>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <ResultActions savedId={savedId} />
               <Button variant="outline" size="sm" onClick={handleCopy}>
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 {copied ? "Copied" : "Copy"}

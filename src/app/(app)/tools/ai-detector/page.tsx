@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { PhiWarning } from "@/components/phi-warning";
+import { ResultActions } from "@/components/result-actions";
 
 interface SentenceScore {
   sentence: string;
@@ -60,6 +61,7 @@ export default function AiDetectorPage() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DetectorResult | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(null);
   const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
@@ -67,6 +69,7 @@ export default function AiDetectorPage() {
     if (!input.trim()) return;
     setLoading(true);
     setResult(null);
+    setSavedId(null);
     setPhiWarnings([]);
 
     try {
@@ -78,6 +81,7 @@ export default function AiDetectorPage() {
       const data = await res.json();
       if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
       setResult(data.result);
+      setSavedId(data.savedId || null);
     } catch {
       setResult({ raw: "An error occurred. Please check your API key and try again." });
     } finally {
@@ -148,6 +152,11 @@ export default function AiDetectorPage() {
 
       {result && !result.raw && (
         <div className="space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h2 className="text-lg font-semibold">Detection Results</h2>
+            <ResultActions savedId={savedId} />
+          </div>
+
           {/* Consensus Score (if available) */}
           {result.consensus_score !== undefined && (
             <Card className="border-primary/30">

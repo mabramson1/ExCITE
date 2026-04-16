@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { PhiWarning } from "@/components/phi-warning";
+import { ResultActions } from "@/components/result-actions";
 import { SPECIALTIES, getTemplatesBySpecialty, getCategoriesForSpecialty, type ApTemplate } from "@/lib/templates";
 
 // ── Shared Types ───────────────────────────────────────────────────
@@ -204,6 +205,7 @@ function AnalyzeTab() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(null);
   const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
 
@@ -211,6 +213,7 @@ function AnalyzeTab() {
     if (!input.trim()) return;
     setLoading(true);
     setResult(null);
+    setSavedId(null);
     setPhiWarnings([]);
 
     try {
@@ -222,6 +225,7 @@ function AnalyzeTab() {
       const data = await res.json();
       if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
       setResult(data.result);
+      setSavedId(data.savedId || null);
     } catch {
       setResult({ raw: "An error occurred. Please check your API key and try again." });
     } finally {
@@ -296,9 +300,10 @@ function AnalyzeTab() {
 
       {result && !result.raw && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="text-lg font-semibold">Analysis Results</h2>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <ResultActions savedId={savedId} />
               <Button variant="outline" size="sm" onClick={handleCopy}>
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 {copied ? "Copied" : "Copy"}
@@ -622,6 +627,7 @@ function ApWriterTab() {
   const [encounterType, setEncounterType] = useState("established_office");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ApResult | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(null);
   const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
   const [copiedAp, setCopiedAp] = useState(false);
   const [copiedEm, setCopiedEm] = useState(false);
@@ -636,28 +642,40 @@ function ApWriterTab() {
   const [selectedSpecialty, setSelectedSpecialty] = useState("nephrology");
   const [favoriteTemplates, setFavoriteTemplates] = useState<Set<string>>(new Set());
 
-  // Load favorites from localStorage on mount
+  // Load favorites from DB on mount
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("ap-template-favorites");
-      if (stored) setFavoriteTemplates(new Set(JSON.parse(stored)));
-    } catch {
-      // ignore
-    }
+    fetch("/api/template-favorites")
+      .then((r) => r.ok ? r.json() : { favorites: [] })
+      .then((data) => setFavoriteTemplates(new Set(data.favorites || [])))
+      .catch(() => {});
   }, []);
 
-  function toggleFavoriteTemplate(id: string) {
+  async function toggleFavoriteTemplate(id: string) {
+    const wasFavorited = favoriteTemplates.has(id);
+
+    // Optimistic update
     setFavoriteTemplates((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
+      if (wasFavorited) next.delete(id);
       else next.add(id);
-      try {
-        localStorage.setItem("ap-template-favorites", JSON.stringify(Array.from(next)));
-      } catch {
-        // ignore
-      }
       return next;
     });
+
+    try {
+      await fetch("/api/template-favorites", {
+        method: wasFavorited ? "DELETE" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ templateId: id }),
+      });
+    } catch {
+      // Revert on error
+      setFavoriteTemplates((prev) => {
+        const next = new Set(prev);
+        if (wasFavorited) next.add(id);
+        else next.delete(id);
+        return next;
+      });
+    }
   }
 
   function insertTemplate(template: ApTemplate) {
@@ -675,7 +693,10 @@ function ApWriterTab() {
 
     if (!inputSkeleton.trim()) return;
     setLoading(true);
-    if (!additionalContext) setResult(null);
+    if (!additionalContext) {
+      setResult(null);
+      setSavedId(null);
+    }
     setPhiWarnings([]);
 
     try {
@@ -687,6 +708,7 @@ function ApWriterTab() {
       const data = await res.json();
       if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
       setResult(data.result);
+      setSavedId(data.savedId || null);
 
       // Auto-show clarification dialog if there are items
       if (data.result?.clarification_needed?.length > 0 && !additionalContext) {
@@ -922,12 +944,15 @@ function ApWriterTab() {
           {result.assessment_and_plan && (
             <Card className="border-primary/30">
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <CardTitle className="text-base">Generated Assessment & Plan</CardTitle>
-                  <Button variant="outline" size="sm" onClick={copyAp}>
-                    {copiedAp ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    {copiedAp ? "Copied" : "Copy A/P"}
-                  </Button>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <ResultActions savedId={savedId} />
+                    <Button variant="outline" size="sm" onClick={copyAp}>
+                      {copiedAp ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      {copiedAp ? "Copied" : "Copy A/P"}
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>

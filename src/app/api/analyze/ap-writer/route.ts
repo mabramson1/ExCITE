@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateAssessmentPlan } from "@/lib/ai/claude";
 import { scanAndCensorPhi } from "@/lib/phi-detection";
+import { autoSaveProject } from "@/lib/auto-save";
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,8 +22,17 @@ export async function POST(req: NextRequest) {
       parsed = { raw: analysis };
     }
 
+    const savedId = await autoSaveProject({
+      type: "clinical_note",
+      inputText: skeleton,
+      outputText: parsed,
+      phiDetected: phiResult.hasPhi,
+      metadata: { tool: "ap_writer", encounterType },
+    });
+
     return NextResponse.json({
       result: parsed,
+      savedId,
       phi: {
         detected: phiResult.hasPhi,
         warnings: phiResult.warnings,

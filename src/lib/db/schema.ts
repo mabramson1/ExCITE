@@ -6,6 +6,7 @@ import {
   pgEnum,
   uuid,
   jsonb,
+  primaryKey,
 } from "drizzle-orm/pg-core";
 
 // ── Auth tables (Better Auth) ──────────────────────────────────────
@@ -110,9 +111,22 @@ export const citation = pgTable("citation", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const templateFavorite = pgTable(
+  "template_favorite",
+  {
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    templateId: text("template_id").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.templateId] })]
+);
+
 // Types
 export type User = typeof user.$inferSelect;
 export type Project = typeof project.$inferSelect;
 export type Citation = typeof citation.$inferSelect;
+export type TemplateFavorite = typeof templateFavorite.$inferSelect;
 export type ProjectType = "clinical_note" | "manuscript" | "deai" | "ai_detector";
 export type CitationStyle = "apa" | "mla" | "chicago" | "vancouver" | "harvard" | "ieee";

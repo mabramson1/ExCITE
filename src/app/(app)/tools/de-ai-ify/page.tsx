@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PhiWarning } from "@/components/phi-warning";
+import { ResultActions } from "@/components/result-actions";
 
 const WRITING_STYLES = [
   { value: "general", label: "General", description: "Natural, versatile rewrite" },
@@ -47,6 +48,7 @@ export default function DeAiIfyPage() {
   const [writingStyle, setWritingStyle] = useState("general");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DeAiResult | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(null);
   const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
   const [copiedOriginal, setCopiedOriginal] = useState(false);
   const [copiedRewrite, setCopiedRewrite] = useState(false);
@@ -55,6 +57,7 @@ export default function DeAiIfyPage() {
     if (!input.trim()) return;
     setLoading(true);
     setResult(null);
+    setSavedId(null);
     setPhiWarnings([]);
 
     try {
@@ -66,6 +69,7 @@ export default function DeAiIfyPage() {
       const data = await res.json();
       if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
       setResult(data.result);
+      setSavedId(data.savedId || null);
     } catch {
       setResult({ raw: "An error occurred. Please check your API key and try again." });
     } finally {
@@ -151,6 +155,11 @@ export default function DeAiIfyPage() {
 
       {result && !result.raw && (
         <div className="space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h2 className="text-lg font-semibold">Humanized Output</h2>
+            <ResultActions savedId={savedId} />
+          </div>
+
           {/* Confidence Score */}
           {result.confidence_score !== undefined && (
             <Card>
