@@ -1,14 +1,14 @@
 /**
  * Open-source AI text detection integrations.
  *
- * Uses HuggingFace Inference API with `Hello-SimpleAI/chatgpt-detector-roberta`
- * — a RoBERTa model trained on ChatGPT outputs (2023). Much more accurate for
- * modern AI text (GPT-3.5/4, Claude, Gemini) than the older GPT-2-era detector.
+ * Uses HuggingFace Inference API with `SuperAnnotate/roberta-large-llm-content-detector`
+ * — a 2024 RoBERTa-large model trained on multiple modern LLMs (GPT-4, Claude,
+ * Gemini, Llama). Better accuracy on essay-style prose than the 2023 HC3 model.
  *
  * Requires HF_API_TOKEN environment variable.
  */
 
-const HF_MODEL = "Hello-SimpleAI/chatgpt-detector-roberta";
+const HF_MODEL = "SuperAnnotate/roberta-large-llm-content-detector";
 const HF_API_URL = `https://router.huggingface.co/hf-inference/models/${HF_MODEL}`;
 
 interface HfClassificationResult {
@@ -88,12 +88,27 @@ export async function detectWithRoberta(
       let humanScore = 0;
 
       for (const item of classifications) {
-        if (item.label === "Human" || item.label === "LABEL_0" || item.label === "Real") {
-          humanScore = item.score;
-        } else if (item.label === "ChatGPT" || item.label === "LABEL_1" || item.label === "Fake") {
-          aiScore = item.score;
-        }
+        const label = (item.label || "").toLowerCase();
+        const isHuman =
+          label === "human" ||
+          label === "real" ||
+          label === "label_0" ||
+          label === "0";
+        const isAi =
+          label === "ai" ||
+          label === "chatgpt" ||
+          label === "generated" ||
+          label === "machine" ||
+          label === "fake" ||
+          label === "llm" ||
+          label === "label_1" ||
+          label === "1";
+        if (isHuman) humanScore = item.score;
+        else if (isAi) aiScore = item.score;
       }
+      // If only one label came back, infer the complement
+      if (aiScore === 0 && humanScore > 0) aiScore = 1 - humanScore;
+      else if (humanScore === 0 && aiScore > 0) humanScore = 1 - aiScore;
 
       results.push({ ai: aiScore, human: humanScore });
     }
@@ -279,21 +294,20 @@ export function detectStatistical2026(text: string): ExternalDetectionResult {
 }
 
 /**
- * GPTZero detector.
+ * Sapling AI detector.
  *
- * Uses the GPTZero public API. Free tier (~10k words/month) requires an API
- * key from https://app.gptzero.me/ -> API Keys. Trained on modern LLM outputs
- * (GPT-4o, Claude, Gemini) with ongoing updates — more current than the
- * HC3-era RoBERTa detector.
+ * Uses Sapling's AI-detection API. Free tier ~50k characters/month via an API
+ * key from https://sapling.ai/ -> Dashboard -> API Keys. Sapling retrains on
+ * modern LLMs (GPT-4o/5, Claude, Gemini) and handles essay-style prose well.
  *
- * Requires GPTZERO_API_KEY environment variable.
+ * Requires SAPLING_API_KEY environment variable.
  */
-export async function detectWithGptZero(
+export async function detectWithSapling(
   text: string
 ): Promise<ExternalDetectionResult> {
   const unavailable = (error: string): ExternalDetectionResult => ({
-    source: "GPTZero",
-    model: "gptzero-v2",
+    source: "Sapling",
+    model: "sapling-aidetect",
     ai_probability: 0,
     human_probability: 0,
     verdict: "unavailable",
@@ -302,45 +316,35 @@ export async function detectWithGptZero(
   });
 
   try {
-    if (!process.env.GPTZERO_API_KEY) {
+    if (!process.env.SAPLING_API_KEY) {
       return unavailable(
-        "GPTZERO_API_KEY not configured. Get a free key at https://app.gptzero.me/"
+        "SAPLING_API_KEY not configured. Get a free key at https://sapling.ai/"
       );
     }
 
-    const res = await fetch("https://api.gptzero.me/v2/predict/text", {
+    const res = await fetch("https://api.sapling.ai/api/v1/aidetect", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": process.env.GPTZERO_API_KEY,
-      },
-      body: JSON.stringify({ document: text }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        key: process.env.SAPLING_API_KEY,
+        text,
+      }),
     });
 
     if (!res.ok) {
       if (res.status === 401 || res.status === 403) {
-        return unavailable("GPTZero API key rejected. Verify the key.");
+        return unavailable("Sapling API key rejected. Verify the key.");
       }
       if (res.status === 429) {
-        return unavailable("GPTZero rate limit exceeded. Try again later.");
+        return unavailable("Sapling rate limit exceeded. Try again later.");
       }
-      throw new Error(`GPTZero API error: ${res.status}`);
+      throw new Error(`Sapling API error: ${res.status}`);
     }
 
     const data = await res.json();
-
-    // v2 response shape: { documents: [{ class_probabilities: { ai, human, mixed }, predicted_class, completely_generated_prob, average_generated_prob, ... }] }
-    const doc = data.documents?.[0];
-    if (!doc) {
-      throw new Error("Malformed GPTZero response");
-    }
-
-    const aiProb: number =
-      typeof doc.completely_generated_prob === "number"
-        ? doc.completely_generated_prob
-        : doc.class_probabilities?.ai ?? 0;
-    const humanProb: number =
-      doc.class_probabilities?.human ?? Math.max(0, 1 - aiProb);
+    // Response shape: { score: <0..1 AI probability>, sentence_scores?: [...] }
+    const aiProb: number = typeof data.score === "number" ? data.score : 0;
+    const humanProb = Math.max(0, 1 - aiProb);
 
     let verdict: string;
     if (aiProb >= 0.8) verdict = "definitely_ai";
@@ -349,18 +353,18 @@ export async function detectWithGptZero(
     else verdict = "likely_human";
 
     return {
-      source: "GPTZero",
-      model: `gptzero-v2 (predicted: ${doc.predicted_class || "n/a"})`,
+      source: "Sapling",
+      model: "sapling-aidetect",
       ai_probability: Math.round(aiProb * 1000) / 1000,
       human_probability: Math.round(humanProb * 1000) / 1000,
       verdict,
       available: true,
     };
   } catch (error) {
-    console.error("GPTZero detector error:", error);
+    console.error("Sapling detector error:", error);
     return {
-      source: "GPTZero",
-      model: "gptzero-v2",
+      source: "Sapling",
+      model: "sapling-aidetect",
       ai_probability: 0,
       human_probability: 0,
       verdict: "error",
@@ -378,7 +382,7 @@ export async function runExternalDetectors(
 ): Promise<ExternalDetectionResult[]> {
   const results = await Promise.allSettled([
     detectWithRoberta(text),
-    detectWithGptZero(text),
+    detectWithSapling(text),
     Promise.resolve(detectStatistical2026(text)),
   ]);
 
