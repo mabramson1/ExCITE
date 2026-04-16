@@ -279,6 +279,98 @@ export function detectStatistical2026(text: string): ExternalDetectionResult {
 }
 
 /**
+ * GPTZero detector.
+ *
+ * Uses the GPTZero public API. Free tier (~10k words/month) requires an API
+ * key from https://app.gptzero.me/ -> API Keys. Trained on modern LLM outputs
+ * (GPT-4o, Claude, Gemini) with ongoing updates — more current than the
+ * HC3-era RoBERTa detector.
+ *
+ * Requires GPTZERO_API_KEY environment variable.
+ */
+export async function detectWithGptZero(
+  text: string
+): Promise<ExternalDetectionResult> {
+  const unavailable = (error: string): ExternalDetectionResult => ({
+    source: "GPTZero",
+    model: "gptzero-v2",
+    ai_probability: 0,
+    human_probability: 0,
+    verdict: "unavailable",
+    available: false,
+    error,
+  });
+
+  try {
+    if (!process.env.GPTZERO_API_KEY) {
+      return unavailable(
+        "GPTZERO_API_KEY not configured. Get a free key at https://app.gptzero.me/"
+      );
+    }
+
+    const res = await fetch("https://api.gptzero.me/v2/predict/text", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.GPTZERO_API_KEY,
+      },
+      body: JSON.stringify({ document: text }),
+    });
+
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        return unavailable("GPTZero API key rejected. Verify the key.");
+      }
+      if (res.status === 429) {
+        return unavailable("GPTZero rate limit exceeded. Try again later.");
+      }
+      throw new Error(`GPTZero API error: ${res.status}`);
+    }
+
+    const data = await res.json();
+
+    // v2 response shape: { documents: [{ class_probabilities: { ai, human, mixed }, predicted_class, completely_generated_prob, average_generated_prob, ... }] }
+    const doc = data.documents?.[0];
+    if (!doc) {
+      throw new Error("Malformed GPTZero response");
+    }
+
+    const aiProb: number =
+      typeof doc.completely_generated_prob === "number"
+        ? doc.completely_generated_prob
+        : doc.class_probabilities?.ai ?? 0;
+    const humanProb: number =
+      doc.class_probabilities?.human ?? Math.max(0, 1 - aiProb);
+
+    let verdict: string;
+    if (aiProb >= 0.8) verdict = "definitely_ai";
+    else if (aiProb >= 0.55) verdict = "likely_ai";
+    else if (aiProb >= 0.3) verdict = "possibly_ai";
+    else verdict = "likely_human";
+
+    return {
+      source: "GPTZero",
+      model: `gptzero-v2 (predicted: ${doc.predicted_class || "n/a"})`,
+      ai_probability: Math.round(aiProb * 1000) / 1000,
+      human_probability: Math.round(humanProb * 1000) / 1000,
+      verdict,
+      available: true,
+    };
+  } catch (error) {
+    console.error("GPTZero detector error:", error);
+    return {
+      source: "GPTZero",
+      model: "gptzero-v2",
+      ai_probability: 0,
+      human_probability: 0,
+      verdict: "error",
+      available: false,
+      error: error instanceof Error ? error.message : "Detection failed",
+    };
+  }
+}
+
+/**
  * Run all available external detectors and return aggregated results.
  */
 export async function runExternalDetectors(
@@ -286,6 +378,7 @@ export async function runExternalDetectors(
 ): Promise<ExternalDetectionResult[]> {
   const results = await Promise.allSettled([
     detectWithRoberta(text),
+    detectWithGptZero(text),
     Promise.resolve(detectStatistical2026(text)),
   ]);
 
