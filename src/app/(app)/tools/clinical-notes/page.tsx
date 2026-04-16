@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { FileText, Loader2, Copy, Check, Download, BookOpen, ExternalLink, AlertTriangle, CheckCircle2, XCircle, Activity, PenTool, RefreshCw, SkipForward, MessageSquarePlus, LayoutTemplate, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -160,8 +161,53 @@ const ENCOUNTER_TYPES = [
 
 // ── Main Component ─────────────────────────────────────────────────
 
+interface Prefill {
+  input: string;
+  savedId: string;
+  metadata: Record<string, unknown>;
+  outputText: string | null;
+}
+
 export default function ClinicalNotesPage() {
+  return (
+    <Suspense fallback={<div className="max-w-4xl mx-auto flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+      <ClinicalNotesContent />
+    </Suspense>
+  );
+}
+
+function ClinicalNotesContent() {
+  const searchParams = useSearchParams();
+  const loadId = searchParams.get("load");
+
   const [activeTab, setActiveTab] = useState("analyze");
+  const [analyzePrefill, setAnalyzePrefill] = useState<Prefill | null>(null);
+  const [apWriterPrefill, setApWriterPrefill] = useState<Prefill | null>(null);
+
+  useEffect(() => {
+    if (!loadId) return;
+    fetch(`/api/history/${loadId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data?.project) return;
+        const metadata = (data.project.metadata || {}) as Record<string, unknown>;
+        const isApWriter = metadata.tool === "ap_writer";
+        const prefill: Prefill = {
+          input: data.project.inputText || "",
+          savedId: loadId,
+          metadata,
+          outputText: data.project.outputText || null,
+        };
+        if (isApWriter) {
+          setApWriterPrefill(prefill);
+          setActiveTab("ap-writer");
+        } else {
+          setAnalyzePrefill(prefill);
+          setActiveTab("analyze");
+        }
+      })
+      .catch(() => {});
+  }, [loadId]);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -189,10 +235,10 @@ export default function ClinicalNotesPage() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="analyze">
-          <AnalyzeTab />
+          <AnalyzeTab prefill={analyzePrefill} />
         </TabsContent>
         <TabsContent value="ap-writer">
-          <ApWriterTab />
+          <ApWriterTab prefill={apWriterPrefill} />
         </TabsContent>
       </Tabs>
     </div>
@@ -201,13 +247,24 @@ export default function ClinicalNotesPage() {
 
 // ── Analyze Tab ────────────────────────────────────────────────────
 
-function AnalyzeTab() {
+function AnalyzeTab({ prefill }: { prefill: Prefill | null }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    if (!prefill) return;
+    setInput(prefill.input);
+    setSavedId(prefill.savedId);
+    if (prefill.outputText) {
+      try {
+        setResult(JSON.parse(prefill.outputText));
+      } catch {}
+    }
+  }, [prefill]);
 
   async function handleAnalyze() {
     if (!input.trim()) return;
@@ -622,7 +679,7 @@ function detectClarificationType(text: string): { type: "dropdown" | "text"; opt
   return { type: "text" };
 }
 
-function ApWriterTab() {
+function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
   const [skeleton, setSkeleton] = useState("");
   const [encounterType, setEncounterType] = useState("established_office");
   const [loading, setLoading] = useState(false);
@@ -631,6 +688,21 @@ function ApWriterTab() {
   const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
   const [copiedAp, setCopiedAp] = useState(false);
   const [copiedEm, setCopiedEm] = useState(false);
+
+  useEffect(() => {
+    if (!prefill) return;
+    setSkeleton(prefill.input);
+    setSavedId(prefill.savedId);
+    const meta = prefill.metadata;
+    if (meta.encounterType && typeof meta.encounterType === "string") {
+      setEncounterType(meta.encounterType);
+    }
+    if (prefill.outputText) {
+      try {
+        setResult(JSON.parse(prefill.outputText));
+      } catch {}
+    }
+  }, [prefill]);
 
   // Clarification dialog state
   const [showClarificationDialog, setShowClarificationDialog] = useState(false);

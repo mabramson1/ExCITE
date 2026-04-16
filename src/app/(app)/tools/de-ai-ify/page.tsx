@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { Wand2, Loader2, Copy, Check, ArrowRight, ArrowDown, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,6 +45,17 @@ interface DeAiResult {
 }
 
 export default function DeAiIfyPage() {
+  return (
+    <Suspense fallback={<div className="max-w-4xl mx-auto flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+      <DeAiIfyContent />
+    </Suspense>
+  );
+}
+
+function DeAiIfyContent() {
+  const searchParams = useSearchParams();
+  const loadId = searchParams.get("load");
+
   const [input, setInput] = useState("");
   const [writingStyle, setWritingStyle] = useState("general");
   const [loading, setLoading] = useState(false);
@@ -52,6 +64,30 @@ export default function DeAiIfyPage() {
   const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
   const [copiedOriginal, setCopiedOriginal] = useState(false);
   const [copiedRewrite, setCopiedRewrite] = useState(false);
+  const [loadingSaved, setLoadingSaved] = useState(false);
+
+  useEffect(() => {
+    if (!loadId) return;
+    setLoadingSaved(true);
+    fetch(`/api/history/${loadId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data?.project) return;
+        setInput(data.project.inputText || "");
+        const meta = data.project.metadata || {};
+        if (meta.writingStyle && typeof meta.writingStyle === "string") {
+          setWritingStyle(meta.writingStyle);
+        }
+        if (data.project.outputText) {
+          try {
+            setResult(JSON.parse(data.project.outputText));
+          } catch {}
+        }
+        setSavedId(loadId);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingSaved(false));
+  }, [loadId]);
 
   async function handleProcess() {
     if (!input.trim()) return;
@@ -134,16 +170,21 @@ export default function DeAiIfyPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleProcess} disabled={loading || !input.trim()}>
+            <Button onClick={handleProcess} disabled={loading || loadingSaved || !input.trim()}>
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Processing...
                 </>
+              ) : loadingSaved ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading...
+                </>
               ) : (
                 <>
                   <Wand2 className="h-4 w-4" />
-                  De-AI-ify
+                  {savedId && result ? "Re-run" : "De-AI-ify"}
                 </>
               )}
             </Button>

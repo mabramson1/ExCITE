@@ -254,9 +254,9 @@ export default function HistoryPage() {
                             <Share2 className="h-3 w-3" />
                           )}
                         </Button>
-                        {/* Open in tool */}
-                        <a href={config.href}>
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Open tool">
+                        {/* Open in tool with pre-filled input (editable) */}
+                        <a href={`${config.href}?load=${item.id}`} title="Open in tool (editable)">
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Open & edit in tool">
                             <ExternalLink className="h-3 w-3" />
                           </Button>
                         </a>

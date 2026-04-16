@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { ScanSearch, Loader2, Copy, Check, AlertTriangle, CheckCircle2, XCircle, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -58,12 +59,43 @@ const verdictConfig: Record<string, { label: string; color: string; icon: React.
 };
 
 export default function AiDetectorPage() {
+  return (
+    <Suspense fallback={<div className="max-w-4xl mx-auto flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+      <AiDetectorContent />
+    </Suspense>
+  );
+}
+
+function AiDetectorContent() {
+  const searchParams = useSearchParams();
+  const loadId = searchParams.get("load");
+
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DetectorResult | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [loadingSaved, setLoadingSaved] = useState(false);
+
+  useEffect(() => {
+    if (!loadId) return;
+    setLoadingSaved(true);
+    fetch(`/api/history/${loadId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data?.project) return;
+        setInput(data.project.inputText || "");
+        if (data.project.outputText) {
+          try {
+            setResult(JSON.parse(data.project.outputText));
+          } catch {}
+        }
+        setSavedId(loadId);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingSaved(false));
+  }, [loadId]);
 
   async function handleDetect() {
     if (!input.trim()) return;
@@ -131,16 +163,21 @@ export default function AiDetectorPage() {
           />
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground">{input.length} characters</p>
-            <Button onClick={handleDetect} disabled={loading || !input.trim()}>
+            <Button onClick={handleDetect} disabled={loading || loadingSaved || !input.trim()}>
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Scanning...
                 </>
+              ) : loadingSaved ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading...
+                </>
               ) : (
                 <>
                   <ScanSearch className="h-4 w-4" />
-                  Detect AI
+                  {savedId && result ? "Re-scan" : "Detect AI"}
                 </>
               )}
             </Button>
@@ -172,7 +209,7 @@ export default function AiDetectorPage() {
                 </div>
                 <Progress value={Math.round(result.consensus_score * 100)} />
                 <p className="text-xs text-muted-foreground mt-2">
-                  Combined score from Claude analysis (60%) and open-source detectors (40%)
+                  Combined score: Claude analysis (60%) + open-source + 2026 heuristics (40%)
                 </p>
               </CardContent>
             </Card>
@@ -225,22 +262,22 @@ export default function AiDetectorPage() {
                                 {detectorVerdict?.label || detector.verdict}
                               </span>
                               <p className="text-[10px] text-muted-foreground">
-                                ChatGPT Detector (Open Source)
+                                {detector.source}
                               </p>
                             </div>
                           </div>
                           <span className="text-xl font-bold">{detectorPercent}%</span>
                         </div>
                         <Progress value={detectorPercent} />
-                        <p className="text-xs text-muted-foreground mt-2">
+                        <p className="text-xs text-muted-foreground mt-2 break-all">
                           {detector.model}
                         </p>
                       </>
                     ) : (
                       <div className="flex items-center gap-2 text-muted-foreground">
-                        <AlertTriangle className="h-4 w-4" />
-                        <div>
-                          <p className="text-sm font-medium">ChatGPT Detector Unavailable</p>
+                        <AlertTriangle className="h-4 w-4 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">{detector.source} Unavailable</p>
                           <p className="text-xs">{detector.error}</p>
                         </div>
                       </div>

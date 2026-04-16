@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { BookOpen, Loader2, Copy, Check, Download, ExternalLink, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -90,6 +91,17 @@ const STYLES = [
 ];
 
 export default function ManuscriptCitationsPage() {
+  return (
+    <Suspense fallback={<div className="max-w-4xl mx-auto flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+      <ManuscriptCitationsContent />
+    </Suspense>
+  );
+}
+
+function ManuscriptCitationsContent() {
+  const searchParams = useSearchParams();
+  const loadId = searchParams.get("load");
+
   const [input, setInput] = useState("");
   const [style, setStyle] = useState("apa");
   const [loading, setLoading] = useState(false);
@@ -97,6 +109,27 @@ export default function ManuscriptCitationsPage() {
   const [savedId, setSavedId] = useState<string | null>(null);
   const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
+  const [loadingSaved, setLoadingSaved] = useState(false);
+
+  useEffect(() => {
+    if (!loadId) return;
+    setLoadingSaved(true);
+    fetch(`/api/history/${loadId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data?.project) return;
+        setInput(data.project.inputText || "");
+        if (data.project.citationStyle) setStyle(data.project.citationStyle);
+        if (data.project.outputText) {
+          try {
+            setResult(JSON.parse(data.project.outputText));
+          } catch {}
+        }
+        setSavedId(loadId);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingSaved(false));
+  }, [loadId]);
 
   async function handleAnalyze() {
     if (!input.trim()) return;
@@ -192,12 +225,19 @@ export default function ManuscriptCitationsPage() {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={handleAnalyze} disabled={loading || !input.trim()}>
+            <Button onClick={handleAnalyze} disabled={loading || loadingSaved || !input.trim()}>
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Analyzing...
                 </>
+              ) : loadingSaved ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading...
+                </>
+              ) : savedId && result ? (
+                "Re-run Citations"
               ) : (
                 "Find Citations"
               )}
