@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { FileText, Loader2, Copy, Check, Download, BookOpen, ExternalLink, AlertTriangle, CheckCircle2, XCircle, Activity, PenTool, RefreshCw, SkipForward, MessageSquarePlus } from "lucide-react";
+import { useState, useEffect } from "react";
+import { FileText, Loader2, Copy, Check, Download, BookOpen, ExternalLink, AlertTriangle, CheckCircle2, XCircle, Activity, PenTool, RefreshCw, SkipForward, MessageSquarePlus, LayoutTemplate, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { PhiWarning } from "@/components/phi-warning";
+import { SPECIALTIES, getTemplatesBySpecialty, getCategoriesForSpecialty, type ApTemplate } from "@/lib/templates";
 
 // ── Shared Types ───────────────────────────────────────────────────
 
@@ -630,6 +631,43 @@ function ApWriterTab() {
   const [clarificationAnswers, setClarificationAnswers] = useState<Record<number, string>>({});
   const [refining, setRefining] = useState(false);
 
+  // Templates dialog state
+  const [showTemplatesDialog, setShowTemplatesDialog] = useState(false);
+  const [selectedSpecialty, setSelectedSpecialty] = useState("nephrology");
+  const [favoriteTemplates, setFavoriteTemplates] = useState<Set<string>>(new Set());
+
+  // Load favorites from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("ap-template-favorites");
+      if (stored) setFavoriteTemplates(new Set(JSON.parse(stored)));
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  function toggleFavoriteTemplate(id: string) {
+    setFavoriteTemplates((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      try {
+        localStorage.setItem("ap-template-favorites", JSON.stringify(Array.from(next)));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }
+
+  function insertTemplate(template: ApTemplate) {
+    setSkeleton((prev) => {
+      if (prev.trim()) return prev + "\n\n" + template.skeleton;
+      return template.skeleton;
+    });
+    setShowTemplatesDialog(false);
+  }
+
   async function handleGenerate(additionalContext?: string) {
     const inputSkeleton = additionalContext
       ? `${skeleton}\n\nAdditional details:\n${additionalContext}`
@@ -779,18 +817,47 @@ function ApWriterTab() {
         </DialogContent>
       </Dialog>
 
+      {/* Templates Dialog */}
+      <TemplatesDialog
+        open={showTemplatesDialog}
+        onOpenChange={setShowTemplatesDialog}
+        specialty={selectedSpecialty}
+        onSpecialtyChange={setSelectedSpecialty}
+        favorites={favoriteTemplates}
+        onToggleFavorite={toggleFavoriteTemplate}
+        onInsert={insertTemplate}
+      />
+
       <Card>
         <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <PenTool className="h-4 w-4" /> A/P Writer
-          </CardTitle>
-          <CardDescription>
-            Provide a skeleton outline and we&apos;ll generate a robust Assessment &amp; Plan that reflects disease severity, clinical complexity, and appropriate E&M documentation.
-          </CardDescription>
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <CardTitle className="text-base flex items-center gap-2">
+                <PenTool className="h-4 w-4" /> A/P Writer
+              </CardTitle>
+              <CardDescription>
+                Provide a skeleton outline and we&apos;ll generate a robust Assessment &amp; Plan that reflects disease severity, clinical complexity, and appropriate E&M documentation.
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowTemplatesDialog(true)}
+              className="shrink-0"
+            >
+              <LayoutTemplate className="h-4 w-4" /> Templates
+              {favoriteTemplates.size > 0 && (
+                <Badge variant="secondary" className="ml-1.5 text-[10px] h-4 px-1">
+                  <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400 mr-0.5" />
+                  {favoriteTemplates.size}
+                </Badge>
+              )}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea
-            placeholder={"Enter your skeleton here. Include:\n\n• Diagnoses (e.g., HTN uncontrolled, DM2 with A1c 8.2%)\n• Key findings (vitals, exam, labs)\n• Current medications\n• What you're planning (med changes, orders, referrals)\n• Any relevant history or complications\n\nExample:\n62M, established patient\nDx: HTN uncontrolled (BP 158/94), DM2 (A1c 8.2%), CKD stage 3a (GFR 52)\nMeds: lisinopril 20mg, metformin 1000 BID, atorvastatin 40mg\nLabs: BMP shows Cr 1.4, K 4.8, A1c 8.2%, lipid panel LDL 118\nPlan: increase lisinopril to 40mg, add empagliflozin 10mg, recheck labs 3 months\nDiscussed diet, exercise, medication adherence"}
+            placeholder={"Enter your skeleton here. Click 'Templates' for specialty-specific starters.\n\nOr include:\n• Diagnoses (e.g., HTN uncontrolled, DM2 with A1c 8.2%)\n• Key findings (vitals, exam, labs)\n• Current medications\n• What you're planning (med changes, orders, referrals)\n• Any relevant history or complications\n\nExample:\n62M, established patient\nDx: HTN uncontrolled (BP 158/94), DM2 (A1c 8.2%), CKD stage 3a (GFR 52)\nMeds: lisinopril 20mg, metformin 1000 BID, atorvastatin 40mg\nLabs: BMP shows Cr 1.4, K 4.8, A1c 8.2%, lipid panel LDL 118\nPlan: increase lisinopril to 40mg, add empagliflozin 10mg, recheck labs 3 months"}
             value={skeleton}
             onChange={(e) => setSkeleton(e.target.value)}
             className="min-h-[250px]"
@@ -1016,6 +1083,190 @@ function ApWriterTab() {
       {result?.raw && (
         <Card><CardContent className="pt-6"><pre className="whitespace-pre-wrap text-sm bg-muted p-4 rounded-lg overflow-auto">{result.raw}</pre></CardContent></Card>
       )}
+    </div>
+  );
+}
+
+// ── Templates Dialog ───────────────────────────────────────────────
+
+function TemplatesDialog({
+  open,
+  onOpenChange,
+  specialty,
+  onSpecialtyChange,
+  favorites,
+  onToggleFavorite,
+  onInsert,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  specialty: string;
+  onSpecialtyChange: (s: string) => void;
+  favorites: Set<string>;
+  onToggleFavorite: (id: string) => void;
+  onInsert: (template: ApTemplate) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+
+  const allTemplates = getTemplatesBySpecialty(specialty);
+  const categories = getCategoriesForSpecialty(specialty);
+
+  const filtered = allTemplates.filter((t) => {
+    if (showFavoritesOnly && !favorites.has(t.id)) return false;
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      return (
+        t.name.toLowerCase().includes(s) ||
+        t.description.toLowerCase().includes(s) ||
+        t.category.toLowerCase().includes(s) ||
+        t.skeleton.toLowerCase().includes(s)
+      );
+    }
+    return true;
+  });
+
+  const favoriteFiltered = filtered.filter((t) => favorites.has(t.id));
+  const nonFavoriteFiltered = filtered.filter((t) => !favorites.has(t.id));
+  const grouped: Record<string, ApTemplate[]> = {};
+  for (const cat of categories) {
+    const inCat = nonFavoriteFiltered.filter((t) => t.category === cat);
+    if (inCat.length > 0) grouped[cat] = inCat;
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <LayoutTemplate className="h-5 w-5 text-primary" />
+            A/P Templates
+          </DialogTitle>
+          <DialogDescription>
+            Click a template to insert it. Star templates you use often — they&apos;ll appear at the top.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex items-center gap-2 flex-wrap py-2 border-y">
+          <Select value={specialty} onValueChange={onSpecialtyChange}>
+            <SelectTrigger className="w-44 h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SPECIALTIES.map((s) => (
+                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
+            placeholder="Search templates..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="flex-1 h-8 text-xs"
+          />
+          <Button
+            variant={showFavoritesOnly ? "default" : "outline"}
+            size="sm"
+            className="h-8"
+            onClick={() => setShowFavoritesOnly((v) => !v)}
+          >
+            <Star className={`h-3 w-3 ${showFavoritesOnly ? "fill-amber-400 text-amber-400" : ""}`} />
+            Favorites
+            {favorites.size > 0 && (
+              <span className="ml-1 text-[10px] text-muted-foreground">({favorites.size})</span>
+            )}
+          </Button>
+        </div>
+
+        {favoriteFiltered.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+              <Star className="h-3 w-3 fill-amber-400 text-amber-400" /> Favorites
+            </h3>
+            <div className="space-y-1.5">
+              {favoriteFiltered.map((t) => (
+                <TemplateRow
+                  key={t.id}
+                  template={t}
+                  isFavorite
+                  onToggleFavorite={onToggleFavorite}
+                  onInsert={onInsert}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {Object.keys(grouped).length === 0 && favoriteFiltered.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-8">
+            No templates match your filters.
+          </p>
+        )}
+
+        {Object.entries(grouped).map(([cat, templates]) => (
+          <div key={cat} className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              {cat}
+            </h3>
+            <div className="space-y-1.5">
+              {templates.map((t) => (
+                <TemplateRow
+                  key={t.id}
+                  template={t}
+                  isFavorite={false}
+                  onToggleFavorite={onToggleFavorite}
+                  onInsert={onInsert}
+                />
+              ))}
+            </div>
+          </div>
+        ))}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function TemplateRow({
+  template,
+  isFavorite,
+  onToggleFavorite,
+  onInsert,
+}: {
+  template: ApTemplate;
+  isFavorite: boolean;
+  onToggleFavorite: (id: string) => void;
+  onInsert: (template: ApTemplate) => void;
+}) {
+  return (
+    <div className="flex items-start gap-2 p-2.5 rounded-lg border hover:border-primary/30 hover:bg-muted/30 transition-colors group">
+      <button
+        onClick={() => onToggleFavorite(template.id)}
+        className="mt-0.5 shrink-0"
+        aria-label={isFavorite ? "Unfavorite" : "Favorite"}
+      >
+        <Star
+          className={`h-4 w-4 transition-colors ${
+            isFavorite
+              ? "fill-amber-400 text-amber-400"
+              : "text-muted-foreground/30 hover:text-amber-400"
+          }`}
+        />
+      </button>
+      <button
+        onClick={() => onInsert(template)}
+        className="flex-1 text-left min-w-0"
+      >
+        <p className="text-sm font-medium">{template.name}</p>
+        <p className="text-xs text-muted-foreground">{template.description}</p>
+      </button>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-7 text-xs opacity-0 group-hover:opacity-100 shrink-0"
+        onClick={() => onInsert(template)}
+      >
+        Insert
+      </Button>
     </div>
   );
 }
