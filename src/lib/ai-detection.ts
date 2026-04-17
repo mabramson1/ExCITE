@@ -145,12 +145,20 @@ export function detectStatistical2026(text: string): ExternalDetectionResult {
   const cleanlinessAiScore = wordCount > 100 && quirks === 0 ? 0.2 : 0;
   void hasInconsistentCase; // not used yet
 
+  // ── Signal 6: Lexical diversity (MTLD approximation) ───────────
+  // MTLD: how many words on average before the type-token ratio drops
+  // below a threshold. Humans cluster 70-90; LLMs skew 100-140+.
+  const mtld = computeMTLD(words);
+  // Score rises when MTLD exceeds 95 (the human-AI boundary)
+  const mtldAiScore = mtld > 0 ? Math.max(0, Math.min(1, (mtld - 95) / 45)) : 0;
+
   // ── Weighted combination ────────────────────────────────────────
   const combined =
-    0.3 * burstinessAiScore +
-    0.25 * emDashAiScore +
-    0.2 * pivotAiScore +
+    0.25 * burstinessAiScore +
+    0.2 * emDashAiScore +
+    0.18 * pivotAiScore +
     0.15 * rhetoricAiScore +
+    0.12 * mtldAiScore +
     0.1 * cleanlinessAiScore;
 
   const aiProb = Math.max(0, Math.min(1, combined));
@@ -164,7 +172,7 @@ export function detectStatistical2026(text: string): ExternalDetectionResult {
 
   return {
     source: "Local heuristics (2026)",
-    model: `burstiness=${cv.toFixed(2)}, em-dash/1k=${emDashPer1000.toFixed(1)}, pivots=${pivotHits}, rhetoric=${rhetoricHits}`,
+    model: `burstiness=${cv.toFixed(2)}, em-dash/1k=${emDashPer1000.toFixed(1)}, pivots=${pivotHits}, rhetoric=${rhetoricHits}, MTLD=${mtld.toFixed(0)}`,
     ai_probability: Math.round(aiProb * 1000) / 1000,
     human_probability: Math.round(humanProb * 1000) / 1000,
     verdict,
@@ -254,12 +262,93 @@ export async function detectWithSapling(
 }
 
 /**
+ * Pangram Labs AI detector.
+ *
+ * SOTA on 2025 benchmarks (RAID, M4GT, HART). Free dev key allows ~25-50
+ * calls/day. Gracefully degrades when cap is hit or key is absent.
+ *
+ * Requires PANGRAM_API_KEY environment variable (optional).
+ */
+export async function detectWithPangram(
+  text: string
+): Promise<ExternalDetectionResult> {
+  const unavailable = (error: string): ExternalDetectionResult => ({
+    source: "Pangram Labs",
+    model: "pangram-text-predict",
+    ai_probability: 0,
+    human_probability: 0,
+    verdict: "unavailable",
+    available: false,
+    error,
+  });
+
+  try {
+    if (!process.env.PANGRAM_API_KEY) {
+      return unavailable(
+        "PANGRAM_API_KEY not configured. Get a free dev key at https://pangram.com/"
+      );
+    }
+
+    const res = await fetch("https://api.pangram.com/text-predict", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.PANGRAM_API_KEY,
+      },
+      body: JSON.stringify({ text }),
+    });
+
+    if (!res.ok) {
+      if (res.status === 401 || res.status === 403) {
+        return unavailable("Pangram API key rejected. Verify the key.");
+      }
+      if (res.status === 429) {
+        return unavailable("Pangram daily quota exhausted. Try again tomorrow.");
+      }
+      throw new Error(`Pangram API error: ${res.status}`);
+    }
+
+    const data = await res.json();
+    const aiProb: number =
+      typeof data.ai_likelihood === "number" ? data.ai_likelihood : 0;
+    const humanProb = Math.max(0, 1 - aiProb);
+
+    let verdict: string;
+    if (aiProb >= 0.8) verdict = "definitely_ai";
+    else if (aiProb >= 0.55) verdict = "likely_ai";
+    else if (aiProb >= 0.3) verdict = "possibly_ai";
+    else verdict = "likely_human";
+
+    return {
+      source: "Pangram Labs",
+      model: "pangram-text-predict",
+      ai_probability: Math.round(aiProb * 1000) / 1000,
+      human_probability: Math.round(humanProb * 1000) / 1000,
+      verdict,
+      available: true,
+    };
+  } catch (error) {
+    console.error("Pangram detector error:", error);
+    return {
+      source: "Pangram Labs",
+      model: "pangram-text-predict",
+      ai_probability: 0,
+      human_probability: 0,
+      verdict: "error",
+      available: false,
+      error: error instanceof Error ? error.message : "Detection failed",
+    };
+  }
+}
+
+/**
  * Run all available external detectors and return aggregated results.
  */
 export async function runExternalDetectors(
   text: string
 ): Promise<ExternalDetectionResult[]> {
   const results = await Promise.allSettled([
+    detectWithPangram(text),
     detectWithSapling(text),
     Promise.resolve(detectStatistical2026(text)),
   ]);
@@ -277,4 +366,45 @@ export async function runExternalDetectors(
           error: "Detection failed",
         }
   );
+}
+
+/**
+ * MTLD: Measure of Textual Lexical Diversity.
+ * Average number of consecutive words before type-token ratio drops below
+ * a threshold. Run forward + backward and average the two passes.
+ */
+function computeMTLD(words: string[]): number {
+  if (words.length < 10) return 0;
+
+  function onePass(tokens: string[]): number {
+    const threshold = 0.72;
+    let factors = 0;
+    let segStart = 0;
+    const seen = new Set<string>();
+
+    for (let i = 0; i < tokens.length; i++) {
+      seen.add(tokens[i].toLowerCase());
+      const ttr = seen.size / (i - segStart + 1);
+      if (ttr <= threshold) {
+        factors++;
+        segStart = i + 1;
+        seen.clear();
+      }
+    }
+
+    if (segStart < tokens.length) {
+      const remaining = tokens.length - segStart;
+      const remainingTypes = seen.size;
+      const remainingTtr = remainingTypes / remaining;
+      if (remainingTtr < 1) {
+        factors += (1 - remainingTtr) / (1 - threshold);
+      }
+    }
+
+    return factors > 0 ? tokens.length / factors : tokens.length;
+  }
+
+  const forward = onePass(words);
+  const backward = onePass([...words].reverse());
+  return (forward + backward) / 2;
 }
