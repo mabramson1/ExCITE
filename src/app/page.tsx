@@ -115,9 +115,17 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t py-8 text-center text-sm text-muted-foreground">
-        <div className="max-w-6xl mx-auto px-4">
-          exCITE &copy; {new Date().getFullYear()}. Citation Intelligence for Healthcare & Academia.
+      <footer className="border-t py-8 text-sm text-muted-foreground">
+        <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <span>exCITE &copy; {new Date().getFullYear()}. Citation Intelligence for Healthcare &amp; Academia.</span>
+          <div className="flex items-center gap-4">
+            <Link href="/privacy" className="hover:text-foreground transition-colors">
+              Privacy Policy
+            </Link>
+            <Link href="/terms" className="hover:text-foreground transition-colors">
+              Terms of Use
+            </Link>
+          </div>
         </div>
       </footer>
     </div>

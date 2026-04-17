@@ -3,29 +3,55 @@ import { detectAiText } from "@/lib/ai/claude";
 import { scanAndCensorPhi } from "@/lib/phi-detection";
 import { runExternalDetectors } from "@/lib/ai-detection";
 import { autoSaveProject } from "@/lib/auto-save";
+import { checkRateLimit, validateInput } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
-    const { text } = await req.json();
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0] ?? "unknown";
+    const rl = checkRateLimit(ip);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Too many requests. Please wait a moment." },
+        { status: 429 }
+      );
+    }
 
-    if (!text || typeof text !== "string") {
-      return NextResponse.json({ error: "Text is required" }, { status: 400 });
+    const { text } = await req.json();
+    const v = validateInput(text);
+    if (!v.ok) {
+      return NextResponse.json({ error: v.error }, { status: 400 });
     }
 
     const phiResult = scanAndCensorPhi(text);
 
-    // Run Claude analysis and external detectors in parallel
-    const [analysis, externalResults] = await Promise.all([
-      detectAiText(phiResult.censoredText),
-      runExternalDetectors(phiResult.censoredText),
+    // Run Claude analysis and external detectors in parallel.
+    // Claude gets a 30-second timeout — if it's slow, we still return externals.
+    const claudePromise = detectAiText(phiResult.censoredText);
+    const externalPromise = runExternalDetectors(phiResult.censoredText);
+
+    const claudeWithTimeout = Promise.race([
+      claudePromise,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 30_000)),
+    ]);
+
+    const [analysisOrNull, externalResults] = await Promise.all([
+      claudeWithTimeout,
+      externalPromise,
     ]);
 
     let parsed;
-    try {
-      const jsonMatch = analysis.match(/\{[\s\S]*\}/);
-      parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { raw: analysis };
-    } catch {
-      parsed = { raw: analysis };
+    if (analysisOrNull) {
+      try {
+        const jsonMatch = analysisOrNull.match(/\{[\s\S]*\}/);
+        parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { raw: analysisOrNull };
+      } catch {
+        parsed = { raw: analysisOrNull };
+      }
+    } else {
+      parsed = {
+        verdict: "unavailable",
+        reasoning: "Claude analysis timed out. Results below are from external detectors only.",
+      };
     }
 
     // Add external detection results

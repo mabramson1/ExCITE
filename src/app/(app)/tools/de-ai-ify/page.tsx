@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Wand2, Loader2, Copy, Check, ArrowRight, ArrowDown, Shield } from "lucide-react";
+import { Wand2, Loader2, Copy, Check, ArrowRight, ArrowDown, Shield, Upload } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +12,8 @@ import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PhiWarning } from "@/components/phi-warning";
 import { ResultActions } from "@/components/result-actions";
+
+const MAX_LENGTH = 50_000;
 
 const WRITING_STYLES = [
   { value: "general", label: "General", description: "Natural, versatile rewrite" },
@@ -65,6 +68,7 @@ function DeAiIfyContent() {
   const [copiedOriginal, setCopiedOriginal] = useState(false);
   const [copiedRewrite, setCopiedRewrite] = useState(false);
   const [loadingSaved, setLoadingSaved] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!loadId) return;
@@ -91,6 +95,10 @@ function DeAiIfyContent() {
 
   async function handleProcess() {
     if (!input.trim()) return;
+    if (input.length > MAX_LENGTH) {
+      toast.error("Text exceeds 50,000 character limit");
+      return;
+    }
     setLoading(true);
     setResult(null);
     setSavedId(null);
@@ -103,14 +111,38 @@ function DeAiIfyContent() {
         body: JSON.stringify({ text: input, writingStyle }),
       });
       const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Analysis failed");
+        return;
+      }
       if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
       setResult(data.result);
       setSavedId(data.savedId || null);
+      toast.success("Analysis complete");
     } catch {
-      setResult({ raw: "An error occurred. Please check your API key and try again." });
+      toast.error("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 500_000) {
+      toast.error("File too large. Maximum 500KB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result;
+      if (typeof text === "string") {
+        setInput(text.slice(0, MAX_LENGTH));
+        toast.success(`Loaded ${file.name}`);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
   }
 
   function copyText(text: string, setter: (v: boolean) => void) {
@@ -153,6 +185,27 @@ function DeAiIfyContent() {
           />
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
+              <p className={`text-xs ${input.length > MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                {input.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()}
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".txt,.md,.doc,.docx,.rtf"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="h-3 w-3" />
+                Upload file
+              </Button>
+            </div>
+            <div className="flex items-center gap-3">
               <label className="text-sm text-muted-foreground">Rewrite for:</label>
               <Select value={writingStyle} onValueChange={setWritingStyle}>
                 <SelectTrigger className="w-56">
@@ -169,25 +222,25 @@ function DeAiIfyContent() {
                   ))}
                 </SelectContent>
               </Select>
+              <Button onClick={handleProcess} disabled={loading || loadingSaved || !input.trim() || input.length > MAX_LENGTH}>
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : loadingSaved ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="h-4 w-4" />
+                    {savedId && result ? "Re-run" : "De-AI-ify"}
+                  </>
+                )}
+              </Button>
             </div>
-            <Button onClick={handleProcess} disabled={loading || loadingSaved || !input.trim()}>
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : loadingSaved ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                <>
-                  <Wand2 className="h-4 w-4" />
-                  {savedId && result ? "Re-run" : "De-AI-ify"}
-                </>
-              )}
-            </Button>
           </div>
         </CardContent>
       </Card>

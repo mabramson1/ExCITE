@@ -3,13 +3,23 @@ import { generateManuscriptCitations } from "@/lib/ai/claude";
 import { scanAndCensorPhi } from "@/lib/phi-detection";
 import { verifyCitation, searchPubMed, searchCrossRef } from "@/lib/pubmed";
 import { autoSaveProject } from "@/lib/auto-save";
+import { checkRateLimit, validateInput } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
-    const { text, style = "apa" } = await req.json();
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0] ?? "unknown";
+    const rl = checkRateLimit(ip);
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Too many requests. Please wait a moment." },
+        { status: 429 }
+      );
+    }
 
-    if (!text || typeof text !== "string") {
-      return NextResponse.json({ error: "Text is required" }, { status: 400 });
+    const { text, style = "apa" } = await req.json();
+    const v = validateInput(text);
+    if (!v.ok) {
+      return NextResponse.json({ error: v.error }, { status: 400 });
     }
 
     const phiResult = scanAndCensorPhi(text);
