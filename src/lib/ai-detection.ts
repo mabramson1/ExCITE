@@ -104,6 +104,11 @@ export function detectStatistical2026(text: string): ExternalDetectionResult {
     /^let'?s (be|unpack|dive|explore)/i, /^at its core/i,
     /^the (real )?question is/i, /^think of (it|this) like/i,
     /^that'?s the beauty of/i, /^let me be (direct|clear|honest)/i,
+    /^it is (important|worth noting|crucial|essential|critical) to/i,
+    /^as we (move|look|step) (forward|ahead)/i, /^moving forward/i,
+    /^in the ever[- ]evolving/i, /^in today'?s (rapidly )?(evolving|changing)/i,
+    /^(at the end of the day|when all is said and done)/i,
+    /^in (this|an) era of/i, /^(the bottom line is|the key takeaway)/i,
   ];
   let pivotHits = 0;
   for (const s of sentences) {
@@ -152,14 +157,24 @@ export function detectStatistical2026(text: string): ExternalDetectionResult {
   // Score rises when MTLD exceeds 95 (the human-AI boundary)
   const mtldAiScore = mtld > 0 ? Math.max(0, Math.min(1, (mtld - 95) / 45)) : 0;
 
+  // ── Signal 7: Buzzword density ──────────────────────────────────
+  // Corporate/academic filler that LLMs over-produce. Humans use a few
+  // of these; LLMs pack 5-15+ per 100 words.
+  const buzzwords = /\b(leverag(e|ing)|synerg(y|istic|ies)|holist(ic|ically)|paradigm|nexus|stakeholder|ecosystem|actionable|transformative|seamless(ly)?|interoperability|future[- ]proof(ed|ing)?|cutting[- ]edge|robust|innovative|empower(ed|ing|ment)|unparalleled|quintessential|facilitat(e|ing|es)|optimiz(e|ing|ation)|framework|scalable|mission[- ]critical|ever[- ]evolving|landscape|tapestry|multifaceted|underscores?|reimagin(e|ing)|underpin(s|ning)?|pivotal|nuance[ds]?|delve|comprehensive|foster(s|ing)?|bolster(s|ing)?)\b/gi;
+  const buzzHits = (trimmed.match(buzzwords) || []).length;
+  const buzzPer100 = wordCount > 0 ? (buzzHits / wordCount) * 100 : 0;
+  // Humans rarely exceed 2 per 100 words; LLMs hit 5-15+
+  const buzzAiScore = Math.max(0, Math.min(1, (buzzPer100 - 2) / 6));
+
   // ── Weighted combination ────────────────────────────────────────
   const combined =
-    0.25 * burstinessAiScore +
-    0.2 * emDashAiScore +
-    0.18 * pivotAiScore +
-    0.15 * rhetoricAiScore +
-    0.12 * mtldAiScore +
-    0.1 * cleanlinessAiScore;
+    0.2 * burstinessAiScore +
+    0.15 * emDashAiScore +
+    0.15 * pivotAiScore +
+    0.1 * rhetoricAiScore +
+    0.1 * mtldAiScore +
+    0.22 * buzzAiScore +
+    0.08 * cleanlinessAiScore;
 
   const aiProb = Math.max(0, Math.min(1, combined));
   const humanProb = 1 - aiProb;
@@ -172,7 +187,7 @@ export function detectStatistical2026(text: string): ExternalDetectionResult {
 
   return {
     source: "Local heuristics (2026)",
-    model: `burstiness=${cv.toFixed(2)}, em-dash/1k=${emDashPer1000.toFixed(1)}, pivots=${pivotHits}, rhetoric=${rhetoricHits}, MTLD=${mtld.toFixed(0)}`,
+    model: `burstiness=${cv.toFixed(2)}, em-dash/1k=${emDashPer1000.toFixed(1)}, pivots=${pivotHits}, rhetoric=${rhetoricHits}, MTLD=${mtld.toFixed(0)}, buzz=${buzzHits}`,
     ai_probability: Math.round(aiProb * 1000) / 1000,
     human_probability: Math.round(humanProb * 1000) / 1000,
     verdict,
