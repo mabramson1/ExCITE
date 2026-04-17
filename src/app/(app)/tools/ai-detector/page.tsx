@@ -1,15 +1,19 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { ScanSearch, Loader2, Copy, Check, AlertTriangle, CheckCircle2, XCircle, Shield } from "lucide-react";
+import { ScanSearch, Loader2, Copy, Check, AlertTriangle, CheckCircle2, XCircle, Shield, Upload } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PhiWarning } from "@/components/phi-warning";
 import { ResultActions } from "@/components/result-actions";
+
+const MAX_LENGTH = 50_000;
 
 interface SentenceScore {
   sentence: string;
@@ -77,6 +81,7 @@ function AiDetectorContent() {
   const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [loadingSaved, setLoadingSaved] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!loadId) return;
@@ -99,6 +104,10 @@ function AiDetectorContent() {
 
   async function handleDetect() {
     if (!input.trim()) return;
+    if (input.length > MAX_LENGTH) {
+      toast.error(`Text exceeds ${MAX_LENGTH.toLocaleString()} character limit`);
+      return;
+    }
     setLoading(true);
     setResult(null);
     setSavedId(null);
@@ -111,14 +120,38 @@ function AiDetectorContent() {
         body: JSON.stringify({ text: input }),
       });
       const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Analysis failed");
+        return;
+      }
       if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
       setResult(data.result);
       setSavedId(data.savedId || null);
+      toast.success("Analysis complete");
     } catch {
-      setResult({ raw: "An error occurred. Please check your API key and try again." });
+      toast.error("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 500_000) {
+      toast.error("File too large. Maximum 500KB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result;
+      if (typeof text === "string") {
+        setInput(text.slice(0, MAX_LENGTH));
+        toast.success(`Loaded ${file.name}`);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
   }
 
   function copyRewrite(text: string, index: number) {
@@ -162,8 +195,28 @@ function AiDetectorContent() {
             className="min-h-[200px]"
           />
           <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">{input.length} characters</p>
-            <Button onClick={handleDetect} disabled={loading || loadingSaved || !input.trim()}>
+            <div className="flex items-center gap-3">
+              <p className={`text-xs ${input.length > MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                {input.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()}
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".txt,.md,.doc,.docx,.rtf"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="h-3 w-3" />
+                Upload file
+              </Button>
+            </div>
+            <Button onClick={handleDetect} disabled={loading || loadingSaved || !input.trim() || input.length > MAX_LENGTH}>
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -186,6 +239,39 @@ function AiDetectorContent() {
       </Card>
 
       {phiWarnings.length > 0 && <PhiWarning warnings={phiWarnings} />}
+
+      {loading && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-8 w-24" />
+          </div>
+          <Card>
+            <CardContent className="pt-6 space-y-3">
+              <div className="flex items-center justify-between">
+                <Skeleton className="h-5 w-48" />
+                <Skeleton className="h-8 w-16" />
+              </div>
+              <Skeleton className="h-2 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+            </CardContent>
+          </Card>
+          <div className="grid md:grid-cols-2 gap-4">
+            {[1, 2, 3].map((i) => (
+              <Card key={i}>
+                <CardContent className="pt-6 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-5 w-32" />
+                    <Skeleton className="h-7 w-12" />
+                  </div>
+                  <Skeleton className="h-2 w-full" />
+                  <Skeleton className="h-3 w-2/3" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       {result && !result.raw && (
         <div className="space-y-4">
@@ -340,7 +426,7 @@ function AiDetectorContent() {
                     );
                   })}
                 </div>
-                <div className="flex items-center gap-4 mt-4 pt-3 border-t text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-3 mt-4 pt-3 border-t text-xs text-muted-foreground">
                   <div className="flex items-center gap-1.5">
                     <span className="w-3 h-3 rounded bg-red-100 dark:bg-red-950/40 border" />
                     Definitely AI (80%+)

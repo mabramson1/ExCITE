@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FileText, BookOpen, Wand2, ScanSearch, Clock, Loader2, Trash2, Star, Share2, Link2, ExternalLink } from "lucide-react";
+import { FileText, BookOpen, Wand2, ScanSearch, Clock, Loader2, Trash2, Star, Share2, Link2, ExternalLink, Download } from "lucide-react";
+import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -112,9 +113,35 @@ export default function HistoryPage() {
     try {
       await fetch(`/api/history/${id}`, { method: "DELETE" });
       setItems((prev) => prev.filter((item) => item.id !== id));
+      toast.success("Deleted");
     } catch {
-      // Silently fail
+      toast.error("Failed to delete");
     }
+  }
+
+  function exportCsv() {
+    if (filtered.length === 0) return;
+    const header = "Title,Type,Favorite,Created,Shared";
+    const rows = filtered.map((item) => {
+      const config = typeConfig[item.type] || typeConfig.clinical_note;
+      const created = new Date(item.createdAt).toLocaleDateString();
+      return [
+        `"${item.title.replace(/"/g, '""')}"`,
+        config.label,
+        item.favorite ? "Yes" : "No",
+        created,
+        item.shareId ? "Yes" : "No",
+      ].join(",");
+    });
+    const csv = [header, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `excite-history-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${filtered.length} items`);
   }
 
   const filtered = items.filter((item) => {
@@ -135,12 +162,20 @@ export default function HistoryPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">History</h1>
-        <p className="text-muted-foreground text-sm">
-          {items.length} analysis{items.length !== 1 ? "es" : ""} saved
-          {favoriteCount > 0 && ` · ${favoriteCount} favorited`}
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">History</h1>
+          <p className="text-muted-foreground text-sm">
+            {items.length} analysis{items.length !== 1 ? "es" : ""} saved
+            {favoriteCount > 0 && ` · ${favoriteCount} favorited`}
+          </p>
+        </div>
+        {items.length > 0 && (
+          <Button variant="outline" size="sm" onClick={exportCsv}>
+            <Download className="h-3.5 w-3.5" />
+            Export CSV
+          </Button>
+        )}
       </div>
 
       {error && (
@@ -228,8 +263,8 @@ export default function HistoryPage() {
                           </CardDescription>
                         </div>
                       </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <Badge variant="secondary" className="text-[10px]">{config.label}</Badge>
+                      <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
+                        <Badge variant="secondary" className="text-[10px] hidden sm:inline-flex">{config.label}</Badge>
                         {item.citationStyle && (
                           <Badge variant="outline" className="text-[10px]">{item.citationStyle.toUpperCase()}</Badge>
                         )}

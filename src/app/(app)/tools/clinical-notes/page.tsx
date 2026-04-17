@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { FileText, Loader2, Copy, Check, Download, BookOpen, ExternalLink, AlertTriangle, CheckCircle2, XCircle, Activity, PenTool, RefreshCw, SkipForward, MessageSquarePlus, LayoutTemplate, Star } from "lucide-react";
+import { FileText, Loader2, Copy, Check, Download, BookOpen, ExternalLink, AlertTriangle, CheckCircle2, XCircle, Activity, PenTool, RefreshCw, SkipForward, MessageSquarePlus, LayoutTemplate, Star, Upload } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { PhiWarning } from "@/components/phi-warning";
 import { ResultActions } from "@/components/result-actions";
 import { SPECIALTIES, getTemplatesBySpecialty, getCategoriesForSpecialty, type ApTemplate } from "@/lib/templates";
+
+const MAX_LENGTH = 50_000;
 
 // ── Shared Types ───────────────────────────────────────────────────
 
@@ -254,6 +257,7 @@ function AnalyzeTab({ prefill }: { prefill: Prefill | null }) {
   const [savedId, setSavedId] = useState<string | null>(null);
   const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!prefill) return;
@@ -268,6 +272,10 @@ function AnalyzeTab({ prefill }: { prefill: Prefill | null }) {
 
   async function handleAnalyze() {
     if (!input.trim()) return;
+    if (input.length > MAX_LENGTH) {
+      toast.error("Text exceeds 50,000 character limit");
+      return;
+    }
     setLoading(true);
     setResult(null);
     setSavedId(null);
@@ -280,14 +288,38 @@ function AnalyzeTab({ prefill }: { prefill: Prefill | null }) {
         body: JSON.stringify({ text: input }),
       });
       const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Analysis failed");
+        return;
+      }
       if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
       setResult(data.result);
       setSavedId(data.savedId || null);
+      toast.success("Analysis complete");
     } catch {
-      setResult({ raw: "An error occurred. Please check your API key and try again." });
+      toast.error("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 500_000) {
+      toast.error("File too large. Maximum 500KB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result;
+      if (typeof text === "string") {
+        setInput(text.slice(0, MAX_LENGTH));
+        toast.success(`Loaded ${file.name}`);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
   }
 
   function handleCopy() {
@@ -341,8 +373,28 @@ function AnalyzeTab({ prefill }: { prefill: Prefill | null }) {
             className="min-h-[200px]"
           />
           <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">{input.length} characters</p>
-            <Button onClick={handleAnalyze} disabled={loading || !input.trim()}>
+            <div className="flex items-center gap-3">
+              <p className={`text-xs ${input.length > MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                {input.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()}
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".txt,.md,.doc,.docx,.rtf"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="h-3 w-3" />
+                Upload file
+              </Button>
+            </div>
+            <Button onClick={handleAnalyze} disabled={loading || !input.trim() || input.length > MAX_LENGTH}>
               {loading ? (
                 <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing...</>
               ) : (

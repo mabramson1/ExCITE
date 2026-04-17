@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { project, user } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -8,6 +9,39 @@ import { Badge } from "@/components/ui/badge";
 import { PrintButton } from "./print-button";
 import { PdfAutoDownload } from "./pdf-auto-download";
 import { Suspense } from "react";
+
+const typeLabels: Record<string, string> = {
+  clinical_note: "Clinical Note Analysis",
+  manuscript: "Manuscript Citations",
+  deai: "De-AI-ifier",
+  ai_detector: "AI Detection",
+};
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const [result] = await db
+    .select({ title: project.title, type: project.type })
+    .from(project)
+    .where(eq(project.shareId, id))
+    .limit(1);
+
+  if (!result) return { title: "Shared Analysis — exCITE" };
+
+  const typeLabel = typeLabels[result.type] || "Analysis";
+  return {
+    title: `${result.title} — exCITE`,
+    description: `${typeLabel} shared via exCITE — Citation Intelligence for Healthcare & Academia.`,
+    openGraph: {
+      title: `${result.title} — exCITE`,
+      description: `${typeLabel} shared via exCITE.`,
+      type: "article",
+    },
+  };
+}
 
 const typeConfig: Record<string, { icon: React.ElementType; label: string; color: string }> = {
   clinical_note: { icon: FileText, label: "Clinical Note Analysis", color: "text-blue-600 bg-blue-50 dark:bg-blue-950/40" },
