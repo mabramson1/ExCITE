@@ -22,19 +22,6 @@
 const HF_MODEL = "PirateXX/AI-Content-Detector";
 const HF_API_URL = `https://router.huggingface.co/hf-inference/models/${HF_MODEL}`;
 
-// Per-model label conventions. Different detectors invert LABEL_0/LABEL_1,
-// so lookup by HF_MODEL id rather than hardcoding either convention.
-const HF_LABEL_MAP: Record<string, { ai: Set<string>; human: Set<string> }> = {
-  "PirateXX/AI-Content-Detector": {
-    ai: new Set(["label_0", "fake", "ai", "generated", "machine", "llm"]),
-    human: new Set(["label_1", "real", "human"]),
-  },
-  "Hello-SimpleAI/chatgpt-detector-roberta": {
-    ai: new Set(["label_1", "chatgpt", "ai", "fake", "generated", "machine", "llm"]),
-    human: new Set(["label_0", "human", "real"]),
-  },
-};
-
 interface HfClassificationResult {
   label: string;
   score: number;
@@ -111,11 +98,35 @@ export async function detectWithRoberta(
       let aiScore = 0;
       let humanScore = 0;
 
-      const map = HF_LABEL_MAP[HF_MODEL];
       for (const item of classifications) {
         const label = (item.label || "").toLowerCase();
-        if (map.ai.has(label)) aiScore = item.score;
-        else if (map.human.has(label)) humanScore = item.score;
+        if (HF_MODEL === "PirateXX/AI-Content-Detector") {
+          // PirateXX: LABEL_0 = Fake/AI, LABEL_1 = Real/Human
+          if (label === "label_0" || label === "fake" || label === "ai") {
+            aiScore = item.score;
+          } else if (label === "label_1" || label === "real" || label === "human") {
+            humanScore = item.score;
+          }
+        } else {
+          // HC3 and similar: LABEL_0 = Human, LABEL_1 = AI
+          if (label === "human" || label === "real" || label === "label_0") {
+            humanScore = item.score;
+          } else if (label === "chatgpt" || label === "ai" || label === "fake" || label === "label_1") {
+            aiScore = item.score;
+          }
+        }
+      }
+
+      // Position-based fallback: if no labels matched, assume the standard
+      // 2-element array where index 0 = first class, index 1 = second class
+      if (aiScore === 0 && humanScore === 0 && classifications.length >= 2) {
+        if (HF_MODEL === "PirateXX/AI-Content-Detector") {
+          aiScore = classifications[0].score;
+          humanScore = classifications[1].score;
+        } else {
+          humanScore = classifications[0].score;
+          aiScore = classifications[1].score;
+        }
       }
       // If only one label came back, infer the complement
       if (aiScore === 0 && humanScore > 0) aiScore = 1 - humanScore;
