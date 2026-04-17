@@ -274,7 +274,7 @@ export async function detectWithPangram(
 ): Promise<ExternalDetectionResult> {
   const unavailable = (error: string): ExternalDetectionResult => ({
     source: "Pangram Labs",
-    model: "pangram-text-predict",
+    model: "pangram-v3",
     ai_probability: 0,
     human_probability: 0,
     verdict: "unavailable",
@@ -289,7 +289,7 @@ export async function detectWithPangram(
       );
     }
 
-    const res = await fetch("https://api.pangram.com/text-predict", {
+    const res = await fetch("https://text.api.pangram.com/v3", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -309,9 +309,14 @@ export async function detectWithPangram(
     }
 
     const data = await res.json();
-    const aiProb: number =
-      typeof data.ai_likelihood === "number" ? data.ai_likelihood : 0;
-    const humanProb = Math.max(0, 1 - aiProb);
+    // v3 response: fraction_ai, fraction_ai_assisted, fraction_human (each 0-1)
+    const fractionAi: number =
+      typeof data.fraction_ai === "number" ? data.fraction_ai : 0;
+    const fractionAssisted: number =
+      typeof data.fraction_ai_assisted === "number" ? data.fraction_ai_assisted : 0;
+    const aiProb = Math.min(1, fractionAi + fractionAssisted);
+    const humanProb: number =
+      typeof data.fraction_human === "number" ? data.fraction_human : Math.max(0, 1 - aiProb);
 
     let verdict: string;
     if (aiProb >= 0.8) verdict = "definitely_ai";
@@ -321,7 +326,7 @@ export async function detectWithPangram(
 
     return {
       source: "Pangram Labs",
-      model: "pangram-text-predict",
+      model: "pangram-v3",
       ai_probability: Math.round(aiProb * 1000) / 1000,
       human_probability: Math.round(humanProb * 1000) / 1000,
       verdict,
@@ -331,7 +336,7 @@ export async function detectWithPangram(
     console.error("Pangram detector error:", error);
     return {
       source: "Pangram Labs",
-      model: "pangram-text-predict",
+      model: "pangram-v3",
       ai_probability: 0,
       human_probability: 0,
       verdict: "error",
