@@ -1,31 +1,21 @@
 /**
  * Open-source AI text detection integrations.
  *
- * Uses HuggingFace Inference API with `PirateXX/AI-Content-Detector` — a
- * RoBERTa-based classifier (updated May 2025, ~52k downloads/month, #2 most
- * downloaded AI detector on HF). It correctly flags modern essay-style LLM
- * prose that the older HC3-trained model misses.
+ * Two detectors:
+ *  - Sapling API (https://sapling.ai) — commercial detector with a free tier
+ *    (~50k chars/month) that is retrained on modern LLMs (GPT-4o/5, Claude,
+ *    Gemini) and handles essay-style prose well.
+ *  - Local 2026 heuristic detector — burstiness + em-dash density + pivot
+ *    phrases + rhetorical "not X but Y" patterns. Always available, no API.
  *
- * Why this specific model? HF's free `hf-inference` router is CPU-only and
- * only auto-loads models that register with `AutoModelForSequenceClassification`.
- * Most 2024-2025 SOTA detectors (desklib, SuperAnnotate, ModernBERT-based ones,
- * adaptive-classifier, etc.) use custom classifier heads that fail this load,
- * so PirateXX is the most accurate detector currently available on the free
- * tier. Heavier lifting on edge cases (e.g. marketing-speak) is done by the
- * Sapling API and the local 2026 heuristic detector.
- *
- * Label convention — model-specific, see HF_LABEL_MAP below.
- *
- * Requires HF_API_TOKEN environment variable.
+ * HuggingFace hf-inference detectors were previously wired in but removed: the
+ * free router is CPU-only and only auto-loads models that register with
+ * `AutoModelForSequenceClassification`. The only model on HF that both works
+ * on the free tier AND is from the last year (PirateXX/AI-Content-Detector)
+ * was returning unreliable scores in production, so we dropped HF entirely.
+ * The Claude-based deep analysis + Sapling + local heuristics cover the same
+ * ground more reliably.
  */
-
-const HF_MODEL = "PirateXX/AI-Content-Detector";
-const HF_API_URL = `https://router.huggingface.co/hf-inference/models/${HF_MODEL}`;
-
-interface HfClassificationResult {
-  label: string;
-  score: number;
-}
 
 export interface ExternalDetectionResult {
   source: string;
@@ -35,138 +25,6 @@ export interface ExternalDetectionResult {
   verdict: string;
   available: boolean;
   error?: string;
-}
-
-/**
- * Detect AI-generated text using ChatGPT-trained RoBERTa detector.
- *
- * The model has a ~512 token limit. For longer texts, we split into chunks,
- * run detection on each, and average the scores.
- */
-export async function detectWithRoberta(
-  text: string
-): Promise<ExternalDetectionResult> {
-  const unavailable = (error: string): ExternalDetectionResult => ({
-    source: "HuggingFace",
-    model: HF_MODEL,
-    ai_probability: 0,
-    human_probability: 0,
-    verdict: "unavailable",
-    available: false,
-    error,
-  });
-
-  try {
-    if (!process.env.HF_API_TOKEN) {
-      return unavailable(
-        "HF_API_TOKEN not configured. Add a HuggingFace token to enable AI detection."
-      );
-    }
-
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.HF_API_TOKEN}`,
-    };
-
-    // Split long text into chunks (~400 words each to stay within token limits)
-    const chunks = splitIntoChunks(text, 400);
-    const results: { ai: number; human: number }[] = [];
-
-    for (const chunk of chunks) {
-      const res = await fetch(HF_API_URL, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ inputs: chunk }),
-      });
-
-      if (!res.ok) {
-        if (res.status === 503) {
-          return unavailable(
-            "Model is loading. Please try again in a few seconds."
-          );
-        }
-        throw new Error(`HuggingFace API error: ${res.status}`);
-      }
-
-      const data = await res.json();
-
-      // Response is [[{label, score}, {label, score}]]
-      const classifications: HfClassificationResult[] = Array.isArray(data[0])
-        ? data[0]
-        : data;
-
-      let aiScore = 0;
-      let humanScore = 0;
-
-      for (const item of classifications) {
-        const label = (item.label || "").toLowerCase();
-        if (HF_MODEL === "PirateXX/AI-Content-Detector") {
-          // PirateXX: LABEL_0 = Fake/AI, LABEL_1 = Real/Human
-          if (label === "label_0" || label === "fake" || label === "ai") {
-            aiScore = item.score;
-          } else if (label === "label_1" || label === "real" || label === "human") {
-            humanScore = item.score;
-          }
-        } else {
-          // HC3 and similar: LABEL_0 = Human, LABEL_1 = AI
-          if (label === "human" || label === "real" || label === "label_0") {
-            humanScore = item.score;
-          } else if (label === "chatgpt" || label === "ai" || label === "fake" || label === "label_1") {
-            aiScore = item.score;
-          }
-        }
-      }
-
-      // Position-based fallback: if no labels matched, assume the standard
-      // 2-element array where index 0 = first class, index 1 = second class
-      if (aiScore === 0 && humanScore === 0 && classifications.length >= 2) {
-        if (HF_MODEL === "PirateXX/AI-Content-Detector") {
-          aiScore = classifications[0].score;
-          humanScore = classifications[1].score;
-        } else {
-          humanScore = classifications[0].score;
-          aiScore = classifications[1].score;
-        }
-      }
-      // If only one label came back, infer the complement
-      if (aiScore === 0 && humanScore > 0) aiScore = 1 - humanScore;
-      else if (humanScore === 0 && aiScore > 0) humanScore = 1 - aiScore;
-
-      results.push({ ai: aiScore, human: humanScore });
-    }
-
-    // Average across chunks
-    const avgAi =
-      results.reduce((sum, r) => sum + r.ai, 0) / results.length;
-    const avgHuman =
-      results.reduce((sum, r) => sum + r.human, 0) / results.length;
-
-    let verdict: string;
-    if (avgAi >= 0.8) verdict = "definitely_ai";
-    else if (avgAi >= 0.55) verdict = "likely_ai";
-    else if (avgAi >= 0.3) verdict = "possibly_ai";
-    else verdict = "likely_human";
-
-    return {
-      source: "HuggingFace",
-      model: HF_MODEL,
-      ai_probability: Math.round(avgAi * 1000) / 1000,
-      human_probability: Math.round(avgHuman * 1000) / 1000,
-      verdict,
-      available: true,
-    };
-  } catch (error) {
-    console.error("ChatGPT detector error:", error);
-    return {
-      source: "HuggingFace",
-      model: HF_MODEL,
-      ai_probability: 0,
-      human_probability: 0,
-      verdict: "error",
-      available: false,
-      error: error instanceof Error ? error.message : "Detection failed",
-    };
-  }
 }
 
 /**
@@ -185,8 +43,7 @@ export async function detectWithRoberta(
  *  5. Perfect-punctuation cleanliness — zero apostrophe inconsistency,
  *     perfectly consistent capitalization.
  *
- * Purely local, no API call. Fast and always available. Returns a probability
- * in the same shape as the RoBERTa detector so it can plug into the same UI.
+ * Purely local, no API call. Fast and always available.
  */
 export function detectStatistical2026(text: string): ExternalDetectionResult {
   const trimmed = text.trim();
@@ -403,7 +260,6 @@ export async function runExternalDetectors(
   text: string
 ): Promise<ExternalDetectionResult[]> {
   const results = await Promise.allSettled([
-    detectWithRoberta(text),
     detectWithSapling(text),
     Promise.resolve(detectStatistical2026(text)),
   ]);
@@ -421,15 +277,4 @@ export async function runExternalDetectors(
           error: "Detection failed",
         }
   );
-}
-
-function splitIntoChunks(text: string, wordsPerChunk: number): string[] {
-  const words = text.split(/\s+/);
-  if (words.length <= wordsPerChunk) return [text];
-
-  const chunks: string[] = [];
-  for (let i = 0; i < words.length; i += wordsPerChunk) {
-    chunks.push(words.slice(i, i + wordsPerChunk).join(" "));
-  }
-  return chunks;
 }
