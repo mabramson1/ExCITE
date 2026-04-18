@@ -110,6 +110,7 @@ export default function HistoryPage() {
   }
 
   async function handleDelete(id: string) {
+    if (!window.confirm("Delete this analysis? This cannot be undone.")) return;
     try {
       await fetch(`/api/history/${id}`, { method: "DELETE" });
       setItems((prev) => prev.filter((item) => item.id !== id));

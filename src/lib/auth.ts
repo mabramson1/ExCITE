@@ -21,8 +21,20 @@ export const auth = betterAuth({
       verification: schema.verification,
     },
   }),
+  socialProviders: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID || "",
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+    },
+  },
   emailAndPassword: {
     enabled: true,
+    requireEmailVerification: true,
+    sendVerificationEmail: async ({ user, url }: { user: { email: string }; url: string }) => {
+      // For now, log the verification URL. In production, integrate with Resend/SendGrid.
+      console.log(`[Email Verification] Send to ${user.email}: ${url}`);
+      // TODO: Replace with actual email sending (Resend, SendGrid, etc.)
+    },
   },
   session: {
     expiresIn: 60 * 60 * 24 * 7, // 7 days

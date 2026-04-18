@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Wand2, Loader2, Copy, Check, ArrowRight, ArrowDown, Shield, Upload } from "lucide-react";
+import { useKeyboardSubmit } from "@/hooks/use-keyboard-submit";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -69,6 +70,8 @@ function DeAiIfyContent() {
   const [copiedRewrite, setCopiedRewrite] = useState(false);
   const [loadingSaved, setLoadingSaved] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useKeyboardSubmit(handleProcess, !loading && !!input.trim());
 
   useEffect(() => {
     if (!loadId) return;
@@ -186,7 +189,7 @@ function DeAiIfyContent() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <p className={`text-xs ${input.length > MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                {input.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()}
+                {input.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()} chars · {input.trim() ? input.trim().split(/\s+/).length.toLocaleString() : "0"} words
               </p>
               <input
                 ref={fileInputRef}

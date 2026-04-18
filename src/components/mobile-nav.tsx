@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { useTheme } from "next-themes";
 import {
   FileText,
   BookOpen,
@@ -14,6 +15,9 @@ import {
   Menu,
   X,
   Quote,
+  Sun,
+  Moon,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,12 +28,14 @@ const navItems = [
   { href: "/tools/de-ai-ify", label: "De-AI-ifier", icon: Wand2 },
   { href: "/tools/ai-detector", label: "AI Detector", icon: ScanSearch },
   { href: "/history", label: "History", icon: History },
+  { href: "/pricing", label: "Pricing", icon: CreditCard },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function MobileNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const { theme, setTheme } = useTheme();
 
   return (
     <div className="md:hidden">
@@ -40,9 +46,18 @@ export function MobileNav() {
             ex<span className="text-primary">CITE</span>
           </span>
         </Link>
-        <button onClick={() => setOpen(!open)} className="cursor-pointer">
-          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            className="cursor-pointer p-1"
+          >
+            <Sun className="h-4 w-4 dark:hidden" />
+            <Moon className="h-4 w-4 hidden dark:block" />
+          </button>
+          <button onClick={() => setOpen(!open)} className="cursor-pointer">
+            {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
       {open && (
         <nav className="border-b bg-card px-4 py-2 space-y-1">
