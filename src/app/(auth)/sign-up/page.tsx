@@ -46,7 +46,7 @@ export default function SignUpPage() {
       if (result.error) {
         setError(result.error.message || "Failed to create account");
       } else {
-        router.push("/verify-email");
+        router.push("/dashboard"); // TODO: change to "/verify-email" once email verification is enabled
       }
     } catch {
       setError("Something went wrong. Please try again.");
