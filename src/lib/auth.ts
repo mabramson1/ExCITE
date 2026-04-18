@@ -29,7 +29,7 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: true,
+    requireEmailVerification: false, // TODO: flip to true once Resend is wired up
     sendVerificationEmail: async ({ user, url }: { user: { email: string }; url: string }) => {
       // For now, log the verification URL. In production, integrate with Resend/SendGrid.
       console.log(`[Email Verification] Send to ${user.email}: ${url}`);
