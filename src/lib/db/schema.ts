@@ -123,10 +123,25 @@ export const templateFavorite = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.templateId] })]
 );
 
+// ── Billing tables ────────────────────────────────────────────────
+
+export const subscription = pgTable("subscription", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  plan: text("plan").notNull().default("free"), // free, pro, unlimited
+  status: text("status").notNull().default("active"), // active, canceled, past_due
+  currentPeriodEnd: timestamp("current_period_end"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Types
 export type User = typeof user.$inferSelect;
 export type Project = typeof project.$inferSelect;
 export type Citation = typeof citation.$inferSelect;
 export type TemplateFavorite = typeof templateFavorite.$inferSelect;
+export type Subscription = typeof subscription.$inferSelect;
 export type ProjectType = "clinical_note" | "manuscript" | "deai" | "ai_detector";
 export type CitationStyle = "apa" | "mla" | "chicago" | "vancouver" | "harvard" | "ieee";

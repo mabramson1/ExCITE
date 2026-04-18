@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PhiWarning } from "@/components/phi-warning";
 import { ResultActions } from "@/components/result-actions";
+import { useKeyboardSubmit } from "@/hooks/use-keyboard-submit";
 
 const MAX_LENGTH = 50_000;
 
@@ -82,6 +83,7 @@ function AiDetectorContent() {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [loadingSaved, setLoadingSaved] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  useKeyboardSubmit(handleDetect, !loading && !!input.trim());
 
   useEffect(() => {
     if (!loadId) return;
@@ -184,7 +186,7 @@ function AiDetectorContent() {
         <CardHeader>
           <CardTitle className="text-base">Paste Text to Analyze</CardTitle>
           <CardDescription>
-            We&apos;ll scan for AI patterns, flag suspicious sections, and suggest human-sounding alternatives.
+            We&apos;ll scan for AI patterns, flag suspicious sections, and suggest human-sounding alternatives. Press <kbd className="rounded border px-1 py-0.5 text-[10px] font-mono">⌘ Enter</kbd> to submit.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -197,7 +199,7 @@ function AiDetectorContent() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <p className={`text-xs ${input.length > MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                {input.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()}
+                {input.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()} chars · {input.trim() ? input.trim().split(/\s+/).length.toLocaleString() : "0"} words
               </p>
               <input
                 ref={fileInputRef}
@@ -277,7 +279,20 @@ function AiDetectorContent() {
         <div className="space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="text-lg font-semibold">Detection Results</h2>
-            <ResultActions savedId={savedId} />
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(JSON.stringify(result, null, 2));
+                  toast.success("Results copied to clipboard");
+                }}
+              >
+                <Copy className="h-3.5 w-3.5" />
+                Copy Results
+              </Button>
+              <ResultActions savedId={savedId} />
+            </div>
           </div>
 
           {/* Consensus Score (if available) */}

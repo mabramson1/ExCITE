@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTheme } from "next-themes";
 import {
   FileText,
   BookOpen,
@@ -12,6 +13,9 @@ import {
   Settings,
   LogOut,
   Quote,
+  Sun,
+  Moon,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut } from "@/lib/auth-client";
@@ -23,11 +27,13 @@ const navItems = [
   { href: "/tools/de-ai-ify", label: "De-AI-ifier", icon: Wand2 },
   { href: "/tools/ai-detector", label: "AI Detector", icon: ScanSearch },
   { href: "/history", label: "History", icon: History },
+  { href: "/pricing", label: "Pricing", icon: CreditCard },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { theme, setTheme } = useTheme();
 
   return (
     <aside className="hidden md:flex w-64 flex-col border-r bg-card min-h-screen">
@@ -64,7 +70,15 @@ export function Sidebar() {
         })}
       </nav>
 
-      <div className="border-t p-3">
+      <div className="border-t p-3 space-y-1">
+        <button
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground w-full transition-colors cursor-pointer"
+        >
+          <Sun className="h-4 w-4 dark:hidden" />
+          <Moon className="h-4 w-4 hidden dark:block" />
+          {theme === "dark" ? "Light Mode" : "Dark Mode"}
+        </button>
         <button
           onClick={() => signOut()}
           className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground w-full transition-colors cursor-pointer"
