@@ -129,14 +129,20 @@ export function detectStatistical2026(text: string): ExternalDetectionResult {
     /\bit'?s not (just )?\w+.{0,60}\bit'?s\b/gi,
     /\bnot (just )?\w+ [—-] /gi,
     /\b(isn'?t|isn't just) about \w+.{0,60}\bit'?s about/gi,
+    /\b(rule of three|three (key|main|critical|essential))\b/gi,
+    /\bwhat does this mean\? it means/gi,
+    /\bhere'?s why:?\s/gi,
+    /\bdespite (these |the )?(challenges?|obstacles?|setbacks?).{0,40}(continues?|thrive|persists?)/gi,
   ];
   let rhetoricHits = 0;
   for (const re of rhetoricalPatterns) {
     const matches = trimmed.match(re);
     if (matches) rhetoricHits += matches.length;
   }
+  // Also count triadic parallelism: "X, Y, and Z" with similar word lengths
+  const triadicMatches = trimmed.match(/\b\w+,\s+\w+,\s+and\s+\w+\b/gi) || [];
+  rhetoricHits += triadicMatches.length;
   const rhetoricPer1000 = wordCount > 0 ? (rhetoricHits / wordCount) * 1000 : 0;
-  // Humans rarely use > 1 per 1000 words
   const rhetoricAiScore = Math.max(0, Math.min(1, rhetoricPer1000 / 2));
 
   // ── Signal 5: Cleanliness proxy (typo-free + consistent) ───────
@@ -166,15 +172,40 @@ export function detectStatistical2026(text: string): ExternalDetectionResult {
   // Humans rarely exceed 2 per 100 words; LLMs hit 5-15+
   const buzzAiScore = Math.max(0, Math.min(1, (buzzPer100 - 2) / 6));
 
+  // ── Signal 8: Copula avoidance ──────────────────────────────────
+  // LLMs avoid "is/has" in favor of fancier verbs like "serves as",
+  // "boasts", "represents", "constitutes", "stands as"
+  const copulaAvoidance = /\b(serves as|stands as|acts as|functions as|represents a|constitutes a|boasts|embodies|epitomizes|exemplifies)\b/gi;
+  const copulaHits = (trimmed.match(copulaAvoidance) || []).length;
+  const copulaPer1000 = wordCount > 0 ? (copulaHits / wordCount) * 1000 : 0;
+  const copulaAiScore = Math.max(0, Math.min(1, copulaPer1000 / 4));
+
+  // ── Signal 9: Gerund/participial overuse ──────────────────────
+  // LLMs overuse -ing forms as shallow analysis: "symbolizing,"
+  // "reflecting," "showcasing," "highlighting," "underscoring"
+  const ingAnalysis = /\b(symboliz|reflect|showcas|highlight|underscore|demonstrat|illustrat|signal|embrac|embody)ing\b/gi;
+  const ingHits = (trimmed.match(ingAnalysis) || []).length;
+  const ingPer1000 = wordCount > 0 ? (ingHits / wordCount) * 1000 : 0;
+  const ingAiScore = Math.max(0, Math.min(1, (ingPer1000 - 2) / 6));
+
+  // ── Signal 10: Vague attributions + filler phrases ────────────
+  const vaguePatterns = /\b(experts (believe|say|agree|suggest)|studies (show|suggest|indicate|have shown)|research (suggests?|shows?|indicates?)|it('s| is) (important|worth) (to note|noting|mentioning)|in order to|due to the fact that|the future (looks|is) bright|at the end of the day|when all is said and done|it goes without saying)\b/gi;
+  const vagueHits = (trimmed.match(vaguePatterns) || []).length;
+  const vaguePer1000 = wordCount > 0 ? (vagueHits / wordCount) * 1000 : 0;
+  const vagueAiScore = Math.max(0, Math.min(1, vaguePer1000 / 3));
+
   // ── Weighted combination ────────────────────────────────────────
   const combined =
-    0.2 * burstinessAiScore +
-    0.15 * emDashAiScore +
-    0.15 * pivotAiScore +
-    0.1 * rhetoricAiScore +
-    0.1 * mtldAiScore +
-    0.22 * buzzAiScore +
-    0.08 * cleanlinessAiScore;
+    0.15 * burstinessAiScore +
+    0.10 * emDashAiScore +
+    0.12 * pivotAiScore +
+    0.10 * rhetoricAiScore +
+    0.08 * mtldAiScore +
+    0.18 * buzzAiScore +
+    0.05 * cleanlinessAiScore +
+    0.08 * copulaAiScore +
+    0.07 * ingAiScore +
+    0.07 * vagueAiScore;
 
   const aiProb = Math.max(0, Math.min(1, combined));
   const humanProb = 1 - aiProb;
@@ -187,7 +218,7 @@ export function detectStatistical2026(text: string): ExternalDetectionResult {
 
   return {
     source: "Local heuristics (2026)",
-    model: `burstiness=${cv.toFixed(2)}, em-dash/1k=${emDashPer1000.toFixed(1)}, pivots=${pivotHits}, rhetoric=${rhetoricHits}, MTLD=${mtld.toFixed(0)}, buzz=${buzzHits}`,
+    model: `burstiness=${cv.toFixed(2)}, em-dash/1k=${emDashPer1000.toFixed(1)}, pivots=${pivotHits}, rhetoric=${rhetoricHits}, MTLD=${mtld.toFixed(0)}, buzz=${buzzHits}, copula=${copulaHits}, -ing=${ingHits}, vague=${vagueHits}`,
     ai_probability: Math.round(aiProb * 1000) / 1000,
     human_probability: Math.round(humanProb * 1000) / 1000,
     verdict,

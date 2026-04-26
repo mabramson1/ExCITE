@@ -353,44 +353,52 @@ Respond with this exact JSON structure:
 const DEAI_SYSTEM_BASE = `You are an expert editor who transforms AI-generated text into authentic, human-sounding prose. You are calibrated for the 2025-2026 generation of large language models (GPT-5, Claude 4.x, Gemini 2.x, Llama 4+). Older "delve/tapestry/intricate" tells are rarer in modern outputs — the newer tells are structural and rhetorical.
 
 ═══════════════════════════════════════════════
-MODERN 2025-2026 AI PATTERNS TO FIX
+29 AI WRITING PATTERNS TO FIX (2025-2026)
 ═══════════════════════════════════════════════
 
-STRUCTURAL TELLS (most reliable in 2026):
-- Em-dash abuse: em-dashes used as breath marks every few sentences (—)
-- "Not X — Y" / "It's not just X — it's Y" / "X isn't about Y. It's about Z" construction
-- Triadic parallelism: three parallel items in a row (e.g., "faster, cheaper, smarter")
-- Bolded key phrases scattered through prose for emphasis
-- Section headers, bullet points, or numbered lists in contexts that don't call for them
-- Rhetorical question → immediate answer: "What does this mean? It means..."
-- Paragraph rhythm is metronomic — every paragraph 2-4 sentences, same shape
-- Perfectly balanced pro/con, before/after, one-hand/other-hand structure
-- TL;DR or "Bottom line:" summary suffixes
-- "Here's why:" → bulleted list
-- Section-header vibes even in conversational prose
+── STRUCTURAL PATTERNS ──
 
-RHETORICAL TELLS (very common in 2026 outputs):
-- Opening adverbs: "Importantly," "Crucially," "Notably," "Fundamentally," "Essentially,"
-- Pivot phrases: "Here's the thing:" / "Here's what's fascinating:" / "Here's what matters:"
-- Framing phrases: "At its core," "Ultimately," "The real question is," "Let's unpack this"
-- Directive openers: "Let me be direct:" / "Let's be honest:" / "Here's the truth:"
-- Analogical framing: "Think of it like X" / "It's like X, but for Y"
-- Beauty/elegance filler: "That's the beauty of X" / "That's what makes this so powerful"
-- Hollow intensifiers: "genuinely," "truly," "remarkably," "deeply"
-- False scaling: "massively," "radically," "fundamentally transform," "completely reshape"
+1. Em-dash abuse: em-dashes used as breath marks every few sentences (—)
+2. "Not X — Y" constructions: "It's not just X — it's Y" / "X isn't about Y. It's about Z"
+3. Triadic parallelism: three parallel items in a row ("faster, cheaper, smarter")
+4. Rhetorical question → immediate answer: "What does this mean? It means..."
+5. Metronomic paragraph rhythm: every paragraph 2-4 sentences, same shape
+6. Perfectly balanced structure: pro/con, before/after, one-hand/other-hand symmetry
+7. Boldface/inline-header overuse: bolded key phrases scattered through prose, section headers and bullet points in contexts that don't call for them
+8. Formulaic challenges: "Despite challenges...continues to thrive" / "While not without its limitations..."
 
-LEXICAL TELLS (still present, less reliable than structural):
-- "delve," "utilize," "leverage," "facilitate," "paramount," "tapestry," "landscape,"
-  "multifaceted," "intricate," "nuanced," "thoughtful," "meaningful"
-- "dive deeper," "double down," "unpack," "lean into," "wrap your head around"
-- Corporate adjectives: "robust," "seamless," "actionable," "scalable"
+── RHETORICAL PATTERNS ──
 
-HEDGING/HEADS-OF-STATE TELLS:
-- "It's important to note that..." / "It's worth mentioning..."
-- "While there are many ways to approach this..."
-- "In today's rapidly evolving landscape..."
-- Conclusion that restates every earlier point
-- Excessive balance: every claim gets a counterclaim
+9. Opening adverbs: "Importantly," "Crucially," "Notably," "Fundamentally," "Essentially,"
+10. Pivot phrases: "Here's the thing:" / "Here's what's fascinating:" / "Here's what matters:"
+11. Analogical framing: "Think of it like X" / "It's like X, but for Y"
+12. Beauty/elegance filler: "That's the beauty of X" / "That's what makes this so powerful"
+13. Hollow intensifiers: "genuinely," "truly," "remarkably," "deeply"
+14. False scaling: "massively," "radically," "fundamentally transform," "completely reshape"
+15. Significance inflation: "pivotal moment in evolution," "groundbreaking," "revolutionary," "game-changing" for ordinary things
+16. Persuasive authority tropes: "At its core, what matters is..." / "The real question is..." / "Let me be direct:"
+17. Signposting announcements: "Let's dive in," "Here's what you need to know," "Let's unpack this," "Here's why:"
+
+── LEXICAL PATTERNS ──
+
+18. Classic AI vocabulary: "delve," "utilize," "leverage," "facilitate," "paramount," "tapestry," "landscape," "multifaceted," "intricate," "nuanced," "thoughtful," "meaningful"
+19. Corporate adjectives: "robust," "seamless," "actionable," "scalable," "cutting-edge"
+20. Promotional language: "breathtaking," "nestled," "stunning," "captivating," "remarkable"
+21. Copula avoidance: using "serves as" or "boasts" instead of "is" or "has"; unnecessarily fancy verb substitutions
+22. Synonym cycling: restating the same idea with different words across consecutive sentences instead of advancing the argument
+23. Hyphenated compound pairs overuse: "cross-functional," "data-driven," "client-facing," "purpose-built," "solution-oriented"
+
+── CONTENT PATTERNS ──
+
+24. Notability name-dropping: listing publications/institutions for authority instead of citing specific claims or evidence
+25. Superficial -ing analyses: overuse of "symbolizing," "reflecting," "showcasing," "highlighting" as shallow analysis stand-ins
+26. Vague attributions: "Experts believe..." / "Studies show..." / "Research suggests..." without specifics
+27. False ranges: unrelated topics presented as a connected list or spectrum
+
+── COMMUNICATION PATTERNS ──
+
+28. Hedging & filler: "It's important to note that..." / "In order to" / "Due to the fact that" / "could potentially possibly" / excessive balance where every claim gets a counterclaim
+29. Chatbot artifacts & tone: "I hope this helps! Let me know if..." / "Great question!" / sycophantic openers / cutoff disclaimers ("While details are limited in available sources...") / generic conclusions ("The future looks bright") / passive voice subjectless fragments ("No configuration needed")
 
 ═══════════════════════════════════════════════
 SIGNS THIS MIGHT BE HUMAN (preserve these!)
@@ -479,16 +487,28 @@ function getDeAiSystem(writingStyle: string): string {
   return `${DEAI_SYSTEM_BASE}\n\n${styleInstructions}`;
 }
 
-export async function deAiifyText(text: string, writingStyle = "general"): Promise<string> {
+export async function deAiifyText(text: string, writingStyle = "general", voiceSample?: string): Promise<string> {
   const styleName = writingStyle.replace(/-/g, " ");
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 4096,
-    system: cachedSystem(getDeAiSystem(writingStyle)),
-    messages: [
-      {
-        role: "user",
-        content: `Rewrite this text for the "${styleName}" style. Preserve all meaning and factual content exactly.
+
+  let userMessage = "";
+
+  if (voiceSample) {
+    userMessage += `VOICE CALIBRATION: The user provided a sample of their own writing. Analyze their sentence rhythm, word choices, punctuation habits, and quirks. Apply these patterns to the rewrite so the output sounds like THEM, not like generic human writing.
+
+Voice sample:
+"""
+${voiceSample}
+"""
+
+`;
+  }
+
+  userMessage += `Rewrite this text for the "${styleName}" style using a 2-PASS process. Preserve all meaning and factual content exactly.
+
+PASS 1: Rewrite the text, eliminating all 29 identified AI patterns.
+PASS 2: Audit your Pass 1 rewrite for any lingering AI-isms — subtle structural habits, residual hedging, synonym cycling, metronomic rhythm, etc. Fix every issue you find.
+
+Return the final (Pass 2) text as "rewritten_text" and list any issues you caught during the audit in "first_pass_issues".
 
 Text:
 """
@@ -497,7 +517,8 @@ ${text}
 
 Respond with this exact JSON structure:
 {
-  "rewritten_text": "the full rewritten text",
+  "rewritten_text": "final text after both passes",
+  "first_pass_issues": ["issues found in initial rewrite during audit"],
   "changes_made": [
     {"original": "AI-sounding phrase", "replacement": "human-sounding replacement", "reason": "specific pattern fixed"}
   ],
@@ -506,7 +527,16 @@ Respond with this exact JSON structure:
   "style_applied": "${styleName}"
 }
 
-confidence_score: 1.0 = definitely human, 0.0 = still obviously AI. Be honest.`,
+confidence_score: 1.0 = definitely human, 0.0 = still obviously AI. Be honest.`;
+
+  const message = await anthropic.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 4096,
+    system: cachedSystem(getDeAiSystem(writingStyle)),
+    messages: [
+      {
+        role: "user",
+        content: userMessage,
       },
     ],
   });
