@@ -213,7 +213,37 @@ DO NOT fabricate clinical details not in the skeleton. If vague, list in "clarif
 
 Respond ONLY with valid JSON. No markdown, no code fences.`;
 
-export async function generateAssessmentPlan(skeleton: string, encounterType: string): Promise<string> {
+export async function generateAssessmentPlan(
+  skeleton: string,
+  encounterType: string,
+  options?: { voiceSample?: string; brevity?: string }
+): Promise<string> {
+  let userMessage = "";
+
+  if (options?.voiceSample) {
+    userMessage += `VOICE CALIBRATION: The physician provided a sample of their own clinical writing. Match their documentation style — sentence structure, abbreviation patterns, level of detail, and phrasing habits — so the A/P sounds like THEM.
+
+Writing sample:
+"""
+${options.voiceSample}
+"""
+
+`;
+  }
+
+  if (options?.brevity === "brief") {
+    userMessage += `BREVITY MODE: Write a CONCISE A/P. Use short sentences, standard abbreviations (HTN, DM2, CKD, etc.), minimal prose. Each problem: 2-3 sentences max. Skip filler phrases. This is for a physician who wants documentation-ready bullet-style notes, not narrative paragraphs.\n\n`;
+  } else if (options?.brevity === "detailed") {
+    userMessage += `DETAILED MODE: Write a THOROUGH narrative A/P with full clinical reasoning. Explain decision-making, reference relevant guidelines, discuss differential diagnoses where applicable, and provide comprehensive follow-up plans.\n\n`;
+  }
+
+  userMessage += `Generate a robust Assessment & Plan from this skeleton. Encounter type: ${encounterType}.
+
+Skeleton:
+"""
+${skeleton}
+"""`;
+
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 6144,
@@ -221,12 +251,7 @@ export async function generateAssessmentPlan(skeleton: string, encounterType: st
     messages: [
       {
         role: "user",
-        content: `Generate a robust Assessment & Plan from this skeleton. Encounter type: ${encounterType}.
-
-Skeleton:
-"""
-${skeleton}
-"""
+        content: userMessage + `
 
 Respond with this exact JSON structure:
 {

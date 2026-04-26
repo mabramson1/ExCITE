@@ -15,14 +15,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { skeleton, encounterType = "established_office" } = await req.json();
+    const { skeleton, encounterType = "established_office", voiceSample, brevity } = await req.json();
     const v = validateInput(skeleton);
     if (!v.ok) {
       return NextResponse.json({ error: v.error }, { status: 400 });
     }
 
     const phiResult = scanAndCensorPhi(skeleton);
-    const analysis = await generateAssessmentPlan(phiResult.censoredText, encounterType);
+    const analysis = await generateAssessmentPlan(phiResult.censoredText, encounterType, {
+      voiceSample: voiceSample || undefined,
+      brevity: brevity || undefined,
+    });
 
     let parsed;
     try {
