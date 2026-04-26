@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Wand2, Loader2, Copy, Check, ArrowRight, ArrowDown, Shield, Upload } from "lucide-react";
+import { Wand2, Loader2, Copy, Check, ArrowRight, ArrowDown, Shield, Upload, Fingerprint } from "lucide-react";
 import { useKeyboardSubmit } from "@/hooks/use-keyboard-submit";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,7 @@ interface DeAiResult {
     reason: string;
   }[];
   ai_patterns_found?: string[];
+  first_pass_issues?: string[];
   confidence_score?: number;
   verification?: Verification;
   raw?: string;
@@ -61,6 +62,8 @@ function DeAiIfyContent() {
   const loadId = searchParams.get("load");
 
   const [input, setInput] = useState("");
+  const [voiceSample, setVoiceSample] = useState("");
+  const [showVoice, setShowVoice] = useState(false);
   const [writingStyle, setWritingStyle] = useState("general");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DeAiResult | null>(null);
@@ -111,7 +114,7 @@ function DeAiIfyContent() {
       const res = await fetch("/api/analyze/de-ai-ify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: input, writingStyle }),
+        body: JSON.stringify({ text: input, writingStyle, voiceSample: voiceSample.trim() || undefined }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -245,6 +248,25 @@ function DeAiIfyContent() {
               </Button>
             </div>
           </div>
+          {/* Voice Calibration (optional) */}
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setShowVoice(!showVoice)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Fingerprint className="h-3.5 w-3.5" />
+              {showVoice ? "Hide" : "Match my writing voice"} (optional)
+            </button>
+            {showVoice && (
+              <Textarea
+                placeholder="Paste 2-3 paragraphs of YOUR writing here. We'll analyze your sentence rhythm, word choices, and quirks to make the rewrite sound like you..."
+                value={voiceSample}
+                onChange={(e) => setVoiceSample(e.target.value)}
+                className="min-h-[100px] text-sm"
+              />
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -364,6 +386,26 @@ function DeAiIfyContent() {
                     <Badge key={i} variant="outline">{pattern}</Badge>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Audit Pass Fixes */}
+          {result.first_pass_issues && result.first_pass_issues.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Audit Pass Fixes</CardTitle>
+                <CardDescription>Issues caught and fixed during the second-pass audit</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-1">
+                  {result.first_pass_issues.map((issue: string, i: number) => (
+                    <li key={i} className="text-sm flex items-start gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                      {issue}
+                    </li>
+                  ))}
+                </ul>
               </CardContent>
             </Card>
           )}

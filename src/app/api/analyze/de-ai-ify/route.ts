@@ -16,14 +16,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { text, writingStyle = "general", verifyAfter = true } = await req.json();
+    const { text, writingStyle = "general", verifyAfter = true, voiceSample } = await req.json();
     const v = validateInput(text);
     if (!v.ok) {
       return NextResponse.json({ error: v.error }, { status: 400 });
     }
 
     const phiResult = scanAndCensorPhi(text);
-    const analysis = await deAiifyText(phiResult.censoredText, writingStyle);
+    const analysis = await deAiifyText(phiResult.censoredText, writingStyle, voiceSample);
 
     let parsed;
     try {
