@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { FileText, Loader2, Copy, Check, Download, BookOpen, ExternalLink, AlertTriangle, CheckCircle2, XCircle, Activity, PenTool, RefreshCw, SkipForward, MessageSquarePlus, LayoutTemplate, Star, Upload } from "lucide-react";
+import { FileText, Loader2, Copy, Check, Download, BookOpen, ExternalLink, AlertTriangle, CheckCircle2, XCircle, Activity, PenTool, RefreshCw, SkipForward, MessageSquarePlus, LayoutTemplate, Star, Upload, Fingerprint, Wand2 } from "lucide-react";
 import { useKeyboardSubmit } from "@/hooks/use-keyboard-submit";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -743,6 +743,12 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
   const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
   const [copiedAp, setCopiedAp] = useState(false);
   const [copiedEm, setCopiedEm] = useState(false);
+  const [voiceSample, setVoiceSample] = useState("");
+  const [showVoice, setShowVoice] = useState(false);
+  const [brevity, setBrevity] = useState("standard");
+  const [humanizing, setHumanizing] = useState(false);
+  const [humanizedText, setHumanizedText] = useState<string | null>(null);
+  const [copiedHumanized, setCopiedHumanized] = useState(false);
 
   useEffect(() => {
     if (!prefill) return;
@@ -830,7 +836,12 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
       const res = await fetch("/api/analyze/ap-writer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skeleton: inputSkeleton, encounterType }),
+        body: JSON.stringify({
+          skeleton: inputSkeleton,
+          encounterType,
+          voiceSample: voiceSample.trim() || undefined,
+          brevity: brevity !== "standard" ? brevity : undefined,
+        }),
       });
       const data = await res.json();
       if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
@@ -874,6 +885,38 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
       navigator.clipboard.writeText(result.assessment_and_plan);
       setCopiedAp(true);
       setTimeout(() => setCopiedAp(false), 2000);
+    }
+  }
+
+  async function humanizeAp() {
+    if (!result?.assessment_and_plan) return;
+    setHumanizing(true);
+    setHumanizedText(null);
+    try {
+      const res = await fetch("/api/analyze/de-ai-ify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: result.assessment_and_plan,
+          writingStyle: "general",
+          voiceSample: voiceSample.trim() || undefined,
+          verifyAfter: false,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Humanization failed");
+        return;
+      }
+      const parsed = data.result;
+      if (parsed?.rewritten_text) {
+        setHumanizedText(parsed.rewritten_text);
+        toast.success("A/P humanized");
+      }
+    } catch {
+      toast.error("Failed to humanize A/P");
+    } finally {
+      setHumanizing(false);
     }
   }
 
@@ -1011,11 +1054,11 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
             onChange={(e) => setSkeleton(e.target.value)}
             className="min-h-[250px]"
           />
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
               <label className="text-sm text-muted-foreground">Encounter:</label>
               <Select value={encounterType} onValueChange={setEncounterType}>
-                <SelectTrigger className="w-64">
+                <SelectTrigger className="w-56">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1025,13 +1068,47 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={() => handleGenerate()} disabled={loading || refining || !skeleton.trim()}>
-              {loading || refining ? (
-                <><Loader2 className="h-4 w-4 animate-spin" /> {refining ? "Refining..." : "Generating..."}</>
-              ) : (
-                <><PenTool className="h-4 w-4" /> Generate A/P</>
-              )}
-            </Button>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-muted-foreground">Length:</label>
+              <Select value={brevity} onValueChange={setBrevity}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="brief">Brief</SelectItem>
+                  <SelectItem value="standard">Standard</SelectItem>
+                  <SelectItem value="detailed">Detailed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="ml-auto">
+              <Button onClick={() => handleGenerate()} disabled={loading || refining || !skeleton.trim()}>
+                {loading || refining ? (
+                  <><Loader2 className="h-4 w-4 animate-spin" /> {refining ? "Refining..." : "Generating..."}</>
+                ) : (
+                  <><PenTool className="h-4 w-4" /> Generate A/P</>
+                )}
+              </Button>
+            </div>
+          </div>
+          {/* Voice Calibration (optional) */}
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setShowVoice(!showVoice)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Fingerprint className="h-3.5 w-3.5" />
+              {showVoice ? "Hide" : "Match my documentation style"} (optional)
+            </button>
+            {showVoice && (
+              <Textarea
+                placeholder="Paste 2-3 paragraphs of YOUR clinical notes here. We'll match your abbreviation patterns, sentence structure, and documentation style..."
+                value={voiceSample}
+                onChange={(e) => setVoiceSample(e.target.value)}
+                className="min-h-[100px] text-sm"
+              />
+            )}
           </div>
         </CardContent>
       </Card>
@@ -1075,6 +1152,10 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
                   <CardTitle className="text-base">Generated Assessment & Plan</CardTitle>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <ResultActions savedId={savedId} />
+                    <Button variant="outline" size="sm" onClick={humanizeAp} disabled={humanizing}>
+                      {humanizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                      {humanizing ? "Humanizing..." : "Humanize A/P"}
+                    </Button>
                     <Button variant="outline" size="sm" onClick={copyAp}>
                       {copiedAp ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                       {copiedAp ? "Copied" : "Copy A/P"}
@@ -1085,6 +1166,40 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
               <CardContent>
                 <div className="whitespace-pre-wrap text-sm leading-relaxed bg-muted/30 rounded-lg p-4 border">
                   {result.assessment_and_plan}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Humanized A/P */}
+          {humanizedText && (
+            <Card className="border-violet-300 dark:border-violet-700">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Wand2 className="h-4 w-4 text-violet-600" />
+                    Humanized A/P
+                  </CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(humanizedText);
+                      setCopiedHumanized(true);
+                      setTimeout(() => setCopiedHumanized(false), 2000);
+                    }}
+                  >
+                    {copiedHumanized ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                    {copiedHumanized ? "Copied" : "Copy"}
+                  </Button>
+                </div>
+                <CardDescription>
+                  AI patterns removed — this version sounds more natural and human-written.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="whitespace-pre-wrap text-sm leading-relaxed bg-violet-50/50 dark:bg-violet-950/20 rounded-lg p-4 border border-violet-200 dark:border-violet-800">
+                  {humanizedText}
                 </div>
               </CardContent>
             </Card>
