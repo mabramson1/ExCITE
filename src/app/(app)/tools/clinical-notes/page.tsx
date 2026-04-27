@@ -14,9 +14,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { PhiWarning } from "@/components/phi-warning";
+import { PrivacyBanner } from "@/components/privacy-banner";
 import { ResultActions } from "@/components/result-actions";
 import { SPECIALTIES, getTemplatesBySpecialty, getCategoriesForSpecialty, type ApTemplate } from "@/lib/templates";
 import { RVU_TABLE, estimateReimbursement, getRvuDifference } from "@/lib/rvu-data";
+import { scanAndCensorPhi, deepReinject } from "@/lib/phi-detection";
 
 const MAX_LENGTH = 50_000;
 
@@ -306,11 +308,14 @@ function AnalyzeTab({ prefill }: { prefill: Prefill | null }) {
     setSavedId(null);
     setPhiWarnings([]);
 
+    const phi = scanAndCensorPhi(input);
+    if (phi.hasPhi) setPhiWarnings(phi.warnings);
+
     try {
       const res = await fetch("/api/analyze/clinical-note", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: input }),
+        body: JSON.stringify({ text: phi.censoredText }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -318,7 +323,7 @@ function AnalyzeTab({ prefill }: { prefill: Prefill | null }) {
         return;
       }
       if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
-      setResult(data.result);
+      setResult(deepReinject(data.result, phi.tokenMap));
       setSavedId(data.savedId || null);
       toast.success("Analysis complete");
     } catch {
@@ -383,6 +388,7 @@ function AnalyzeTab({ prefill }: { prefill: Prefill | null }) {
 
   return (
     <div className="space-y-6 mt-4">
+      <PrivacyBanner />
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Paste Your Clinical Note</CardTitle>
@@ -866,21 +872,46 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
     }
     setPhiWarnings([]);
 
+    // Scan main skeleton input + voiceSample + customTemplate; merge tokenMaps
+    const phi = scanAndCensorPhi(inputSkeleton);
+    const tokenMap: Record<string, string> = { ...phi.tokenMap };
+    const allWarnings: string[] = [...phi.warnings];
+
+    const trimmedVoice = voiceSample.trim();
+    let censoredVoice: string | undefined;
+    if (trimmedVoice) {
+      const voicePhi = scanAndCensorPhi(trimmedVoice);
+      censoredVoice = voicePhi.censoredText;
+      Object.assign(tokenMap, voicePhi.tokenMap);
+      if (voicePhi.hasPhi) allWarnings.push(...voicePhi.warnings);
+    }
+
+    const trimmedTemplate = customTemplate.trim();
+    let censoredTemplate: string | undefined;
+    if (trimmedTemplate) {
+      const templatePhi = scanAndCensorPhi(trimmedTemplate);
+      censoredTemplate = templatePhi.censoredText;
+      Object.assign(tokenMap, templatePhi.tokenMap);
+      if (templatePhi.hasPhi) allWarnings.push(...templatePhi.warnings);
+    }
+
+    if (allWarnings.length > 0) setPhiWarnings(allWarnings);
+
     try {
       const res = await fetch("/api/analyze/ap-writer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          skeleton: inputSkeleton,
+          skeleton: phi.censoredText,
           encounterType,
-          voiceSample: voiceSample.trim() || undefined,
+          voiceSample: censoredVoice,
           brevity: brevity !== "standard" ? brevity : undefined,
-          customTemplate: customTemplate.trim() || undefined,
+          customTemplate: censoredTemplate,
         }),
       });
       const data = await res.json();
       if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
-      setResult(data.result);
+      setResult(deepReinject(data.result, tokenMap));
       setSavedId(data.savedId || null);
 
       // Auto-show clarification dialog if there are items
@@ -927,14 +958,28 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
     if (!result?.assessment_and_plan) return;
     setHumanizing(true);
     setHumanizedText(null);
+
+    // Re-redact before sending the already-reinjected A/P back out
+    const phi = scanAndCensorPhi(result.assessment_and_plan);
+    const tokenMap: Record<string, string> = { ...phi.tokenMap };
+    if (phi.hasPhi) setPhiWarnings(phi.warnings);
+
+    const trimmedVoice = voiceSample.trim();
+    let censoredVoice: string | undefined;
+    if (trimmedVoice) {
+      const voicePhi = scanAndCensorPhi(trimmedVoice);
+      censoredVoice = voicePhi.censoredText;
+      Object.assign(tokenMap, voicePhi.tokenMap);
+    }
+
     try {
       const res = await fetch("/api/analyze/de-ai-ify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          text: result.assessment_and_plan,
+          text: phi.censoredText,
           writingStyle: "general",
-          voiceSample: voiceSample.trim() || undefined,
+          voiceSample: censoredVoice,
           verifyAfter: false,
         }),
       });
@@ -943,7 +988,7 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
         toast.error(data.error || "Humanization failed");
         return;
       }
-      const parsed = data.result;
+      const parsed = deepReinject(data.result, tokenMap);
       if (parsed?.rewritten_text) {
         setHumanizedText(parsed.rewritten_text);
         toast.success("A/P humanized");
@@ -1074,6 +1119,8 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
         onToggleFavorite={toggleFavoriteTemplate}
         onInsert={insertTemplate}
       />
+
+      <PrivacyBanner />
 
       <Card>
         <CardHeader>
@@ -1541,6 +1588,7 @@ function PriorAuthTab() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<PriorAuthResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
 
   async function handleGenerate() {
     if (!skeleton.trim() || !procedure.trim() || !diagnosis.trim()) {
@@ -1553,19 +1601,23 @@ function PriorAuthTab() {
     }
     setLoading(true);
     setResult(null);
+    setPhiWarnings([]);
+
+    const phi = scanAndCensorPhi(skeleton);
+    if (phi.hasPhi) setPhiWarnings(phi.warnings);
 
     try {
       const res = await fetch("/api/analyze/prior-auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skeleton, procedure, diagnosis }),
+        body: JSON.stringify({ skeleton: phi.censoredText, procedure, diagnosis }),
       });
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.error || "Generation failed");
         return;
       }
-      setResult(data.result);
+      setResult(deepReinject(data.result, phi.tokenMap));
       toast.success("Prior authorization letter generated");
     } catch {
       toast.error("Network error. Please try again.");
@@ -1584,6 +1636,7 @@ function PriorAuthTab() {
 
   return (
     <div className="space-y-6 mt-4">
+      <PrivacyBanner />
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -1629,6 +1682,8 @@ function PriorAuthTab() {
           </div>
         </CardContent>
       </Card>
+
+      {phiWarnings.length > 0 && <PhiWarning warnings={phiWarnings} />}
 
       {result && !result.raw && result.letter && (
         <div className="space-y-4">
@@ -1712,6 +1767,7 @@ function DischargeTab() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DischargeResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
 
   async function handleGenerate() {
     if (!skeleton.trim() || !admitReason.trim()) {
@@ -1724,19 +1780,23 @@ function DischargeTab() {
     }
     setLoading(true);
     setResult(null);
+    setPhiWarnings([]);
+
+    const phi = scanAndCensorPhi(skeleton);
+    if (phi.hasPhi) setPhiWarnings(phi.warnings);
 
     try {
       const res = await fetch("/api/analyze/discharge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skeleton, admitReason }),
+        body: JSON.stringify({ skeleton: phi.censoredText, admitReason }),
       });
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.error || "Generation failed");
         return;
       }
-      setResult(data.result);
+      setResult(deepReinject(data.result, phi.tokenMap));
       toast.success("Discharge summary generated");
     } catch {
       toast.error("Network error. Please try again.");
@@ -1755,6 +1815,7 @@ function DischargeTab() {
 
   return (
     <div className="space-y-6 mt-4">
+      <PrivacyBanner />
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -1790,6 +1851,8 @@ function DischargeTab() {
           </div>
         </CardContent>
       </Card>
+
+      {phiWarnings.length > 0 && <PhiWarning warnings={phiWarnings} />}
 
       {result && !result.raw && result.summary && (
         <div className="space-y-4">
@@ -1914,6 +1977,7 @@ function ReferralTab() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ReferralResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
 
   async function handleGenerate() {
     if (!skeleton.trim() || !referTo.trim() || !reason.trim()) {
@@ -1926,19 +1990,23 @@ function ReferralTab() {
     }
     setLoading(true);
     setResult(null);
+    setPhiWarnings([]);
+
+    const phi = scanAndCensorPhi(skeleton);
+    if (phi.hasPhi) setPhiWarnings(phi.warnings);
 
     try {
       const res = await fetch("/api/analyze/referral", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ skeleton, referTo, reason }),
+        body: JSON.stringify({ skeleton: phi.censoredText, referTo, reason }),
       });
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.error || "Generation failed");
         return;
       }
-      setResult(data.result);
+      setResult(deepReinject(data.result, phi.tokenMap));
       toast.success("Referral letter generated");
     } catch {
       toast.error("Network error. Please try again.");
@@ -1965,6 +2033,7 @@ function ReferralTab() {
 
   return (
     <div className="space-y-6 mt-4">
+      <PrivacyBanner />
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
@@ -2010,6 +2079,8 @@ function ReferralTab() {
           </div>
         </CardContent>
       </Card>
+
+      {phiWarnings.length > 0 && <PhiWarning warnings={phiWarnings} />}
 
       {result && !result.raw && result.letter && (
         <div className="space-y-4">
