@@ -14,7 +14,8 @@ import { PhiWarning } from "@/components/phi-warning";
 import { PrivacyBanner } from "@/components/privacy-banner";
 import { ResultActions } from "@/components/result-actions";
 import { useKeyboardSubmit } from "@/hooks/use-keyboard-submit";
-import { scanAndCensorPhi, deepReinject } from "@/lib/phi-detection";
+import { scanAndCensorPhi, deepReinject, reinjectTokens } from "@/lib/phi-detection";
+import { saveTokenMap, getTokenMap } from "@/lib/phi-tokenmap-storage";
 import { ComplianceReport } from "./compliance-report";
 
 const MAX_LENGTH = 50_000;
@@ -95,10 +96,12 @@ function AiDetectorContent() {
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!data?.project) return;
-        setInput(data.project.inputText || "");
+        // Re-inject PHI from local tokenMap if available
+        const tokenMap = getTokenMap(loadId);
+        setInput(reinjectTokens(data.project.inputText || "", tokenMap));
         if (data.project.outputText) {
           try {
-            setResult(JSON.parse(data.project.outputText));
+            setResult(deepReinject(JSON.parse(data.project.outputText), tokenMap));
           } catch {}
         }
         setSavedId(loadId);
@@ -137,6 +140,8 @@ function AiDetectorContent() {
       const restored = deepReinject(data.result, phi.tokenMap);
       setResult(restored);
       setSavedId(data.savedId || null);
+      // Persist tokenMap locally so reload-from-history still shows real values
+      if (data.savedId) saveTokenMap(data.savedId, phi.tokenMap);
       toast.success("Analysis complete");
     } catch {
       toast.error("Network error. Please try again.");

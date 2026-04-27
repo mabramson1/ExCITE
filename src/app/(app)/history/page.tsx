@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ShareDialog } from "@/components/share-dialog";
 import { formatDistanceToNow } from "date-fns";
+import { reinjectTokens } from "@/lib/phi-detection";
+import { getAllTokenMaps, deleteTokenMap } from "@/lib/phi-tokenmap-storage";
 
 interface HistoryItem {
   id: string;
@@ -43,10 +45,17 @@ export default function HistoryPage() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("all");
   const [shareDialogItem, setShareDialogItem] = useState<HistoryItem | null>(null);
+  const [tokenMaps, setTokenMaps] = useState<Record<string, Record<string, string>>>({});
 
   useEffect(() => {
     fetchHistory();
+    setTokenMaps(getAllTokenMaps());
   }, []);
+
+  function displayTitle(item: HistoryItem): string {
+    const map = tokenMaps[item.id];
+    return map ? reinjectTokens(item.title, map) : item.title;
+  }
 
   async function fetchHistory() {
     try {
@@ -114,6 +123,7 @@ export default function HistoryPage() {
     try {
       await fetch(`/api/history/${id}`, { method: "DELETE" });
       setItems((prev) => prev.filter((item) => item.id !== id));
+      deleteTokenMap(id);
       toast.success("Deleted");
     } catch {
       toast.error("Failed to delete");
@@ -126,8 +136,9 @@ export default function HistoryPage() {
     const rows = filtered.map((item) => {
       const config = typeConfig[item.type] || typeConfig.clinical_note;
       const created = new Date(item.createdAt).toLocaleDateString();
+      const title = displayTitle(item);
       return [
-        `"${item.title.replace(/"/g, '""')}"`,
+        `"${title.replace(/"/g, '""')}"`,
         config.label,
         item.favorite ? "Yes" : "No",
         created,
@@ -258,7 +269,7 @@ export default function HistoryPage() {
                           <Icon className="h-4 w-4" />
                         </div>
                         <div className="min-w-0">
-                          <CardTitle className="text-sm truncate">{item.title}</CardTitle>
+                          <CardTitle className="text-sm truncate">{displayTitle(item)}</CardTitle>
                           <CardDescription className="text-xs">
                             {formatDistanceToNow(new Date(item.createdAt), { addSuffix: true })}
                           </CardDescription>

@@ -18,7 +18,8 @@ import { PrivacyBanner } from "@/components/privacy-banner";
 import { ResultActions } from "@/components/result-actions";
 import { SPECIALTIES, getTemplatesBySpecialty, getCategoriesForSpecialty, type ApTemplate } from "@/lib/templates";
 import { RVU_TABLE, estimateReimbursement, getRvuDifference } from "@/lib/rvu-data";
-import { scanAndCensorPhi, deepReinject } from "@/lib/phi-detection";
+import { scanAndCensorPhi, deepReinject, reinjectTokens } from "@/lib/phi-detection";
+import { saveTokenMap, getTokenMap } from "@/lib/phi-tokenmap-storage";
 
 const MAX_LENGTH = 50_000;
 
@@ -148,6 +149,8 @@ interface ApResult {
     data_justification?: string;
     risk_level: string;
     risk_justification?: string;
+    could_support_higher?: string | null;
+    documentation_gaps?: string[];
   };
   documentation_tips?: string[];
   clarification_needed?: string[];
@@ -288,11 +291,13 @@ function AnalyzeTab({ prefill }: { prefill: Prefill | null }) {
 
   useEffect(() => {
     if (!prefill) return;
-    setInput(prefill.input);
+    // Re-inject PHI from local tokenMap if available
+    const tokenMap = getTokenMap(prefill.savedId);
+    setInput(reinjectTokens(prefill.input, tokenMap));
     setSavedId(prefill.savedId);
     if (prefill.outputText) {
       try {
-        setResult(JSON.parse(prefill.outputText));
+        setResult(deepReinject(JSON.parse(prefill.outputText), tokenMap));
       } catch {}
     }
   }, [prefill]);
@@ -325,6 +330,8 @@ function AnalyzeTab({ prefill }: { prefill: Prefill | null }) {
       if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
       setResult(deepReinject(data.result, phi.tokenMap));
       setSavedId(data.savedId || null);
+      // Persist tokenMap locally so reload-from-history still shows real values
+      if (data.savedId) saveTokenMap(data.savedId, phi.tokenMap);
       toast.success("Analysis complete");
     } catch {
       toast.error("Network error. Please try again.");
@@ -781,18 +788,42 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
   const [showTemplate, setShowTemplate] = useState(false);
   const [savedTemplates, setSavedTemplates] = useState<{ name: string; template: string }[]>([]);
   const [templateName, setTemplateName] = useState("");
+  const [loadedVoiceSample, setLoadedVoiceSample] = useState("");
+  const [loadedBrevity, setLoadedBrevity] = useState("standard");
 
-  // Load saved templates from localStorage
+  // Load saved preferences (voice sample, brevity, custom templates) from DB
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("excite-custom-templates");
-      if (stored) setSavedTemplates(JSON.parse(stored));
-    } catch {}
+    fetch("/api/preferences")
+      .then((r) => (r.ok ? r.json() : { preferences: null }))
+      .then((data) => {
+        const prefs = data?.preferences;
+        if (!prefs) return;
+        const persistedVoice =
+          typeof prefs.voiceSampleClinical === "string" ? prefs.voiceSampleClinical : "";
+        const persistedBrevity =
+          typeof prefs.defaultBrevity === "string" && prefs.defaultBrevity
+            ? prefs.defaultBrevity
+            : "standard";
+        const persistedTemplates: { name: string; template: string }[] = Array.isArray(
+          prefs.customTemplates,
+        )
+          ? prefs.customTemplates
+          : [];
+        setLoadedVoiceSample(persistedVoice);
+        setLoadedBrevity(persistedBrevity);
+        setVoiceSample((prev) => (prev ? prev : persistedVoice));
+        if (persistedVoice) setShowVoice(true);
+        setBrevity((prev) => (prev && prev !== "standard" ? prev : persistedBrevity));
+        setSavedTemplates(persistedTemplates);
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
     if (!prefill) return;
-    setSkeleton(prefill.input);
+    // Re-inject PHI from local tokenMap if available
+    const tokenMap = getTokenMap(prefill.savedId);
+    setSkeleton(reinjectTokens(prefill.input, tokenMap));
     setSavedId(prefill.savedId);
     const meta = prefill.metadata;
     if (meta.encounterType && typeof meta.encounterType === "string") {
@@ -800,7 +831,7 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
     }
     if (prefill.outputText) {
       try {
-        setResult(JSON.parse(prefill.outputText));
+        setResult(deepReinject(JSON.parse(prefill.outputText), tokenMap));
       } catch {}
     }
   }, [prefill]);
@@ -865,6 +896,19 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
       : skeleton;
 
     if (!inputSkeleton.trim()) return;
+
+    // Validate {{placeholders}} in custom template before submit
+    if (customTemplate.trim()) {
+      const placeholders = customTemplate.match(/\{\{[^{}]+\}\}/g) || [];
+      const malformed = customTemplate.match(/\{[^{}]+\}/g) || [];
+      const hasUnpaired = malformed.length > placeholders.length * 2;
+      if (placeholders.length === 0) {
+        toast.warning("Template has no {{placeholders}} — generating normally");
+      } else if (hasUnpaired) {
+        toast.warning("Template may have unpaired braces — check for typos");
+      }
+    }
+
     setLoading(true);
     if (!additionalContext) {
       setResult(null);
@@ -913,6 +957,35 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
       if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
       setResult(deepReinject(data.result, tokenMap));
       setSavedId(data.savedId || null);
+      // Persist tokenMap locally so reload-from-history still shows real values
+      if (data.savedId) saveTokenMap(data.savedId, tokenMap);
+
+      // Persist voice sample / brevity preference changes to DB
+      if (res.ok) {
+        const prefUpdates: Record<string, string> = {};
+        if (trimmedVoice && trimmedVoice !== loadedVoiceSample.trim()) {
+          prefUpdates.voiceSampleClinical = trimmedVoice;
+        }
+        if (brevity !== loadedBrevity) {
+          prefUpdates.defaultBrevity = brevity;
+        }
+        if (Object.keys(prefUpdates).length > 0) {
+          fetch("/api/preferences", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(prefUpdates),
+          })
+            .then(() => {
+              if (prefUpdates.voiceSampleClinical !== undefined) {
+                setLoadedVoiceSample(prefUpdates.voiceSampleClinical);
+              }
+              if (prefUpdates.defaultBrevity !== undefined) {
+                setLoadedBrevity(prefUpdates.defaultBrevity);
+              }
+            })
+            .catch(() => {});
+        }
+      }
 
       // Auto-show clarification dialog if there are items
       if (data.result?.clarification_needed?.length > 0 && !additionalContext) {
@@ -991,6 +1064,11 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
       const parsed = deepReinject(data.result, tokenMap);
       if (parsed?.rewritten_text) {
         setHumanizedText(parsed.rewritten_text);
+        // Persist NEW tokenMap merged with the existing one for the same savedId
+        if (savedId) {
+          const existing = getTokenMap(savedId);
+          saveTokenMap(savedId, { ...existing, ...tokenMap });
+        }
         toast.success("A/P humanized");
       }
     } catch {
@@ -1000,23 +1078,51 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
     }
   }
 
-  function saveTemplate() {
+  async function persistCustomTemplates(updated: { name: string; template: string }[]) {
+    try {
+      const res = await fetch("/api/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customTemplates: updated }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      return true;
+    } catch {
+      toast.error("Failed to save template");
+      return false;
+    }
+  }
+
+  async function saveTemplate() {
     const name = templateName.trim();
     if (!name || !customTemplate.trim()) {
       toast.error("Enter a template name and content");
       return;
     }
-    const updated = [...savedTemplates.filter((t) => t.name !== name), { name, template: customTemplate }];
+    const previous = savedTemplates;
+    const updated = [
+      ...savedTemplates.filter((t) => t.name !== name),
+      { name, template: customTemplate },
+    ];
     setSavedTemplates(updated);
-    localStorage.setItem("excite-custom-templates", JSON.stringify(updated));
+    const ok = await persistCustomTemplates(updated);
+    if (!ok) {
+      setSavedTemplates(previous);
+      return;
+    }
     setTemplateName("");
     toast.success(`Template "${name}" saved`);
   }
 
-  function deleteTemplate(name: string) {
+  async function deleteTemplate(name: string) {
+    const previous = savedTemplates;
     const updated = savedTemplates.filter((t) => t.name !== name);
     setSavedTemplates(updated);
-    localStorage.setItem("excite-custom-templates", JSON.stringify(updated));
+    const ok = await persistCustomTemplates(updated);
+    if (!ok) {
+      setSavedTemplates(previous);
+      return;
+    }
     toast.success("Template deleted");
   }
 
@@ -1336,35 +1442,48 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
             </Card>
           )}
 
-          {/* Humanized A/P */}
+          {/* Humanized A/P (side-by-side diff) */}
           {humanizedText && (
             <Card className="border-violet-300 dark:border-violet-700">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Wand2 className="h-4 w-4 text-violet-600" />
-                    Humanized A/P
+                    Humanized A/P (side-by-side)
                   </CardTitle>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      navigator.clipboard.writeText(humanizedText);
-                      setCopiedHumanized(true);
-                      setTimeout(() => setCopiedHumanized(false), 2000);
-                    }}
-                  >
-                    {copiedHumanized ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    {copiedHumanized ? "Copied" : "Copy"}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(humanizedText);
+                        setCopiedHumanized(true);
+                        setTimeout(() => setCopiedHumanized(false), 2000);
+                      }}
+                    >
+                      {copiedHumanized ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      {copiedHumanized ? "Copied" : "Copy Humanized"}
+                    </Button>
+                  </div>
                 </div>
                 <CardDescription>
                   AI patterns removed — this version sounds more natural and human-written.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="whitespace-pre-wrap text-sm leading-relaxed bg-violet-50/50 dark:bg-violet-950/20 rounded-lg p-4 border border-violet-200 dark:border-violet-800">
-                  {humanizedText}
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Original (AI-generated)</p>
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed bg-muted/30 rounded-lg p-3 border max-h-[400px] overflow-y-auto">
+                      {result.assessment_and_plan}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-violet-700 dark:text-violet-400 mb-1">Humanized</p>
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed bg-violet-50/50 dark:bg-violet-950/20 rounded-lg p-3 border border-violet-200 dark:border-violet-800 max-h-[400px] overflow-y-auto">
+                      {humanizedText}
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -1528,7 +1647,40 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
                       <p className="text-[10px] text-muted-foreground">Est. Reimbursement</p>
                     </div>
                   </div>
-                  {showUpgrade && diff && (
+                  {result.supported_em_level?.documentation_gaps && result.supported_em_level.documentation_gaps.length > 0 ? (() => {
+                    const currentCode = result.supported_em_level.code;
+                    // Find next-level code in same series
+                    const isEstablishedSeries = currentCode.startsWith("9921");
+                    const upgradeCode = (() => {
+                      const num = parseInt(currentCode);
+                      if (isEstablishedSeries && num < 99215) return String(num + 1);
+                      if (!isEstablishedSeries && num < 99205) return String(num + 1);
+                      return null;
+                    })();
+                    if (!upgradeCode || !RVU_TABLE[upgradeCode]) return null;
+                    const upgradeDiff = getRvuDifference(currentCode, upgradeCode);
+                    return (
+                      <div className="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 p-3">
+                        <div className="flex items-start gap-2">
+                          <DollarSign className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                              Potential upgrade to {upgradeCode}: <span className="font-bold">+${upgradeDiff.dollarDiff.toFixed(2)}</span> per encounter (+{upgradeDiff.rvuDiff} Work RVU)
+                            </p>
+                            <p className="text-xs text-amber-800 dark:text-amber-300 mt-1">Document these to qualify:</p>
+                            <ul className="mt-1 space-y-0.5">
+                              {result.supported_em_level!.documentation_gaps!.map((gap, i) => (
+                                <li key={i} className="text-xs text-amber-800 dark:text-amber-300 flex items-start gap-1.5">
+                                  <span className="h-1 w-1 rounded-full bg-amber-600 mt-1.5 shrink-0" />
+                                  {gap}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })() : showUpgrade && diff && (
                     <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
                       <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
                         With additional documentation, this could support {nextCode}
@@ -1618,6 +1770,8 @@ function PriorAuthTab() {
         return;
       }
       setResult(deepReinject(data.result, phi.tokenMap));
+      // Persist tokenMap locally so future reload-from-history still shows real values
+      if (data.savedId) saveTokenMap(data.savedId, phi.tokenMap);
       toast.success("Prior authorization letter generated");
     } catch {
       toast.error("Network error. Please try again.");
@@ -1797,6 +1951,8 @@ function DischargeTab() {
         return;
       }
       setResult(deepReinject(data.result, phi.tokenMap));
+      // Persist tokenMap locally so future reload-from-history still shows real values
+      if (data.savedId) saveTokenMap(data.savedId, phi.tokenMap);
       toast.success("Discharge summary generated");
     } catch {
       toast.error("Network error. Please try again.");
@@ -2007,6 +2163,8 @@ function ReferralTab() {
         return;
       }
       setResult(deepReinject(data.result, phi.tokenMap));
+      // Persist tokenMap locally so future reload-from-history still shows real values
+      if (data.savedId) saveTokenMap(data.savedId, phi.tokenMap);
       toast.success("Referral letter generated");
     } catch {
       toast.error("Network error. Please try again.");
