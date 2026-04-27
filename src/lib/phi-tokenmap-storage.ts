@@ -81,3 +81,16 @@ export function getAllTokenMaps(): Record<string, Record<string, string>> {
   }
   return out;
 }
+
+/**
+ * Wipe all stored tokenMaps. Call on sign-out so PHI doesn't leak across
+ * users on a shared device.
+ */
+export function clearAllTokenMaps(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // ignore
+  }
+}
