@@ -831,6 +831,101 @@ confidence_score: 1.0 = definitely human, 0.0 = still obviously AI. Be honest.`;
   return content.type === "text" ? content.text : "";
 }
 
+// ── Manuscript Writer ─────────────────────────────────────────────
+
+const MANUSCRIPT_WRITER_SYSTEM = `You are an expert academic and medical writer. Given raw notes, bullet points, outlines, or rough paragraphs, you produce a polished, well-structured manuscript ready for journal submission.
+
+RULES:
+1. Transform disorganized input into a coherent, logical narrative
+2. Maintain all factual content from the input — never fabricate data or results
+3. Use appropriate academic tone and structure
+4. If citations are requested, suggest where citations would strengthen the text and provide real search terms for PubMed verification (NEVER fabricate specific citations)
+5. Follow the requested manuscript format (IMRAD, case report, review, essay, etc.)
+6. Preserve any specific data, numbers, or statistics from the input exactly
+
+MANUSCRIPT STRUCTURE:
+- Title (concise, descriptive)
+- Abstract (structured: Background, Methods, Results, Conclusions — or unstructured depending on format)
+- Sections appropriate to the format
+- References section (if citations enabled)
+
+Respond ONLY with valid JSON. No markdown, no code fences.`;
+
+export async function generateManuscript(
+  input: string,
+  options: {
+    format?: string;
+    citationsEnabled?: boolean;
+    citationStyle?: string;
+    brevity?: string;
+    voiceSample?: string;
+  }
+): Promise<string> {
+  const format = options.format || "imrad";
+  let userMessage = "";
+
+  if (options.voiceSample) {
+    userMessage += `VOICE CALIBRATION: The author provided a sample of their own academic writing. Match their writing style — sentence structure, vocabulary preferences, level of detail, and phrasing habits — so the manuscript sounds like THEM.
+
+Writing sample:
+"""
+${options.voiceSample}
+"""
+
+`;
+  }
+
+  if (options.brevity === "brief") {
+    userMessage += `BREVITY MODE: Write a CONCISE manuscript. Use short sentences, minimize prose. Keep each section focused and tight. Avoid filler phrases and unnecessary elaboration.\n\n`;
+  } else if (options.brevity === "comprehensive") {
+    userMessage += `COMPREHENSIVE MODE: Write a THOROUGH narrative manuscript with full detail. Expand on reasoning, provide context, discuss implications, and create a rich academic narrative.\n\n`;
+  }
+
+  if (options.citationsEnabled) {
+    userMessage += `Write a ${format} manuscript from these raw notes. Include citations formatted in ${options.citationStyle || "apa"} style. For each citation, provide PubMed search terms for verification. Mark citations as [Citation needed: search terms] inline.`;
+  } else {
+    userMessage += `Write a ${format} manuscript from these raw notes. Do not include citations.`;
+  }
+
+  userMessage += `
+
+Raw input:
+"""
+${input}
+"""
+
+Respond with this exact JSON structure:
+{
+  "title": "manuscript title",
+  "abstract": "structured or unstructured abstract",
+  "sections": [
+    { "heading": "Introduction", "content": "section content..." },
+    { "heading": "Methods", "content": "..." }
+  ],
+  "citations": [
+    { "inline_marker": "[1]", "search_terms": "PubMed search query", "context": "what the citation supports" }
+  ],
+  "word_count": 1500,
+  "format_used": "IMRAD",
+  "suggestions": ["improvement suggestions for the author"]
+}`;
+
+  const message = await anthropic.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 8192,
+    system: cachedSystem(MANUSCRIPT_WRITER_SYSTEM),
+    messages: [
+      {
+        role: "user",
+        content: userMessage,
+      },
+    ],
+  });
+
+  const content = message.content[0];
+  return content.type === "text" ? content.text : "";
+}
+
 // ── AI Text Detection ──────────────────────────────────────────────
 
 const DETECTOR_SYSTEM = `You are an expert at analyzing text for AI-generated patterns, calibrated for the 2025-2026 generation of large language models (GPT-5, Claude 4.x, Gemini 2.x, Llama 4+). You provide honest, nuanced, calibrated assessments. Older tells like "delve/tapestry/intricate" are now rare — modern LLMs have cleaned up lexical fingerprints, so STRUCTURAL and RHETORICAL patterns are the more reliable signals in 2026.
