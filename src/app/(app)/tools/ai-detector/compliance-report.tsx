@@ -43,6 +43,7 @@ export function ComplianceReport({ result, inputText, timestamp }: ComplianceRep
   }
 
   const analysisDate = timestamp || new Date();
+  const reportId = `XCT-${analysisDate.getTime().toString(36).toUpperCase().slice(-8)}`;
   const wordCount = inputText.trim() ? inputText.trim().split(/\s+/).length : 0;
   const truncatedText = inputText.length > 500 ? inputText.slice(0, 500) + "..." : inputText;
   const overallPercent = result.overall_ai_probability

@@ -14,7 +14,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PhiWarning } from "@/components/phi-warning";
 import { PrivacyBanner } from "@/components/privacy-banner";
 import { ResultActions } from "@/components/result-actions";
-import { scanAndCensorPhi, deepReinject } from "@/lib/phi-detection";
+import { scanAndCensorPhi, deepReinject, reinjectTokens } from "@/lib/phi-detection";
+import { saveTokenMap, getTokenMap } from "@/lib/phi-tokenmap-storage";
 
 const MAX_LENGTH = 50_000;
 
@@ -74,9 +75,32 @@ function DeAiIfyContent() {
   const [copiedOriginal, setCopiedOriginal] = useState(false);
   const [copiedRewrite, setCopiedRewrite] = useState(false);
   const [loadingSaved, setLoadingSaved] = useState(false);
+  const [saveAsDefault, setSaveAsDefault] = useState(false);
+  const [loadedVoiceSample, setLoadedVoiceSample] = useState("");
+  const [loadedWritingStyle, setLoadedWritingStyle] = useState("general");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useKeyboardSubmit(handleProcess, !loading && !!input.trim());
+
+  // Load persisted preferences on mount
+  useEffect(() => {
+    fetch("/api/preferences")
+      .then((r) => (r.ok ? r.json() : { preferences: null }))
+      .then((data) => {
+        const prefs = data?.preferences;
+        if (!prefs) return;
+        const persistedVoice =
+          typeof prefs.voiceSampleGeneral === "string" ? prefs.voiceSampleGeneral : "";
+        const persistedStyle =
+          typeof prefs.defaultWritingStyle === "string" ? prefs.defaultWritingStyle : "general";
+        setLoadedVoiceSample(persistedVoice);
+        setLoadedWritingStyle(persistedStyle || "general");
+        setVoiceSample((prev) => (prev ? prev : persistedVoice));
+        if (persistedVoice) setShowVoice(true);
+        setWritingStyle((prev) => (prev && prev !== "general" ? prev : persistedStyle || "general"));
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!loadId) return;
@@ -85,14 +109,16 @@ function DeAiIfyContent() {
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!data?.project) return;
-        setInput(data.project.inputText || "");
+        // Re-inject PHI from local tokenMap if available
+        const tokenMap = getTokenMap(loadId);
+        setInput(reinjectTokens(data.project.inputText || "", tokenMap));
         const meta = data.project.metadata || {};
         if (meta.writingStyle && typeof meta.writingStyle === "string") {
           setWritingStyle(meta.writingStyle);
         }
         if (data.project.outputText) {
           try {
-            setResult(JSON.parse(data.project.outputText));
+            setResult(deepReinject(JSON.parse(data.project.outputText), tokenMap));
           } catch {}
         }
         setSavedId(loadId);
@@ -144,7 +170,37 @@ function DeAiIfyContent() {
       const restored = deepReinject(data.result, tokenMap);
       setResult(restored);
       setSavedId(data.savedId || null);
+      // Persist tokenMap locally so reload-from-history still shows real values
+      if (data.savedId) saveTokenMap(data.savedId, tokenMap);
       toast.success("Analysis complete");
+
+      // Persist preferences if user opted in or values changed from loaded defaults
+      const trimmedSampleForSave = voiceSample.trim();
+      const voiceChanged = trimmedSampleForSave !== loadedVoiceSample.trim();
+      const styleChanged = writingStyle !== loadedWritingStyle;
+      const prefUpdates: Record<string, string> = {};
+      if (saveAsDefault && voiceChanged) {
+        prefUpdates.voiceSampleGeneral = trimmedSampleForSave;
+      }
+      if (styleChanged) {
+        prefUpdates.defaultWritingStyle = writingStyle;
+      }
+      if (Object.keys(prefUpdates).length > 0) {
+        fetch("/api/preferences", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(prefUpdates),
+        })
+          .then(() => {
+            if (prefUpdates.voiceSampleGeneral !== undefined) {
+              setLoadedVoiceSample(prefUpdates.voiceSampleGeneral);
+            }
+            if (prefUpdates.defaultWritingStyle !== undefined) {
+              setLoadedWritingStyle(prefUpdates.defaultWritingStyle);
+            }
+          })
+          .catch(() => {});
+      }
     } catch {
       toast.error("Network error. Please try again.");
     } finally {
@@ -281,12 +337,23 @@ function DeAiIfyContent() {
               {showVoice ? "Hide" : "Match my writing voice"} (optional)
             </button>
             {showVoice && (
-              <Textarea
-                placeholder="Paste 2-3 paragraphs of YOUR writing here. We'll analyze your sentence rhythm, word choices, and quirks to make the rewrite sound like you..."
-                value={voiceSample}
-                onChange={(e) => setVoiceSample(e.target.value)}
-                className="min-h-[100px] text-sm"
-              />
+              <>
+                <Textarea
+                  placeholder="Paste 2-3 paragraphs of YOUR writing here. We'll analyze your sentence rhythm, word choices, and quirks to make the rewrite sound like you..."
+                  value={voiceSample}
+                  onChange={(e) => setVoiceSample(e.target.value)}
+                  className="min-h-[100px] text-sm"
+                />
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={saveAsDefault}
+                    onChange={(e) => setSaveAsDefault(e.target.checked)}
+                    className="h-3.5 w-3.5"
+                  />
+                  Save as default voice sample
+                </label>
+              </>
             )}
           </div>
         </CardContent>

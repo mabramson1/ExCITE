@@ -14,7 +14,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PhiWarning } from "@/components/phi-warning";
 import { PrivacyBanner } from "@/components/privacy-banner";
 import { ResultActions } from "@/components/result-actions";
-import { scanAndCensorPhi, deepReinject } from "@/lib/phi-detection";
+import { scanAndCensorPhi, deepReinject, reinjectTokens } from "@/lib/phi-detection";
+import { saveTokenMap, getTokenMap } from "@/lib/phi-tokenmap-storage";
 
 interface PubMedMatch {
   pmid: string;
@@ -128,11 +129,13 @@ function ManuscriptCitationsContent() {
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!data?.project) return;
-        setInput(data.project.inputText || "");
+        // Re-inject PHI from local tokenMap if available
+        const tokenMap = getTokenMap(loadId);
+        setInput(reinjectTokens(data.project.inputText || "", tokenMap));
         if (data.project.citationStyle) setStyle(data.project.citationStyle);
         if (data.project.outputText) {
           try {
-            setResult(JSON.parse(data.project.outputText));
+            setResult(deepReinject(JSON.parse(data.project.outputText), tokenMap));
           } catch {}
         }
         setSavedId(loadId);
@@ -171,6 +174,8 @@ function ManuscriptCitationsContent() {
       const restored = deepReinject(data.result, phi.tokenMap);
       setResult(restored);
       setSavedId(data.savedId || null);
+      // Persist tokenMap locally so reload-from-history still shows real values
+      if (data.savedId) saveTokenMap(data.savedId, phi.tokenMap);
       toast.success("Analysis complete");
     } catch {
       toast.error("Network error. Please try again.");
@@ -675,6 +680,8 @@ function ReviewResponseTab() {
       if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
       const restored = deepReinject(data.result, tokenMap);
       setResult(restored);
+      // Persist tokenMap locally so future reload-from-history still shows real values
+      if (data.savedId) saveTokenMap(data.savedId, tokenMap);
       toast.success("Response letter generated");
     } catch {
       toast.error("Network error. Please try again.");

@@ -123,6 +123,25 @@ export const templateFavorite = pgTable(
   (t) => [primaryKey({ columns: [t.userId, t.templateId] })]
 );
 
+// ── User Preferences ──────────────────────────────────────────────
+// Non-PHI preferences that should sync across devices.
+// Voice samples may include the USER's writing — they're shared with Claude
+// during analysis anyway, so storing them server-side adds no privacy risk.
+// PHI-bearing data (tokenMaps, raw patient input) stays in localStorage only.
+
+export const userPreference = pgTable("user_preference", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  voiceSampleClinical: text("voice_sample_clinical"), // for A/P writer
+  voiceSampleGeneral: text("voice_sample_general"), // for de-ai-ifier
+  defaultBrevity: text("default_brevity").default("standard"), // brief|standard|detailed
+  defaultWritingStyle: text("default_writing_style").default("general"),
+  defaultCitationStyle: citationStyleEnum("default_citation_style"),
+  customTemplates: jsonb("custom_templates").$type<Array<{ name: string; template: string }>>(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // ── Billing tables ────────────────────────────────────────────────
 
 export const subscription = pgTable("subscription", {
@@ -143,5 +162,6 @@ export type Project = typeof project.$inferSelect;
 export type Citation = typeof citation.$inferSelect;
 export type TemplateFavorite = typeof templateFavorite.$inferSelect;
 export type Subscription = typeof subscription.$inferSelect;
+export type UserPreference = typeof userPreference.$inferSelect;
 export type ProjectType = "clinical_note" | "manuscript" | "deai" | "ai_detector";
 export type CitationStyle = "apa" | "mla" | "chicago" | "vancouver" | "harvard" | "ieee";

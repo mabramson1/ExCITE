@@ -18,7 +18,8 @@ import { PrivacyBanner } from "@/components/privacy-banner";
 import { ResultActions } from "@/components/result-actions";
 import { SPECIALTIES, getTemplatesBySpecialty, getCategoriesForSpecialty, type ApTemplate } from "@/lib/templates";
 import { RVU_TABLE, estimateReimbursement, getRvuDifference } from "@/lib/rvu-data";
-import { scanAndCensorPhi, deepReinject } from "@/lib/phi-detection";
+import { scanAndCensorPhi, deepReinject, reinjectTokens } from "@/lib/phi-detection";
+import { saveTokenMap, getTokenMap } from "@/lib/phi-tokenmap-storage";
 
 const MAX_LENGTH = 50_000;
 
@@ -148,6 +149,8 @@ interface ApResult {
     data_justification?: string;
     risk_level: string;
     risk_justification?: string;
+    could_support_higher?: string | null;
+    documentation_gaps?: string[];
   };
   documentation_tips?: string[];
   clarification_needed?: string[];
@@ -288,11 +291,13 @@ function AnalyzeTab({ prefill }: { prefill: Prefill | null }) {
 
   useEffect(() => {
     if (!prefill) return;
-    setInput(prefill.input);
+    // Re-inject PHI from local tokenMap if available
+    const tokenMap = getTokenMap(prefill.savedId);
+    setInput(reinjectTokens(prefill.input, tokenMap));
     setSavedId(prefill.savedId);
     if (prefill.outputText) {
       try {
-        setResult(JSON.parse(prefill.outputText));
+        setResult(deepReinject(JSON.parse(prefill.outputText), tokenMap));
       } catch {}
     }
   }, [prefill]);
@@ -325,6 +330,8 @@ function AnalyzeTab({ prefill }: { prefill: Prefill | null }) {
       if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
       setResult(deepReinject(data.result, phi.tokenMap));
       setSavedId(data.savedId || null);
+      // Persist tokenMap locally so reload-from-history still shows real values
+      if (data.savedId) saveTokenMap(data.savedId, phi.tokenMap);
       toast.success("Analysis complete");
     } catch {
       toast.error("Network error. Please try again.");
@@ -792,7 +799,9 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
 
   useEffect(() => {
     if (!prefill) return;
-    setSkeleton(prefill.input);
+    // Re-inject PHI from local tokenMap if available
+    const tokenMap = getTokenMap(prefill.savedId);
+    setSkeleton(reinjectTokens(prefill.input, tokenMap));
     setSavedId(prefill.savedId);
     const meta = prefill.metadata;
     if (meta.encounterType && typeof meta.encounterType === "string") {
@@ -800,7 +809,7 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
     }
     if (prefill.outputText) {
       try {
-        setResult(JSON.parse(prefill.outputText));
+        setResult(deepReinject(JSON.parse(prefill.outputText), tokenMap));
       } catch {}
     }
   }, [prefill]);
@@ -865,6 +874,19 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
       : skeleton;
 
     if (!inputSkeleton.trim()) return;
+
+    // Validate {{placeholders}} in custom template before submit
+    if (customTemplate.trim()) {
+      const placeholders = customTemplate.match(/\{\{[^{}]+\}\}/g) || [];
+      const malformed = customTemplate.match(/\{[^{}]+\}/g) || [];
+      const hasUnpaired = malformed.length > placeholders.length * 2;
+      if (placeholders.length === 0) {
+        toast.warning("Template has no {{placeholders}} — generating normally");
+      } else if (hasUnpaired) {
+        toast.warning("Template may have unpaired braces — check for typos");
+      }
+    }
+
     setLoading(true);
     if (!additionalContext) {
       setResult(null);
@@ -913,6 +935,8 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
       if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
       setResult(deepReinject(data.result, tokenMap));
       setSavedId(data.savedId || null);
+      // Persist tokenMap locally so reload-from-history still shows real values
+      if (data.savedId) saveTokenMap(data.savedId, tokenMap);
 
       // Auto-show clarification dialog if there are items
       if (data.result?.clarification_needed?.length > 0 && !additionalContext) {
@@ -991,6 +1015,11 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
       const parsed = deepReinject(data.result, tokenMap);
       if (parsed?.rewritten_text) {
         setHumanizedText(parsed.rewritten_text);
+        // Persist NEW tokenMap merged with the existing one for the same savedId
+        if (savedId) {
+          const existing = getTokenMap(savedId);
+          saveTokenMap(savedId, { ...existing, ...tokenMap });
+        }
         toast.success("A/P humanized");
       }
     } catch {
@@ -1336,35 +1365,48 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
             </Card>
           )}
 
-          {/* Humanized A/P */}
+          {/* Humanized A/P (side-by-side diff) */}
           {humanizedText && (
             <Card className="border-violet-300 dark:border-violet-700">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Wand2 className="h-4 w-4 text-violet-600" />
-                    Humanized A/P
+                    Humanized A/P (side-by-side)
                   </CardTitle>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      navigator.clipboard.writeText(humanizedText);
-                      setCopiedHumanized(true);
-                      setTimeout(() => setCopiedHumanized(false), 2000);
-                    }}
-                  >
-                    {copiedHumanized ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                    {copiedHumanized ? "Copied" : "Copy"}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(humanizedText);
+                        setCopiedHumanized(true);
+                        setTimeout(() => setCopiedHumanized(false), 2000);
+                      }}
+                    >
+                      {copiedHumanized ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      {copiedHumanized ? "Copied" : "Copy Humanized"}
+                    </Button>
+                  </div>
                 </div>
                 <CardDescription>
                   AI patterns removed — this version sounds more natural and human-written.
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="whitespace-pre-wrap text-sm leading-relaxed bg-violet-50/50 dark:bg-violet-950/20 rounded-lg p-4 border border-violet-200 dark:border-violet-800">
-                  {humanizedText}
+                <div className="grid md:grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Original (AI-generated)</p>
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed bg-muted/30 rounded-lg p-3 border max-h-[400px] overflow-y-auto">
+                      {result.assessment_and_plan}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-violet-700 dark:text-violet-400 mb-1">Humanized</p>
+                    <div className="whitespace-pre-wrap text-sm leading-relaxed bg-violet-50/50 dark:bg-violet-950/20 rounded-lg p-3 border border-violet-200 dark:border-violet-800 max-h-[400px] overflow-y-auto">
+                      {humanizedText}
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -1618,6 +1660,8 @@ function PriorAuthTab() {
         return;
       }
       setResult(deepReinject(data.result, phi.tokenMap));
+      // Persist tokenMap locally so future reload-from-history still shows real values
+      if (data.savedId) saveTokenMap(data.savedId, phi.tokenMap);
       toast.success("Prior authorization letter generated");
     } catch {
       toast.error("Network error. Please try again.");
@@ -1797,6 +1841,8 @@ function DischargeTab() {
         return;
       }
       setResult(deepReinject(data.result, phi.tokenMap));
+      // Persist tokenMap locally so future reload-from-history still shows real values
+      if (data.savedId) saveTokenMap(data.savedId, phi.tokenMap);
       toast.success("Discharge summary generated");
     } catch {
       toast.error("Network error. Please try again.");
@@ -2007,6 +2053,8 @@ function ReferralTab() {
         return;
       }
       setResult(deepReinject(data.result, phi.tokenMap));
+      // Persist tokenMap locally so future reload-from-history still shows real values
+      if (data.savedId) saveTokenMap(data.savedId, phi.tokenMap);
       toast.success("Referral letter generated");
     } catch {
       toast.error("Network error. Please try again.");
