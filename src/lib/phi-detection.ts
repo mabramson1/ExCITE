@@ -2,69 +2,55 @@
  * PHI (Protected Health Information) Detection & Censoring
  *
  * Detects and redacts common PHI patterns per HIPAA Safe Harbor guidelines.
- * When PHI is found, it is replaced with [REDACTED] and a warning is issued.
+ *
+ * IMPORTANT: This module is isomorphic — runs on both client and server.
+ * Client-side usage is preferred so PHI never leaves the user's browser:
+ *
+ *   const { censoredText, tokenMap } = scanAndCensorPhi(input);
+ *   const res = await fetch(API, { body: JSON.stringify({ text: censoredText }) });
+ *   const data = await res.json();
+ *   const finalOutput = deepReinject(data.result, tokenMap); // restore real values
+ *
+ * Server-side scanAndCensorPhi() still runs as defense-in-depth in case a
+ * client somehow ships un-redacted text.
  */
 
-const PHI_PATTERNS: { name: string; pattern: RegExp; replacement: string }[] = [
-  // Social Security Numbers
-  {
-    name: "SSN",
-    pattern: /\b\d{3}[-.\s]?\d{2}[-.\s]?\d{4}\b/g,
-    replacement: "[REDACTED-SSN]",
-  },
-  // Medical Record Numbers (common formats)
-  {
-    name: "MRN",
-    pattern: /\b(?:MRN|Medical Record(?:\s*#)?)\s*:?\s*[\w-]{4,15}\b/gi,
-    replacement: "[REDACTED-MRN]",
-  },
-  // Phone numbers
-  {
-    name: "Phone",
-    pattern:
-      /\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g,
-    replacement: "[REDACTED-PHONE]",
-  },
+const PHI_PATTERNS: { name: string; pattern: RegExp }[] = [
+  // Order matters — more specific patterns first so they're consumed before
+  // generic ones. Each match gets a unique token (e.g., [REDACTED-NAME-1]).
+
+  // Social Security Numbers (XXX-XX-XXXX)
+  { name: "SSN", pattern: /\b\d{3}[-.\s]\d{2}[-.\s]\d{4}\b/g },
+
   // Email addresses
-  {
-    name: "Email",
-    pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
-    replacement: "[REDACTED-EMAIL]",
-  },
-  // Dates of birth (various formats)
-  {
-    name: "DOB",
-    pattern:
-      /\b(?:DOB|Date of Birth|Birth\s*Date)\s*:?\s*\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/gi,
-    replacement: "[REDACTED-DOB]",
-  },
+  { name: "Email", pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g },
+
+  // Medical Record Numbers (with label)
+  { name: "MRN", pattern: /\b(?:MRN|Medical Record(?:\s*#)?)\s*:?\s*[\w-]{4,15}\b/gi },
+
+  // Health plan / insurance numbers
+  { name: "Insurance", pattern: /\b(?:Health\s*Plan|Insurance|Policy)\s*(?:#|No\.?|Number)?\s*:?\s*[\w-]{5,20}\b/gi },
+
+  // DOB with label
+  { name: "DOB", pattern: /\b(?:DOB|Date of Birth|Birth\s*Date)\s*:?\s*\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/gi },
+
+  // Phone numbers (must come AFTER SSN)
+  { name: "Phone", pattern: /\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g },
+
   // Street addresses
-  {
-    name: "Address",
-    pattern:
-      /\b\d{1,5}\s+(?:[A-Za-z]+\s){1,3}(?:St(?:reet)?|Ave(?:nue)?|Blvd|Dr(?:ive)?|Rd|Road|Ln|Lane|Way|Ct|Court|Pl(?:ace)?|Cir(?:cle)?)\b\.?(?:\s*(?:#|Apt|Suite|Ste|Unit)\s*\w+)?\b/gi,
-    replacement: "[REDACTED-ADDRESS]",
-  },
-  // Patient names with labels
-  {
-    name: "PatientName",
-    pattern:
-      /\b(?:Patient(?:\s*Name)?|Pt)\s*:?\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}\b/g,
-    replacement: "[REDACTED-NAME]",
-  },
-  // Health plan beneficiary numbers
-  {
-    name: "HealthPlan",
-    pattern:
-      /\b(?:Health\s*Plan|Insurance|Policy)\s*(?:#|No\.?|Number)?\s*:?\s*[\w-]{5,20}\b/gi,
-    replacement: "[REDACTED-INSURANCE]",
-  },
-  // IP addresses
-  {
-    name: "IP",
-    pattern: /\b(?:\d{1,3}\.){3}\d{1,3}\b/g,
-    replacement: "[REDACTED-IP]",
-  },
+  { name: "Address", pattern: /\b\d{1,5}\s+(?:[A-Za-z]+\s){1,3}(?:St(?:reet)?|Ave(?:nue)?|Blvd|Dr(?:ive)?|Rd|Road|Ln|Lane|Way|Ct|Court|Pl(?:ace)?|Cir(?:cle)?)\b\.?(?:\s*(?:#|Apt|Suite|Ste|Unit)\s*\w+)?\b/gi },
+
+  // Patient name with label ("Patient: John Smith")
+  { name: "PatientName", pattern: /\b(?:Patient(?:\s*Name)?|Pt)\s*:?\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}\b/g },
+
+  // Provider name (Dr./Mr./Mrs./Ms./Prof. + Name)
+  { name: "Provider", pattern: /\b(?:Dr|Mr|Mrs|Ms|Prof)\.?\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b/g },
+
+  // Standalone age ("62yo", "62 y/o", "62-year-old")
+  { name: "Age", pattern: /\b\d{1,3}[-\s]?(?:y\.?o\.?|y\/o|year[s]?[-\s]?old)\b/gi },
+
+  // IP addresses (must come AFTER patterns that might match digit groups)
+  { name: "IP", pattern: /\b(?:\d{1,3}\.){3}\d{1,3}\b/g },
 ];
 
 export interface PhiScanResult {
@@ -72,22 +58,31 @@ export interface PhiScanResult {
   censoredText: string;
   detectedTypes: string[];
   warnings: string[];
+  /** Map from token (e.g., "[REDACTED-NAME-1]") back to the original value. */
+  tokenMap: Record<string, string>;
 }
 
 export function scanAndCensorPhi(text: string): PhiScanResult {
   let censoredText = text;
   const detectedTypes: Set<string> = new Set();
   const warnings: string[] = [];
+  const tokenMap: Record<string, string> = {};
+  const counters: Record<string, number> = {};
 
-  for (const { name, pattern, replacement } of PHI_PATTERNS) {
-    // Reset regex state
+  for (const { name, pattern } of PHI_PATTERNS) {
     const regex = new RegExp(pattern.source, pattern.flags);
-    const matches = censoredText.match(regex);
-    if (matches && matches.length > 0) {
+    let count = 0;
+    censoredText = censoredText.replace(regex, (match) => {
+      counters[name] = (counters[name] || 0) + 1;
+      const token = `[REDACTED-${name.toUpperCase()}-${counters[name]}]`;
+      tokenMap[token] = match;
+      count++;
+      return token;
+    });
+    if (count > 0) {
       detectedTypes.add(name);
-      censoredText = censoredText.replace(regex, replacement);
       warnings.push(
-        `Detected ${matches.length} potential ${name} identifier(s) - automatically redacted`
+        `Detected ${count} potential ${name} identifier(s) — redacted in your browser before sending`
       );
     }
   }
@@ -97,5 +92,42 @@ export function scanAndCensorPhi(text: string): PhiScanResult {
     censoredText,
     detectedTypes: Array.from(detectedTypes),
     warnings,
+    tokenMap,
   };
+}
+
+/**
+ * Replace [REDACTED-X-N] tokens in a string with their original values.
+ * Safe no-op if the tokenMap is empty.
+ */
+export function reinjectTokens(text: string, tokenMap: Record<string, string>): string {
+  if (!text || Object.keys(tokenMap).length === 0) return text;
+  let result = text;
+  for (const [token, value] of Object.entries(tokenMap)) {
+    // Use split/join so we don't interpret token chars as regex
+    result = result.split(token).join(value);
+  }
+  return result;
+}
+
+/**
+ * Recursively walk a JSON-shaped value and re-inject tokens in every string.
+ * Preserves the shape of objects, arrays, and primitives.
+ */
+export function deepReinject<T>(value: T, tokenMap: Record<string, string>): T {
+  if (Object.keys(tokenMap).length === 0) return value;
+  if (typeof value === "string") {
+    return reinjectTokens(value, tokenMap) as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => deepReinject(item, tokenMap)) as unknown as T;
+  }
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      out[k] = deepReinject(v, tokenMap);
+    }
+    return out as T;
+  }
+  return value;
 }

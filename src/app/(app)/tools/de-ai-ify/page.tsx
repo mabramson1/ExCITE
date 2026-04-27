@@ -12,7 +12,9 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PhiWarning } from "@/components/phi-warning";
+import { PrivacyBanner } from "@/components/privacy-banner";
 import { ResultActions } from "@/components/result-actions";
+import { scanAndCensorPhi, deepReinject } from "@/lib/phi-detection";
 
 const MAX_LENGTH = 50_000;
 
@@ -111,10 +113,27 @@ function DeAiIfyContent() {
     setPhiWarnings([]);
 
     try {
+      // Client-side PHI redaction — real values never leave the browser.
+      const phiInput = scanAndCensorPhi(input);
+      const trimmedVoice = voiceSample.trim();
+      const phiVoice = trimmedVoice ? scanAndCensorPhi(trimmedVoice) : null;
+      const tokenMap = { ...phiInput.tokenMap, ...(phiVoice?.tokenMap || {}) };
+      const combinedWarnings = [
+        ...phiInput.warnings,
+        ...(phiVoice?.warnings || []),
+      ];
+      if (phiInput.hasPhi || phiVoice?.hasPhi) {
+        setPhiWarnings(combinedWarnings);
+      }
+
       const res = await fetch("/api/analyze/de-ai-ify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: input, writingStyle, voiceSample: voiceSample.trim() || undefined }),
+        body: JSON.stringify({
+          text: phiInput.censoredText,
+          writingStyle,
+          voiceSample: phiVoice ? phiVoice.censoredText : undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -122,7 +141,8 @@ function DeAiIfyContent() {
         return;
       }
       if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
-      setResult(data.result);
+      const restored = deepReinject(data.result, tokenMap);
+      setResult(restored);
       setSavedId(data.savedId || null);
       toast.success("Analysis complete");
     } catch {
@@ -174,6 +194,8 @@ function DeAiIfyContent() {
           </p>
         </div>
       </div>
+
+      <PrivacyBanner />
 
       <Card>
         <CardHeader>
