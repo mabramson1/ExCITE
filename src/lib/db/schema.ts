@@ -9,6 +9,14 @@ import {
   primaryKey,
 } from "drizzle-orm/pg-core";
 
+// ── Role enum ─────────────────────────────────────────────────────
+export const userRoleEnum = pgEnum("user_role", [
+  "free",    // Free tier (10 analyses/month)
+  "pro",     // Paid tier 1 ($19/mo, 100 analyses/month)
+  "unlimited", // Paid tier 2 ($39/mo, unlimited)
+  "admin",   // Full platform access
+]);
+
 // ── Auth tables (Better Auth) ──────────────────────────────────────
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -16,6 +24,7 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
+  role: userRoleEnum("role").notNull().default("free"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
