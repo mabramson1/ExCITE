@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
@@ -16,9 +17,10 @@ import {
   Sun,
   Moon,
   CreditCard,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { signOut } from "@/lib/auth-client";
+import { signOut, useSession } from "@/lib/auth-client";
 import { clearAllTokenMaps } from "@/lib/phi-tokenmap-storage";
 
 const navItems = [
@@ -35,6 +37,15 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
+  const { data: session } = useSession();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    if (!session?.user) return;
+    fetch("/api/admin/stats").then((r) => {
+      setIsAdmin(r.ok);
+    }).catch(() => {});
+  }, [session?.user]);
 
   return (
     <aside className="hidden md:flex w-64 flex-col border-r bg-card min-h-screen">
@@ -69,6 +80,20 @@ export function Sidebar() {
             </Link>
           );
         })}
+        {isAdmin && (
+          <Link
+            href="/admin"
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              pathname === "/admin"
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            <Shield className="h-4 w-4" />
+            Admin
+          </Link>
+        )}
       </nav>
 
       <div className="border-t p-3 space-y-1">
