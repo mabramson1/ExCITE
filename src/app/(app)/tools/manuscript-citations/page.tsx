@@ -870,3 +870,494 @@ function ReviewResponseTab() {
     </div>
   );
 }
+
+// ── Write Manuscript Tab ────────────────────────────────────────────
+
+interface ManuscriptWriterResult {
+  title?: string;
+  abstract?: string;
+  sections?: { heading: string; content: string }[];
+  citations?: { inline_marker: string; search_terms: string; context: string }[];
+  word_count?: number;
+  format_used?: string;
+  suggestions?: string[];
+  raw?: string;
+}
+
+const MANUSCRIPT_FORMATS = [
+  { value: "imrad", label: "IMRAD" },
+  { value: "case_report", label: "Case Report" },
+  { value: "review", label: "Review Article" },
+  { value: "essay", label: "Essay" },
+  { value: "letter", label: "Letter to Editor" },
+];
+
+const BREVITY_OPTIONS = [
+  { value: "brief", label: "Brief" },
+  { value: "standard", label: "Standard" },
+  { value: "comprehensive", label: "Comprehensive" },
+];
+
+function ManuscriptWriterTab() {
+  const [input, setInput] = useState("");
+  const [format, setFormat] = useState("imrad");
+  const [citationsEnabled, setCitationsEnabled] = useState(true);
+  const [citationStyle, setCitationStyle] = useState("apa");
+  const [brevity, setBrevity] = useState("standard");
+  const [voiceSample, setVoiceSample] = useState("");
+  const [showVoice, setShowVoice] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<ManuscriptWriterResult | null>(null);
+  const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
+  const [copiedSection, setCopiedSection] = useState<number | null>(null);
+  const [aiChecking, setAiChecking] = useState(false);
+  const [aiScore, setAiScore] = useState<number | null>(null);
+  const [humanizing, setHumanizing] = useState(false);
+  const [humanizedSections, setHumanizedSections] = useState<Record<number, string>>({});
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 500_000) {
+      toast.error("File too large. Maximum 500KB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result;
+      if (typeof text === "string") {
+        setInput(text.slice(0, MAX_LENGTH));
+        toast.success(`Loaded ${file.name}`);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  }
+
+  async function handleGenerate() {
+    if (!input.trim()) return;
+    if (input.length > MAX_LENGTH) {
+      toast.error("Text exceeds 50,000 character limit");
+      return;
+    }
+    setLoading(true);
+    setResult(null);
+    setPhiWarnings([]);
+    setAiScore(null);
+    setHumanizedSections({});
+
+    try {
+      const phi = scanAndCensorPhi(input);
+      if (phi.hasPhi) setPhiWarnings(phi.warnings);
+
+      let censoredVoice: string | undefined;
+      if (voiceSample.trim()) {
+        const phiVoice = scanAndCensorPhi(voiceSample);
+        censoredVoice = phiVoice.censoredText;
+        // Merge voice token map
+        Object.assign(phi.tokenMap, phiVoice.tokenMap);
+        if (phiVoice.hasPhi) setPhiWarnings((prev) => [...prev, ...phiVoice.warnings]);
+      }
+
+      const res = await fetch("/api/analyze/manuscript-writer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          input: phi.censoredText,
+          format,
+          citationsEnabled,
+          citationStyle,
+          brevity,
+          voiceSample: censoredVoice,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Manuscript generation failed");
+        return;
+      }
+      if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
+      const restored = deepReinject(data.result ?? data, phi.tokenMap);
+      setResult(restored);
+      if (data.savedId) saveTokenMap(data.savedId, phi.tokenMap);
+      toast.success("Manuscript generated");
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function buildFullText(): string {
+    if (!result) return "";
+    const parts: string[] = [];
+    if (result.title) parts.push(result.title, "");
+    if (result.abstract) parts.push("Abstract", "", result.abstract, "");
+    if (result.sections) {
+      for (const s of result.sections) {
+        parts.push(s.heading, "", s.content, "");
+      }
+    }
+    if (result.citations && result.citations.length > 0) {
+      parts.push("Citations", "");
+      for (const c of result.citations) {
+        parts.push(`${c.inline_marker} ${c.search_terms} — ${c.context}`);
+      }
+    }
+    return parts.join("\n");
+  }
+
+  function handleCopyAll() {
+    navigator.clipboard.writeText(buildFullText());
+    toast.success("Full manuscript copied to clipboard");
+  }
+
+  function handleCopySection(index: number, text: string) {
+    navigator.clipboard.writeText(text);
+    setCopiedSection(index);
+    setTimeout(() => setCopiedSection(null), 2000);
+  }
+
+  async function handleAiCheck() {
+    const text = buildFullText();
+    if (!text) return;
+    setAiChecking(true);
+    try {
+      const res = await fetch("/api/analyze/ai-detect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "AI detection failed");
+        return;
+      }
+      const score =
+        data.result?.consensus_score ??
+        data.result?.overall_ai_probability ??
+        data.consensus_score ??
+        data.overall_ai_probability ??
+        null;
+      if (score !== null) {
+        setAiScore(Math.round(Number(score)));
+      } else {
+        toast.error("Could not determine AI score");
+      }
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setAiChecking(false);
+    }
+  }
+
+  async function handleHumanizeAll() {
+    if (!result?.sections) return;
+    setHumanizing(true);
+    try {
+      const newHumanized: Record<number, string> = {};
+      for (let i = 0; i < result.sections.length; i++) {
+        const section = result.sections[i];
+        const res = await fetch("/api/analyze/de-ai-ify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: section.content,
+            writingStyle: "manuscript",
+            voiceSample: voiceSample.trim() || undefined,
+          }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          newHumanized[i] = data.result?.rewritten_text ?? data.result?.text ?? data.rewritten_text ?? section.content;
+        }
+      }
+      setHumanizedSections(newHumanized);
+      toast.success("All sections humanized");
+    } catch {
+      toast.error("Humanization failed. Please try again.");
+    } finally {
+      setHumanizing(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <PrivacyBanner />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Write a Manuscript</CardTitle>
+          <CardDescription>
+            Provide your notes, bullet points, data, or rough paragraphs and we&apos;ll generate a structured academic manuscript.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Textarea
+            placeholder="Paste your notes, bullet points, data, outlines, or rough paragraphs here..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            className="min-h-[250px]"
+          />
+
+          {/* Controls row */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <label className="text-sm text-muted-foreground whitespace-nowrap">Format:</label>
+              <Select value={format} onValueChange={setFormat}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MANUSCRIPT_FORMATS.map((f) => (
+                    <SelectItem key={f.value} value={f.value}>
+                      {f.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <label className="flex items-center gap-1.5 text-sm text-muted-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={citationsEnabled}
+                onChange={(e) => setCitationsEnabled(e.target.checked)}
+                className="h-3.5 w-3.5"
+              />
+              Citations
+            </label>
+
+            {citationsEnabled && (
+              <div className="flex items-center gap-1.5">
+                <label className="text-sm text-muted-foreground whitespace-nowrap">Style:</label>
+                <Select value={citationStyle} onValueChange={setCitationStyle}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STYLES.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>
+                        {s.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            <div className="flex items-center gap-1.5">
+              <label className="text-sm text-muted-foreground whitespace-nowrap">Brevity:</label>
+              <Select value={brevity} onValueChange={setBrevity}>
+                <SelectTrigger className="w-36">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {BREVITY_OPTIONS.map((b) => (
+                    <SelectItem key={b.value} value={b.value}>
+                      {b.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Voice calibration */}
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setShowVoice(!showVoice)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Fingerprint className="h-3.5 w-3.5" />
+              {showVoice ? "Hide" : "Match my writing voice"} (optional)
+            </button>
+            {showVoice && (
+              <Textarea
+                placeholder="Paste 2-3 paragraphs of YOUR writing here. We'll analyze your sentence rhythm, word choices, and quirks to make the manuscript sound like you..."
+                value={voiceSample}
+                onChange={(e) => setVoiceSample(e.target.value)}
+                className="min-h-[100px] text-sm"
+              />
+            )}
+          </div>
+
+          {/* Bottom row: counts, upload, generate */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <p className={`text-xs ${input.length > MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                {input.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()} chars · {input.trim() ? input.trim().split(/\s+/).length.toLocaleString() : "0"} words
+              </p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".txt,.md,.doc,.docx,.rtf"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="h-3 w-3" />
+                Upload file
+              </Button>
+            </div>
+            <Button onClick={handleGenerate} disabled={loading || !input.trim() || input.length > MAX_LENGTH}>
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <PenTool className="h-4 w-4" />
+                  Generate Manuscript
+                </>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {phiWarnings.length > 0 && <PhiWarning warnings={phiWarnings} />}
+
+      {result && !result.raw && (
+        <div className="space-y-4">
+          {/* Action buttons */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={handleCopyAll}>
+              <Copy className="h-4 w-4" />
+              Copy Full Manuscript
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleAiCheck} disabled={aiChecking}>
+              {aiChecking ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanSearch className="h-4 w-4" />}
+              {aiScore !== null ? `AI Score: ${aiScore}%` : "Check AI Score"}
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleHumanizeAll} disabled={humanizing}>
+              {humanizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+              Humanize All
+            </Button>
+            {result.word_count && (
+              <Badge variant="secondary">{result.word_count.toLocaleString()} words</Badge>
+            )}
+            {result.format_used && (
+              <Badge variant="outline">{result.format_used}</Badge>
+            )}
+          </div>
+
+          {/* Title */}
+          {result.title && (
+            <h2 className="text-xl font-bold tracking-tight">{result.title}</h2>
+          )}
+
+          {/* Abstract */}
+          {result.abstract && (
+            <Card className="border-primary/20 bg-primary/5">
+              <CardHeader>
+                <CardTitle className="text-base">Abstract</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm whitespace-pre-wrap">{result.abstract}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Sections */}
+          {result.sections && result.sections.map((section, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">{section.heading}</CardTitle>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => handleCopySection(i, humanizedSections[i] ?? section.content)}
+                  >
+                    {copiedSection === i ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                    {copiedSection === i ? "Copied" : "Copy"}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {humanizedSections[i] ? (
+                  <div className="space-y-3">
+                    <p className="text-sm whitespace-pre-wrap">{humanizedSections[i]}</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setHumanizedSections((prev) => {
+                          const next = { ...prev };
+                          delete next[i];
+                          return next;
+                        });
+                      }}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors underline"
+                    >
+                      Show Original
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-sm whitespace-pre-wrap">{section.content}</p>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+
+          {/* Citations */}
+          {result.citations && result.citations.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Citations ({result.citations.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {result.citations.map((cit, i) => (
+                    <div key={i} className="flex items-start gap-2 p-2 rounded-lg bg-muted/30">
+                      <Badge variant="outline" className="shrink-0 mt-0.5">{cit.inline_marker}</Badge>
+                      <div>
+                        <p className="text-sm font-medium">{cit.search_terms}</p>
+                        <p className="text-xs text-muted-foreground">{cit.context}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Suggestions */}
+          {result.suggestions && result.suggestions.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Suggestions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-1.5 list-disc list-inside">
+                  {result.suggestions.map((suggestion, i) => (
+                    <li key={i} className="text-sm">{suggestion}</li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {result?.raw && (
+        <Card>
+          <CardContent className="pt-6">
+            <pre className="whitespace-pre-wrap text-sm bg-muted p-4 rounded-lg overflow-auto">
+              {result.raw}
+            </pre>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
