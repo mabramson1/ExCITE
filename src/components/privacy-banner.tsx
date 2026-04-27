@@ -11,9 +11,10 @@ export function PrivacyBanner({ className = "" }: { className?: string }) {
       <Lock className="h-3.5 w-3.5 text-green-700 dark:text-green-400 mt-0.5 shrink-0" />
       <div className="text-xs text-green-800 dark:text-green-300 leading-relaxed">
         <span className="font-medium">Your patient data stays on your device.</span>{" "}
-        Names, MRNs, dates of birth, phone numbers, ages, and other identifiers are
-        automatically redacted in your browser before any text is sent. Real values
-        never leave your machine.
+        Names, MRNs, dates of birth, phone numbers, addresses, and other HIPAA
+        identifiers are redacted in your browser before any text is sent. Clinical
+        details the AI needs — age, weight, BMI, race, labs, medications, vitals —
+        pass through untouched.
       </div>
     </div>
   );

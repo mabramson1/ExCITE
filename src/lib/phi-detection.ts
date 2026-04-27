@@ -46,8 +46,10 @@ const PHI_PATTERNS: { name: string; pattern: RegExp }[] = [
   // Provider name (Dr./Mr./Mrs./Ms./Prof. + Name)
   { name: "Provider", pattern: /\b(?:Dr|Mr|Mrs|Ms|Prof)\.?\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\b/g },
 
-  // Standalone age ("62yo", "62 y/o", "62-year-old")
-  { name: "Age", pattern: /\b\d{1,3}[-\s]?(?:y\.?o\.?|y\/o|year[s]?[-\s]?old)\b/gi },
+  // Ages 90+ only (HIPAA Safe Harbor §164.514(b)(2)(i)(C) — ages under 90
+  // are NOT identifiers and the AI needs them for clinical reasoning,
+  // dosing, screening, and risk calculations).
+  { name: "Age", pattern: /\b(?:9\d|1[0-9]\d)[-\s]?(?:y\.?o\.?|y\/o|year[s]?[-\s]?old)\b/gi },
 
   // IP addresses (must come AFTER patterns that might match digit groups)
   { name: "IP", pattern: /\b(?:\d{1,3}\.){3}\d{1,3}\b/g },
