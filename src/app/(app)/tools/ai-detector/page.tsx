@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { PhiWarning } from "@/components/phi-warning";
 import { ResultActions } from "@/components/result-actions";
 import { useKeyboardSubmit } from "@/hooks/use-keyboard-submit";
+import { ComplianceReport } from "./compliance-report";
 
 const MAX_LENGTH = 50_000;
 
@@ -291,6 +292,7 @@ function AiDetectorContent() {
                 <Copy className="h-3.5 w-3.5" />
                 Copy Results
               </Button>
+              <ComplianceReport result={result} inputText={input} timestamp={new Date()} />
               <ResultActions savedId={savedId} />
             </div>
           </div>

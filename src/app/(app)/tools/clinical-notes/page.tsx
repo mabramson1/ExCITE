@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { FileText, Loader2, Copy, Check, Download, BookOpen, ExternalLink, AlertTriangle, CheckCircle2, XCircle, Activity, PenTool, RefreshCw, SkipForward, MessageSquarePlus, LayoutTemplate, Star, Upload, Fingerprint, Wand2 } from "lucide-react";
+import { FileText, Loader2, Copy, Check, Download, BookOpen, ExternalLink, AlertTriangle, CheckCircle2, XCircle, Activity, PenTool, RefreshCw, SkipForward, MessageSquarePlus, LayoutTemplate, Star, Upload, Fingerprint, Wand2, DollarSign, FileCheck, ClipboardList, Send } from "lucide-react";
 import { useKeyboardSubmit } from "@/hooks/use-keyboard-submit";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { PhiWarning } from "@/components/phi-warning";
 import { ResultActions } from "@/components/result-actions";
 import { SPECIALTIES, getTemplatesBySpecialty, getCategoriesForSpecialty, type ApTemplate } from "@/lib/templates";
+import { RVU_TABLE, estimateReimbursement, getRvuDifference } from "@/lib/rvu-data";
 
 const MAX_LENGTH = 50_000;
 
@@ -228,14 +229,26 @@ function ClinicalNotesContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="w-full flex overflow-x-auto">
           <TabsTrigger value="analyze" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            Analyze Note
+            Analyze
           </TabsTrigger>
           <TabsTrigger value="ap-writer" className="flex items-center gap-2">
             <PenTool className="h-4 w-4" />
             Write A/P
+          </TabsTrigger>
+          <TabsTrigger value="prior-auth" className="flex items-center gap-2">
+            <FileCheck className="h-4 w-4" />
+            Prior Auth
+          </TabsTrigger>
+          <TabsTrigger value="discharge" className="flex items-center gap-2">
+            <ClipboardList className="h-4 w-4" />
+            Discharge
+          </TabsTrigger>
+          <TabsTrigger value="referral" className="flex items-center gap-2">
+            <Send className="h-4 w-4" />
+            Referral
           </TabsTrigger>
         </TabsList>
         <TabsContent value="analyze">
@@ -243,6 +256,15 @@ function ClinicalNotesContent() {
         </TabsContent>
         <TabsContent value="ap-writer">
           <ApWriterTab prefill={apWriterPrefill} />
+        </TabsContent>
+        <TabsContent value="prior-auth">
+          <PriorAuthTab />
+        </TabsContent>
+        <TabsContent value="discharge">
+          <DischargeTab />
+        </TabsContent>
+        <TabsContent value="referral">
+          <ReferralTab />
         </TabsContent>
       </Tabs>
     </div>
@@ -1421,6 +1443,59 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
             </Card>
           )}
 
+          {/* RVU Analysis */}
+          {result.supported_em_level?.code && RVU_TABLE[result.supported_em_level.code] && (() => {
+            const rvu = RVU_TABLE[result.supported_em_level!.code];
+            const estimated = estimateReimbursement(result.supported_em_level!.code);
+            const codeNum = parseInt(result.supported_em_level!.code);
+            const isEstablished = codeNum >= 99211 && codeNum <= 99215;
+            const isNew = codeNum >= 99202 && codeNum <= 99205;
+            const nextCode = isEstablished && codeNum < 99215
+              ? String(codeNum + 1)
+              : isNew && codeNum < 99205
+              ? String(codeNum + 1)
+              : null;
+            const showUpgrade = nextCode && RVU_TABLE[nextCode];
+            const diff = showUpgrade ? getRvuDifference(result.supported_em_level!.code, nextCode!) : null;
+
+            return (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-green-600" />
+                    RVU Analysis
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="text-center p-2 rounded bg-muted/50">
+                      <p className="text-lg font-bold">{rvu.workRvu}</p>
+                      <p className="text-[10px] text-muted-foreground">Work RVU</p>
+                    </div>
+                    <div className="text-center p-2 rounded bg-muted/50">
+                      <p className="text-lg font-bold">{rvu.totalNonFacility}</p>
+                      <p className="text-[10px] text-muted-foreground">Total RVU</p>
+                    </div>
+                    <div className="text-center p-2 rounded bg-green-50 dark:bg-green-950/30">
+                      <p className="text-lg font-bold text-green-700 dark:text-green-400">${estimated}</p>
+                      <p className="text-[10px] text-muted-foreground">Est. Reimbursement</p>
+                    </div>
+                  </div>
+                  {showUpgrade && diff && (
+                    <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+                      <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                        With additional documentation, this could support {nextCode}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        +{diff.rvuDiff} Work RVUs, +${diff.dollarDiff} estimated additional reimbursement
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
+
           {/* Documentation Tips */}
           {result.documentation_tips && result.documentation_tips.length > 0 && (
             <Card>
@@ -1439,6 +1514,545 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
 
           {result.disclaimer && (
             <p className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3 italic">{result.disclaimer}</p>
+          )}
+        </div>
+      )}
+
+      {result?.raw && (
+        <Card><CardContent className="pt-6"><pre className="whitespace-pre-wrap text-sm bg-muted p-4 rounded-lg overflow-auto">{result.raw}</pre></CardContent></Card>
+      )}
+    </div>
+  );
+}
+
+// ── Prior Auth Tab ────────────────────────────────────────────────
+
+interface PriorAuthResult {
+  letter?: string;
+  guidelines_cited?: string[];
+  key_arguments?: string[];
+  raw?: string;
+}
+
+function PriorAuthTab() {
+  const [skeleton, setSkeleton] = useState("");
+  const [procedure, setProcedure] = useState("");
+  const [diagnosis, setDiagnosis] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<PriorAuthResult | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  async function handleGenerate() {
+    if (!skeleton.trim() || !procedure.trim() || !diagnosis.trim()) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+    if (skeleton.length > MAX_LENGTH) {
+      toast.error("Text exceeds 50,000 character limit");
+      return;
+    }
+    setLoading(true);
+    setResult(null);
+
+    try {
+      const res = await fetch("/api/analyze/prior-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skeleton, procedure, diagnosis }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Generation failed");
+        return;
+      }
+      setResult(data.result);
+      toast.success("Prior authorization letter generated");
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleCopy() {
+    if (result?.letter) {
+      navigator.clipboard.writeText(result.letter);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
+
+  return (
+    <div className="space-y-6 mt-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileCheck className="h-4 w-4" /> Prior Authorization Letter
+          </CardTitle>
+          <CardDescription>
+            Generate a prior authorization or appeal letter with medical necessity justification and guideline citations.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Textarea
+            placeholder="Paste your clinical skeleton here — include diagnoses, relevant history, labs, imaging, failed treatments, and current clinical status..."
+            value={skeleton}
+            onChange={(e) => setSkeleton(e.target.value)}
+            className="min-h-[200px]"
+          />
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Procedure Requested</label>
+              <Input
+                placeholder="e.g., MRI lumbar spine, cardiac catheterization, Humira"
+                value={procedure}
+                onChange={(e) => setProcedure(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Diagnosis</label>
+              <Input
+                placeholder="e.g., Lumbar radiculopathy, CAD with unstable angina"
+                value={diagnosis}
+                onChange={(e) => setDiagnosis(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={handleGenerate} disabled={loading || !skeleton.trim() || !procedure.trim() || !diagnosis.trim()}>
+              {loading ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</>
+              ) : (
+                <><FileCheck className="h-4 w-4" /> Generate Letter</>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {result && !result.raw && result.letter && (
+        <div className="space-y-4">
+          <Card className="border-primary/30">
+            <CardHeader>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <CardTitle className="text-base">Prior Authorization Letter</CardTitle>
+                <Button variant="outline" size="sm" onClick={handleCopy}>
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  {copied ? "Copied" : "Copy Letter"}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="whitespace-pre-wrap text-sm leading-relaxed bg-muted/30 rounded-lg p-4 border">
+                {result.letter}
+              </div>
+            </CardContent>
+          </Card>
+
+          {result.guidelines_cited && result.guidelines_cited.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="text-base">Guidelines Cited</CardTitle></CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {result.guidelines_cited.map((g, i) => (
+                    <li key={i} className="text-sm flex items-start gap-2">
+                      <BookOpen className="h-4 w-4 text-primary mt-0.5 shrink-0" /> {g}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+
+          {result.key_arguments && result.key_arguments.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="text-base">Key Arguments</CardTitle></CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {result.key_arguments.map((a, i) => (
+                    <li key={i} className="text-sm flex items-start gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-primary mt-0.5 shrink-0" /> {a}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {result?.raw && (
+        <Card><CardContent className="pt-6"><pre className="whitespace-pre-wrap text-sm bg-muted p-4 rounded-lg overflow-auto">{result.raw}</pre></CardContent></Card>
+      )}
+    </div>
+  );
+}
+
+// ── Discharge Tab ─────────────────────────────────────────────────
+
+interface DischargeMedication {
+  name: string;
+  dose: string;
+  instructions: string;
+  is_new: boolean;
+}
+
+interface DischargeResult {
+  summary?: string;
+  discharge_medications?: DischargeMedication[];
+  follow_up?: string[];
+  pending_results?: string[];
+  return_precautions?: string[];
+  raw?: string;
+}
+
+function DischargeTab() {
+  const [skeleton, setSkeleton] = useState("");
+  const [admitReason, setAdmitReason] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<DischargeResult | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  async function handleGenerate() {
+    if (!skeleton.trim() || !admitReason.trim()) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+    if (skeleton.length > MAX_LENGTH) {
+      toast.error("Text exceeds 50,000 character limit");
+      return;
+    }
+    setLoading(true);
+    setResult(null);
+
+    try {
+      const res = await fetch("/api/analyze/discharge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skeleton, admitReason }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Generation failed");
+        return;
+      }
+      setResult(data.result);
+      toast.success("Discharge summary generated");
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleCopy() {
+    if (result?.summary) {
+      navigator.clipboard.writeText(result.summary);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
+
+  return (
+    <div className="space-y-6 mt-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <ClipboardList className="h-4 w-4" /> Discharge Summary
+          </CardTitle>
+          <CardDescription>
+            Generate a structured hospital discharge summary with medications, follow-up, pending results, and return precautions.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Textarea
+            placeholder="Paste your clinical skeleton here — include admission details, hospital course, procedures, medications, labs, and discharge plans..."
+            value={skeleton}
+            onChange={(e) => setSkeleton(e.target.value)}
+            className="min-h-[200px]"
+          />
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Admission Reason</label>
+            <Input
+              placeholder="e.g., Acute COPD exacerbation with hypoxic respiratory failure"
+              value={admitReason}
+              onChange={(e) => setAdmitReason(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={handleGenerate} disabled={loading || !skeleton.trim() || !admitReason.trim()}>
+              {loading ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</>
+              ) : (
+                <><ClipboardList className="h-4 w-4" /> Generate Summary</>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {result && !result.raw && result.summary && (
+        <div className="space-y-4">
+          <Card className="border-primary/30">
+            <CardHeader>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <CardTitle className="text-base">Discharge Summary</CardTitle>
+                <Button variant="outline" size="sm" onClick={handleCopy}>
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  {copied ? "Copied" : "Copy Summary"}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="whitespace-pre-wrap text-sm leading-relaxed bg-muted/30 rounded-lg p-4 border">
+                {result.summary}
+              </div>
+            </CardContent>
+          </Card>
+
+          {result.discharge_medications && result.discharge_medications.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="text-base">Discharge Medications</CardTitle></CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-left">
+                        <th className="pb-2 pr-4 font-medium">Medication</th>
+                        <th className="pb-2 pr-4 font-medium">Dose</th>
+                        <th className="pb-2 pr-4 font-medium">Instructions</th>
+                        <th className="pb-2 font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {result.discharge_medications.map((med, i) => (
+                        <tr key={i} className="border-b last:border-0">
+                          <td className="py-2 pr-4 font-medium">{med.name}</td>
+                          <td className="py-2 pr-4 text-muted-foreground">{med.dose}</td>
+                          <td className="py-2 pr-4 text-muted-foreground">{med.instructions}</td>
+                          <td className="py-2">
+                            <Badge variant={med.is_new ? "default" : "secondary"}>
+                              {med.is_new ? "NEW" : "Continued"}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {result.follow_up && result.follow_up.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="text-base">Follow-Up Appointments</CardTitle></CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {result.follow_up.map((f, i) => (
+                    <li key={i} className="text-sm flex items-start gap-2">
+                      <CheckCircle2 className="h-4 w-4 text-primary mt-0.5 shrink-0" /> {f}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+
+          {result.pending_results && result.pending_results.length > 0 && (
+            <Card className="border-amber-300 dark:border-amber-700">
+              <CardHeader><CardTitle className="text-base flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-500" /> Pending Results</CardTitle></CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {result.pending_results.map((p, i) => (
+                    <li key={i} className="text-sm flex items-start gap-2">
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500 mt-1.5 shrink-0" /> {p}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+
+          {result.return_precautions && result.return_precautions.length > 0 && (
+            <Card className="border-red-300 dark:border-red-700">
+              <CardHeader><CardTitle className="text-base flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-red-500" /> Return to ED Precautions</CardTitle></CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {result.return_precautions.map((r, i) => (
+                    <li key={i} className="text-sm flex items-start gap-2">
+                      <XCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" /> {r}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {result?.raw && (
+        <Card><CardContent className="pt-6"><pre className="whitespace-pre-wrap text-sm bg-muted p-4 rounded-lg overflow-auto">{result.raw}</pre></CardContent></Card>
+      )}
+    </div>
+  );
+}
+
+// ── Referral Tab ──────────────────────────────────────────────────
+
+interface ReferralResult {
+  letter?: string;
+  specific_questions?: string[];
+  urgency?: string;
+  raw?: string;
+}
+
+function ReferralTab() {
+  const [skeleton, setSkeleton] = useState("");
+  const [referTo, setReferTo] = useState("");
+  const [reason, setReason] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<ReferralResult | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  async function handleGenerate() {
+    if (!skeleton.trim() || !referTo.trim() || !reason.trim()) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+    if (skeleton.length > MAX_LENGTH) {
+      toast.error("Text exceeds 50,000 character limit");
+      return;
+    }
+    setLoading(true);
+    setResult(null);
+
+    try {
+      const res = await fetch("/api/analyze/referral", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ skeleton, referTo, reason }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Generation failed");
+        return;
+      }
+      setResult(data.result);
+      toast.success("Referral letter generated");
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleCopy() {
+    if (result?.letter) {
+      navigator.clipboard.writeText(result.letter);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
+
+  const urgencyColor = (u: string) => {
+    switch (u) {
+      case "emergent": return "destructive" as const;
+      case "urgent": return "warning" as const;
+      default: return "secondary" as const;
+    }
+  };
+
+  return (
+    <div className="space-y-6 mt-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Send className="h-4 w-4" /> Referral Letter
+          </CardTitle>
+          <CardDescription>
+            Generate a professional referral letter with clinical summary, specific questions for the specialist, and urgency assessment.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Textarea
+            placeholder="Paste your clinical skeleton here — include diagnoses, relevant history, current management, labs, imaging, and what has been tried..."
+            value={skeleton}
+            onChange={(e) => setSkeleton(e.target.value)}
+            className="min-h-[200px]"
+          />
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Refer To (Specialist Type)</label>
+              <Input
+                placeholder="e.g., Cardiology, Rheumatology, Neurosurgery"
+                value={referTo}
+                onChange={(e) => setReferTo(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Reason for Referral</label>
+              <Input
+                placeholder="e.g., Refractory hypertension despite 3-drug regimen"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={handleGenerate} disabled={loading || !skeleton.trim() || !referTo.trim() || !reason.trim()}>
+              {loading ? (
+                <><Loader2 className="h-4 w-4 animate-spin" /> Generating...</>
+              ) : (
+                <><Send className="h-4 w-4" /> Generate Letter</>
+              )}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {result && !result.raw && result.letter && (
+        <div className="space-y-4">
+          <Card className="border-primary/30">
+            <CardHeader>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-base">Referral Letter</CardTitle>
+                  {result.urgency && (
+                    <Badge variant={urgencyColor(result.urgency)}>
+                      {result.urgency.charAt(0).toUpperCase() + result.urgency.slice(1)}
+                    </Badge>
+                  )}
+                </div>
+                <Button variant="outline" size="sm" onClick={handleCopy}>
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  {copied ? "Copied" : "Copy Letter"}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="whitespace-pre-wrap text-sm leading-relaxed bg-muted/30 rounded-lg p-4 border">
+                {result.letter}
+              </div>
+            </CardContent>
+          </Card>
+
+          {result.specific_questions && result.specific_questions.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="text-base">Specific Questions for Specialist</CardTitle></CardHeader>
+              <CardContent>
+                <ul className="space-y-2">
+                  {result.specific_questions.map((q, i) => (
+                    <li key={i} className="text-sm flex items-start gap-2">
+                      <span className="h-5 w-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                        {i + 1}
+                      </span>
+                      {q}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
           )}
         </div>
       )}
