@@ -839,9 +839,17 @@ RULES:
 1. Transform disorganized input into a coherent, logical narrative
 2. Maintain all factual content from the input — never fabricate data or results
 3. Use appropriate academic tone and structure
-4. If citations are requested, suggest where citations would strengthen the text and provide real search terms for PubMed verification (NEVER fabricate specific citations)
+4. Preserve any specific data, numbers, or statistics from the input exactly
 5. Follow the requested manuscript format (IMRAD, case report, review, essay, etc.)
-6. Preserve any specific data, numbers, or statistics from the input exactly
+
+CITATION HANDLING (critical):
+6. RECOGNIZE existing citations in the input: if the user provides PMIDs (e.g., PMID: 12345678), DOIs (e.g., 10.1001/jama.2024.1234), PMCIDs (e.g., PMC1234567), or formatted references — PRESERVE them exactly and integrate them into the manuscript with proper inline markers.
+7. For claims that NEED citations but DON'T have one from the user, provide:
+   - search_terms: specific PubMed search query to find a real paper
+   - type: guideline | landmark_trial | systematic_review | meta_analysis | clinical_study
+   - context: why this citation is needed
+8. NEVER fabricate specific author names, journal names, years, or titles. Only provide search terms for the user to verify.
+9. If the user already provided a citation for a claim, mark it as "user_provided": true and include whatever identifiers they gave (PMID, DOI, PMCID).
 
 MANUSCRIPT STRUCTURE:
 - Title (concise, descriptive)
@@ -882,9 +890,14 @@ ${options.voiceSample}
   }
 
   if (options.citationsEnabled) {
-    userMessage += `Write a ${format} manuscript from these raw notes. Include citations formatted in ${options.citationStyle || "apa"} style. For each citation, provide PubMed search terms for verification. Mark citations as [Citation needed: search terms] inline.`;
+    userMessage += `Write a ${format} manuscript from these raw notes. Include citations formatted in ${options.citationStyle || "apa"} style.
+
+CITATION INSTRUCTIONS:
+- If the input contains PMIDs, DOIs, PMCIDs, or formatted references, PRESERVE them and integrate them with proper inline markers (e.g., [1], [2]).
+- For claims that need a citation but the user didn't provide one, include inline markers AND provide PubMed search terms in the citations array so they can find a real paper.
+- In the citations array, set "user_provided": true for references the user gave, and "user_provided": false for ones that need to be found.`;
   } else {
-    userMessage += `Write a ${format} manuscript from these raw notes. Do not include citations.`;
+    userMessage += `Write a ${format} manuscript from these raw notes. Do not include citations or reference markers.`;
   }
 
   userMessage += `
@@ -899,11 +912,21 @@ Respond with this exact JSON structure:
   "title": "manuscript title",
   "abstract": "structured or unstructured abstract",
   "sections": [
-    { "heading": "Introduction", "content": "section content..." },
+    { "heading": "Introduction", "content": "section content with [1] inline markers if citations enabled..." },
     { "heading": "Methods", "content": "..." }
   ],
   "citations": [
-    { "inline_marker": "[1]", "search_terms": "PubMed search query", "context": "what the citation supports" }
+    {
+      "inline_marker": "[1]",
+      "user_provided": true,
+      "pmid": "12345678 or null",
+      "doi": "10.xxxx/yyyy or null",
+      "pmcid": "PMC1234567 or null",
+      "formatted": "User's original reference text or null",
+      "search_terms": "PubMed search query (always provide even for user-provided)",
+      "type": "guideline|landmark_trial|systematic_review|meta_analysis|clinical_study",
+      "context": "what this citation supports"
+    }
   ],
   "word_count": 1500,
   "format_used": "IMRAD",
