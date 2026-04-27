@@ -12,7 +12,9 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PhiWarning } from "@/components/phi-warning";
+import { PrivacyBanner } from "@/components/privacy-banner";
 import { ResultActions } from "@/components/result-actions";
+import { scanAndCensorPhi, deepReinject } from "@/lib/phi-detection";
 
 interface PubMedMatch {
   pmid: string;
@@ -151,10 +153,14 @@ function ManuscriptCitationsContent() {
     setPhiWarnings([]);
 
     try {
+      // Client-side PHI redaction — real values never leave the browser.
+      const phi = scanAndCensorPhi(input);
+      if (phi.hasPhi) setPhiWarnings(phi.warnings);
+
       const res = await fetch("/api/analyze/manuscript", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: input, style }),
+        body: JSON.stringify({ text: phi.censoredText, style }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -162,7 +168,8 @@ function ManuscriptCitationsContent() {
         return;
       }
       if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
-      setResult(data.result);
+      const restored = deepReinject(data.result, phi.tokenMap);
+      setResult(restored);
       setSavedId(data.savedId || null);
       toast.success("Analysis complete");
     } catch {
@@ -230,6 +237,8 @@ function ManuscriptCitationsContent() {
           </p>
         </div>
       </div>
+
+      <PrivacyBanner />
 
       <Tabs defaultValue="citations" className="space-y-4">
         <TabsList>
@@ -641,10 +650,22 @@ function ReviewResponseTab() {
     setPhiWarnings([]);
 
     try {
+      // Client-side PHI redaction — real values never leave the browser.
+      const phiManuscript = scanAndCensorPhi(manuscript);
+      const phiReviewer = scanAndCensorPhi(reviewerComments);
+      const tokenMap = { ...phiManuscript.tokenMap, ...phiReviewer.tokenMap };
+      const combinedWarnings = [...phiManuscript.warnings, ...phiReviewer.warnings];
+      if (phiManuscript.hasPhi || phiReviewer.hasPhi) {
+        setPhiWarnings(combinedWarnings);
+      }
+
       const res = await fetch("/api/analyze/review-response", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ manuscript, reviewerComments }),
+        body: JSON.stringify({
+          manuscript: phiManuscript.censoredText,
+          reviewerComments: phiReviewer.censoredText,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -652,7 +673,8 @@ function ReviewResponseTab() {
         return;
       }
       if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
-      setResult(data.result);
+      const restored = deepReinject(data.result, tokenMap);
+      setResult(restored);
       toast.success("Response letter generated");
     } catch {
       toast.error("Network error. Please try again.");

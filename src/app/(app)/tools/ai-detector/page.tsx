@@ -11,8 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PhiWarning } from "@/components/phi-warning";
+import { PrivacyBanner } from "@/components/privacy-banner";
 import { ResultActions } from "@/components/result-actions";
 import { useKeyboardSubmit } from "@/hooks/use-keyboard-submit";
+import { scanAndCensorPhi, deepReinject } from "@/lib/phi-detection";
 import { ComplianceReport } from "./compliance-report";
 
 const MAX_LENGTH = 50_000;
@@ -116,19 +118,24 @@ function AiDetectorContent() {
     setSavedId(null);
     setPhiWarnings([]);
 
+    // Client-side PHI redaction — real values never leave the browser
+    const phi = scanAndCensorPhi(input);
+    if (phi.hasPhi) setPhiWarnings(phi.warnings);
+
     try {
       const res = await fetch("/api/analyze/ai-detect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: input }),
+        body: JSON.stringify({ text: phi.censoredText }),
       });
       const data = await res.json();
       if (!res.ok) {
         toast.error(data.error || "Analysis failed");
         return;
       }
-      if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
-      setResult(data.result);
+      // Re-inject real values back into the response for display
+      const restored = deepReinject(data.result, phi.tokenMap);
+      setResult(restored);
       setSavedId(data.savedId || null);
       toast.success("Analysis complete");
     } catch {
@@ -182,6 +189,8 @@ function AiDetectorContent() {
           </p>
         </div>
       </div>
+
+      <PrivacyBanner />
 
       <Card>
         <CardHeader>
