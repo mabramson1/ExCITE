@@ -72,10 +72,10 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
       updates.favorite = !existing.favorite;
     }
 
-    // Generate share link
+    // Generate share link (24 bytes = 192 bits of entropy, unguessable for PHI sharing)
     if (body.action === "share") {
       if (!existing.shareId) {
-        updates.shareId = randomBytes(12).toString("base64url");
+        updates.shareId = randomBytes(24).toString("base64url");
       }
     }
 
@@ -87,7 +87,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     const [updated] = await db
       .update(project)
       .set(updates)
-      .where(eq(project.id, id))
+      .where(and(eq(project.id, id), eq(project.userId, session.user.id)))
       .returning({
         id: project.id,
         favorite: project.favorite,

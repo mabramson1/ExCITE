@@ -3,6 +3,7 @@ import { generateAssessmentPlan } from "@/lib/ai/claude";
 import { scanAndCensorPhi } from "@/lib/phi-detection";
 import { autoSaveProject } from "@/lib/auto-save";
 import { checkRateLimit, validateInput } from "@/lib/rate-limit";
+import { requireUser } from "@/lib/api-auth";
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,6 +15,9 @@ export async function POST(req: NextRequest) {
         { status: 429 }
       );
     }
+
+    const authResult = await requireUser();
+    if (authResult instanceof NextResponse) return authResult;
 
     const { skeleton, encounterType = "established_office", voiceSample, brevity, customTemplate } = await req.json();
     const v = validateInput(skeleton);

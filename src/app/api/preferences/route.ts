@@ -3,7 +3,12 @@ import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { userPreference } from "@/lib/db/schema";
 import { auth } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { eq } from "drizzle-orm";
+
+const MAX_VOICE_SAMPLE_LEN = 10_000;
+const MAX_TEMPLATE_LEN = 10_000;
+const MAX_TEMPLATES = 50;
 
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -19,11 +24,33 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0] ?? "unknown";
+  const rl = checkRateLimit(ip);
+  if (!rl.ok) {
+    return NextResponse.json({ error: "Too many requests. Please wait a moment." }, { status: 429 });
+  }
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const body = await req.json();
+  // Size limits to prevent abuse
+  if (typeof body.voiceSampleClinical === "string" && body.voiceSampleClinical.length > MAX_VOICE_SAMPLE_LEN) {
+    return NextResponse.json({ error: "Voice sample too long" }, { status: 400 });
+  }
+  if (typeof body.voiceSampleGeneral === "string" && body.voiceSampleGeneral.length > MAX_VOICE_SAMPLE_LEN) {
+    return NextResponse.json({ error: "Voice sample too long" }, { status: 400 });
+  }
+  if (Array.isArray(body.customTemplates)) {
+    if (body.customTemplates.length > MAX_TEMPLATES) {
+      return NextResponse.json({ error: "Too many custom templates" }, { status: 400 });
+    }
+    for (const t of body.customTemplates) {
+      if (typeof t?.template === "string" && t.template.length > MAX_TEMPLATE_LEN) {
+        return NextResponse.json({ error: "Template too long" }, { status: 400 });
+      }
+    }
+  }
   // Only accept known fields
   const allowed: Partial<typeof userPreference.$inferInsert> = {
     userId: session.user.id,

@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { signOut } from "@/lib/auth-client";
+import { clearAllTokenMaps } from "@/lib/phi-tokenmap-storage";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -80,7 +81,10 @@ export function Sidebar() {
           {theme === "dark" ? "Light Mode" : "Dark Mode"}
         </button>
         <button
-          onClick={() => signOut()}
+          onClick={async () => {
+            clearAllTokenMaps();
+            await signOut();
+          }}
           className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground w-full transition-colors cursor-pointer"
         >
           <LogOut className="h-4 w-4" />
