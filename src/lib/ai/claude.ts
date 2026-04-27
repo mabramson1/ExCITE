@@ -310,6 +310,187 @@ Respond with this exact JSON structure:
   return content.type === "text" ? content.text : "";
 }
 
+// ── Prior Authorization Letter ────────────────────────────────────
+
+const PRIOR_AUTH_SYSTEM = `You are a clinical documentation specialist who writes compelling prior authorization and appeal letters. Your letters are medically precise, cite relevant clinical guidelines, and clearly establish medical necessity.
+
+YOUR GOAL: Given a clinical skeleton, procedure, and diagnosis, generate a prior authorization letter that:
+1. Presents patient clinical information clearly and concisely
+2. Establishes medical necessity with specific clinical evidence
+3. Cites relevant clinical practice guidelines (AHA/ACC, NCCN, ACR, IDSA, etc.)
+4. References supporting diagnostic data from the clinical skeleton
+5. Requests expedited review when clinically appropriate
+6. Uses professional, persuasive language appropriate for payer review
+
+LETTER STRUCTURE:
+- Opening: patient identification, requested procedure, and diagnosis
+- Clinical summary: relevant history, current status, failed treatments
+- Medical necessity: why this procedure is required for this patient
+- Guidelines: specific clinical guidelines supporting the procedure
+- Supporting data: labs, imaging, exam findings that support the request
+- Conclusion: clear request with urgency if appropriate
+
+Respond ONLY with valid JSON. No markdown, no code fences.`;
+
+export async function generatePriorAuthLetter(
+  skeleton: string,
+  procedure: string,
+  diagnosis: string
+): Promise<string> {
+  const message = await anthropic.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 6144,
+    system: cachedSystem(PRIOR_AUTH_SYSTEM),
+    messages: [
+      {
+        role: "user",
+        content: `Generate a prior authorization/appeal letter for the following:
+
+Procedure requested: ${procedure}
+Diagnosis: ${diagnosis}
+
+Clinical skeleton:
+"""
+${skeleton}
+"""
+
+Respond with this exact JSON structure:
+{
+  "letter": "The full prior authorization letter text, formatted professionally with appropriate headers, paragraphs, and a formal closing.",
+  "guidelines_cited": ["Specific clinical guideline 1 (e.g., 2024 AHA/ACC Guidelines for...)", "Specific clinical guideline 2"],
+  "key_arguments": ["Key medical necessity argument 1", "Key medical necessity argument 2", "Key medical necessity argument 3"]
+}`,
+      },
+    ],
+  });
+
+  const content = message.content[0];
+  return content.type === "text" ? content.text : "";
+}
+
+// ── Discharge Summary ────────────────────────────────────────────
+
+const DISCHARGE_SUMMARY_SYSTEM = `You are a clinical documentation specialist who writes thorough, well-organized hospital discharge summaries. Your summaries are comprehensive, accurate, and follow standard hospital discharge documentation practices.
+
+YOUR GOAL: Given a clinical skeleton and admission reason, generate a discharge summary that:
+1. Clearly states the admission diagnosis and reason for hospitalization
+2. Provides a concise but complete hospital course narrative
+3. Lists all procedures performed during the admission
+4. Documents discharge medications with clear notation of any changes from admission
+5. Specifies follow-up appointments and instructions
+6. Lists any pending results the outpatient team should follow up on
+7. Provides clear return-to-ED precautions (warning signs)
+
+DOCUMENTATION PRINCIPLES:
+- Use precise medical terminology
+- Clearly distinguish new medications from continued/changed medications
+- Provide specific follow-up timeframes
+- List actionable, patient-understandable warning signs
+- Include relevant lab trends and clinical trajectory
+
+Respond ONLY with valid JSON. No markdown, no code fences.`;
+
+export async function generateDischargeSummary(
+  skeleton: string,
+  admitReason: string
+): Promise<string> {
+  const message = await anthropic.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 6144,
+    system: cachedSystem(DISCHARGE_SUMMARY_SYSTEM),
+    messages: [
+      {
+        role: "user",
+        content: `Generate a hospital discharge summary for the following:
+
+Admission reason: ${admitReason}
+
+Clinical skeleton:
+"""
+${skeleton}
+"""
+
+Respond with this exact JSON structure:
+{
+  "summary": "The full discharge summary text, formatted with standard sections: Admission Diagnosis, Hospital Course, Procedures, Discharge Condition, Discharge Instructions.",
+  "discharge_medications": [
+    {
+      "name": "Medication name",
+      "dose": "Dose and frequency",
+      "instructions": "Special instructions (e.g., take with food, monitor blood pressure)",
+      "is_new": true
+    }
+  ],
+  "follow_up": ["Follow-up appointment 1 with timeframe", "Follow-up appointment 2 with timeframe"],
+  "pending_results": ["Pending result 1 with expected timeframe", "Pending result 2"],
+  "return_precautions": ["Warning sign 1 that should prompt return to ED", "Warning sign 2"]
+}`,
+      },
+    ],
+  });
+
+  const content = message.content[0];
+  return content.type === "text" ? content.text : "";
+}
+
+// ── Referral Letter ──────────────────────────────────────────────
+
+const REFERRAL_LETTER_SYSTEM = `You are a clinical documentation specialist who writes clear, professional referral letters. Your letters concisely communicate the clinical picture and specific questions for the consulting specialist.
+
+YOUR GOAL: Given a clinical skeleton, specialist type, and reason for referral, generate a referral letter that:
+1. Provides a concise clinical summary relevant to the referral
+2. Clearly states the reason for referral with specific clinical questions
+3. Summarizes relevant history and current management
+4. Documents what has been tried and failed or why escalation is needed
+5. Conveys appropriate urgency
+6. Includes relevant diagnostic data
+
+LETTER STRUCTURE:
+- Opening: referring physician context and reason for referral
+- Clinical summary: relevant history, current diagnoses, pertinent findings
+- Current management: medications, treatments, and their outcomes
+- Failed interventions: what has been tried and why it was insufficient
+- Specific questions: clear, answerable questions for the specialist
+- Urgency assessment: routine, urgent, or emergent with justification
+
+Respond ONLY with valid JSON. No markdown, no code fences.`;
+
+export async function generateReferralLetter(
+  skeleton: string,
+  referTo: string,
+  reason: string
+): Promise<string> {
+  const message = await anthropic.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 6144,
+    system: cachedSystem(REFERRAL_LETTER_SYSTEM),
+    messages: [
+      {
+        role: "user",
+        content: `Generate a referral letter for the following:
+
+Refer to: ${referTo}
+Reason for referral: ${reason}
+
+Clinical skeleton:
+"""
+${skeleton}
+"""
+
+Respond with this exact JSON structure:
+{
+  "letter": "The full referral letter text, formatted professionally with appropriate sections and a formal closing.",
+  "specific_questions": ["Specific clinical question 1 for the specialist", "Specific clinical question 2"],
+  "urgency": "routine|urgent|emergent"
+}`,
+      },
+    ],
+  });
+
+  const content = message.content[0];
+  return content.type === "text" ? content.text : "";
+}
+
 // ── Manuscript Citation Analysis ───────────────────────────────────
 
 const MANUSCRIPT_SYSTEM = `You are an expert academic citation and research methodology specialist. Your role is to help academics identify claims that need citations and suggest relevant references.
@@ -377,6 +558,73 @@ Respond with this exact JSON structure:
   "bibliography": ["formatted reference - VERIFY EACH BEFORE USE"],
   "summary": "Brief assessment of citation completeness",
   "disclaimer": "All suggested citations must be independently verified."
+}`,
+      },
+    ],
+  });
+
+  const content = message.content[0];
+  return content.type === "text" ? content.text : "";
+}
+
+// ── Peer Review Response Generator ────────────────────────────────
+
+const REVIEW_RESPONSE_SYSTEM = `You are an expert academic writing advisor who helps authors craft professional, effective responses to peer review comments. You have deep experience across scientific disciplines and understand the conventions of the peer review process.
+
+YOUR ROLE:
+1. Parse each reviewer comment or question from the provided reviewer feedback.
+2. For each comment, generate:
+   - A professional, respectful response
+   - Whether the comment requires a revision (manuscript change needed), clarification (explain existing content), or rebuttal (respectfully disagree with evidence)
+   - Suggested specific text changes if a revision is needed
+3. Maintain a constructive, grateful tone even when addressing critical or unfair reviews.
+4. Format the output as a structured point-by-point response letter suitable for journal submission.
+
+TONE GUIDELINES:
+- Always thank reviewers for their time and insight
+- Acknowledge valid criticisms directly
+- For rebuttals, cite evidence or methodology justification — never be dismissive
+- Use phrases like "We appreciate this observation," "We agree and have revised," "We respectfully note that..."
+- Avoid defensive or adversarial language
+
+Respond ONLY with valid JSON. No markdown, no code fences.`;
+
+export async function generateReviewResponse(
+  manuscript: string,
+  reviewerComments: string
+): Promise<string> {
+  const message = await anthropic.messages.create({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: 6144,
+    system: cachedSystem(REVIEW_RESPONSE_SYSTEM),
+    messages: [
+      {
+        role: "user",
+        content: `Analyze the following peer review comments in the context of the manuscript provided. Generate a professional point-by-point response letter.
+
+Manuscript:
+"""
+${manuscript}
+"""
+
+Reviewer Comments:
+"""
+${reviewerComments}
+"""
+
+Respond with this exact JSON structure:
+{
+  "response_letter": "The full formatted response letter text, ready to submit to the journal",
+  "responses": [
+    {
+      "reviewer_comment": "The original comment",
+      "response_type": "revision" | "clarification" | "rebuttal",
+      "response": "The author's response",
+      "manuscript_change": "Specific text change if applicable, or null"
+    }
+  ],
+  "summary_of_changes": ["List of all changes made to the manuscript"],
+  "thank_you_note": "Opening thank-you paragraph for the response letter"
 }`,
       },
     ],

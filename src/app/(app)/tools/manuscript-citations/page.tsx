@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { BookOpen, Loader2, Copy, Check, Download, ExternalLink, CheckCircle2, XCircle, AlertTriangle, Upload } from "lucide-react";
+import { BookOpen, Loader2, Copy, Check, Download, ExternalLink, CheckCircle2, XCircle, AlertTriangle, Upload, MessageSquare } from "lucide-react";
 import { useKeyboardSubmit } from "@/hooks/use-keyboard-submit";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PhiWarning } from "@/components/phi-warning";
 import { ResultActions } from "@/components/result-actions";
 
@@ -230,74 +231,494 @@ function ManuscriptCitationsContent() {
         </div>
       </div>
 
+      <Tabs defaultValue="citations" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="citations" className="gap-1.5">
+            <BookOpen className="h-4 w-4" />
+            Find Citations
+          </TabsTrigger>
+          <TabsTrigger value="review-response" className="gap-1.5">
+            <MessageSquare className="h-4 w-4" />
+            Review Response
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="citations">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Paste Your Manuscript</CardTitle>
+                <CardDescription>
+                  We&apos;ll identify claims needing citations and suggest properly formatted references.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Textarea
+                  placeholder="Paste your manuscript text here...&#10;&#10;Example: Recent studies have shown that machine learning algorithms can predict patient outcomes with high accuracy. The prevalence of type 2 diabetes has increased significantly over the past decade..."
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  className="min-h-[200px]"
+                />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <p className={`text-xs ${input.length > MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                      {input.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()} chars · {input.trim() ? input.trim().split(/\s+/).length.toLocaleString() : "0"} words
+                    </p>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".txt,.md,.doc,.docx,.rtf"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="h-3 w-3" />
+                      Upload file
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm text-muted-foreground">Citation Style:</label>
+                    <Select value={style} onValueChange={setStyle}>
+                      <SelectTrigger className="w-48">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STYLES.map((s) => (
+                          <SelectItem key={s.value} value={s.value}>
+                            {s.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button onClick={handleAnalyze} disabled={loading || loadingSaved || !input.trim() || input.length > MAX_LENGTH}>
+                      {loading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Analyzing...
+                        </>
+                      ) : loadingSaved ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading...
+                        </>
+                      ) : savedId && result ? (
+                        "Re-run Citations"
+                      ) : (
+                        "Find Citations"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {phiWarnings.length > 0 && <PhiWarning warnings={phiWarnings} />}
+
+            {result && !result.raw && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <h2 className="text-lg font-semibold">Citation Results</h2>
+                  <div className="flex gap-2 flex-wrap">
+                    <ResultActions savedId={savedId} />
+                    <Button variant="outline" size="sm" onClick={handleCopy}>
+                      {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      {copied ? "Copied" : "Copy"}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={handleExport}>
+                      <Download className="h-4 w-4" />
+                      Export
+                    </Button>
+                  </div>
+                </div>
+
+                {result.summary && (
+                  <Card>
+                    <CardContent className="pt-6">
+                      <p className="text-sm">{result.summary}</p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Claims Needing Citations */}
+                {result.claims_needing_citations && result.claims_needing_citations.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">
+                        Claims Needing Citations ({result.claims_needing_citations.length})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      {result.claims_needing_citations.map((claim, i) => (
+                        <div key={i} className="p-4 rounded-lg border bg-muted/30">
+                          <p className="text-sm italic mb-1">&ldquo;{claim.text}&rdquo;</p>
+                          <p className="text-xs text-muted-foreground mb-1">{claim.location}</p>
+                          {claim.why_citation_needed && (
+                            <p className="text-xs text-muted-foreground mb-3">{claim.why_citation_needed}</p>
+                          )}
+                          {/* PubMed-First Verified Results */}
+                          {claim.pubmed_results && claim.pubmed_results.length > 0 && (
+                            <div className="mb-3 space-y-2">
+                              <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Verified from PubMed ({claim.pubmed_results.length})
+                              </p>
+                              {claim.pubmed_results.map((pr, k) => (
+                                <div key={k} className="pl-3 border-l-2 border-emerald-400 dark:border-emerald-600 p-2 rounded-r bg-emerald-50/50 dark:bg-emerald-950/20">
+                                  <p className="text-sm font-medium">{pr.title}</p>
+                                  <p className="text-xs text-muted-foreground">{pr.authors} - {pr.journal} ({pr.year})</p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    {pr.pmid && (
+                                      <a href={`https://pubmed.ncbi.nlm.nih.gov/${pr.pmid}/`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                                        <ExternalLink className="h-2.5 w-2.5" /> PMID: {pr.pmid}
+                                      </a>
+                                    )}
+                                    {pr.doi && (
+                                      <a href={`https://doi.org/${pr.doi}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                                        <ExternalLink className="h-2.5 w-2.5" /> DOI
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {/* CrossRef Results */}
+                          {claim.crossref_results && claim.crossref_results.length > 0 && (
+                            <div className="mb-3 space-y-2">
+                              <p className="text-xs font-medium text-blue-700 dark:text-blue-400 flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3" />
+                                Found via CrossRef ({claim.crossref_results.length})
+                              </p>
+                              {claim.crossref_results.map((cr, k) => (
+                                <div key={k} className="pl-3 border-l-2 border-blue-400 dark:border-blue-600 p-2 rounded-r bg-blue-50/50 dark:bg-blue-950/20">
+                                  <p className="text-sm font-medium">{cr.title}</p>
+                                  <p className="text-xs text-muted-foreground">{cr.authors} - {cr.journal} ({cr.year})</p>
+                                  {cr.doi && (
+                                    <a href={`https://doi.org/${cr.doi}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1">
+                                      <ExternalLink className="h-2.5 w-2.5" /> DOI: {cr.doi}
+                                    </a>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {/* AI-Suggested Citations */}
+                          <div className="space-y-2">
+                            {claim.suggested_citations.map((cit, j) => (
+                              <div key={j} className="pl-3 border-l-2 border-primary/30">
+                                <div className="flex items-start gap-2">
+                                  <p className="text-sm flex-1">{cit.formatted}</p>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    {cit.pubmed_verified === true ? (
+                                      <Badge variant="success" className="text-[10px] flex items-center gap-0.5">
+                                        <CheckCircle2 className="h-2.5 w-2.5" />
+                                        PubMed Verified
+                                      </Badge>
+                                    ) : cit.pubmed_verified === false && cit.verification_confidence === "partial" ? (
+                                      <Badge variant="warning" className="text-[10px] flex items-center gap-0.5">
+                                        <AlertTriangle className="h-2.5 w-2.5" />
+                                        Partial Match
+                                      </Badge>
+                                    ) : cit.pubmed_verified === false ? (
+                                      <Badge variant="destructive" className="text-[10px] flex items-center gap-0.5">
+                                        <XCircle className="h-2.5 w-2.5" />
+                                        Not Found
+                                      </Badge>
+                                    ) : (
+                                      <Badge variant="warning" className="text-[10px]">VERIFY</Badge>
+                                    )}
+                                  </div>
+                                </div>
+                                {cit.pubmed_match && (
+                                  <div className="mt-1.5 p-2 rounded bg-muted/60 text-xs space-y-0.5">
+                                    <p className="font-medium">{cit.pubmed_match.title}</p>
+                                    <p className="text-muted-foreground">
+                                      {cit.pubmed_match.authors} - {cit.pubmed_match.journal} ({cit.pubmed_match.year})
+                                    </p>
+                                    <div className="flex items-center gap-2 pt-0.5">
+                                      <a
+                                        href={`https://pubmed.ncbi.nlm.nih.gov/${cit.pubmed_match.pmid}/`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-primary hover:underline"
+                                      >
+                                        <ExternalLink className="h-2.5 w-2.5" />
+                                        PMID: {cit.pubmed_match.pmid}
+                                      </a>
+                                      {cit.pubmed_match.doi && (
+                                        <a
+                                          href={`https://doi.org/${cit.pubmed_match.doi}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1 text-primary hover:underline"
+                                        >
+                                          <ExternalLink className="h-2.5 w-2.5" />
+                                          DOI
+                                        </a>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                                {!cit.pubmed_match && cit.doi && (
+                                  <p className="text-xs text-muted-foreground mt-0.5">DOI: {cit.doi}</p>
+                                )}
+                                <p className="text-xs text-muted-foreground">{cit.relevance}</p>
+                                {cit.note && (
+                                  <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">{cit.note}</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                          {/* PubMed Alternative Suggestions */}
+                          {claim.pubmed_suggestions && claim.pubmed_suggestions.length > 0 && (
+                            <div className="mt-3 pt-3 border-t space-y-2">
+                              <p className="text-xs font-medium text-muted-foreground">
+                                PubMed found these related articles:
+                              </p>
+                              {claim.pubmed_suggestions.map((ps, k) => (
+                                <div key={k} className="pl-3 border-l-2 border-emerald-300 dark:border-emerald-700">
+                                  <p className="text-sm font-medium">{ps.title}</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {ps.authors} - {ps.journal} ({ps.year})
+                                  </p>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <a
+                                      href={`https://pubmed.ncbi.nlm.nih.gov/${ps.pmid}/`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                    >
+                                      <ExternalLink className="h-2.5 w-2.5" />
+                                      PMID: {ps.pmid}
+                                    </a>
+                                    {ps.doi && (
+                                      <a
+                                        href={`https://doi.org/${ps.doi}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                                      >
+                                        <ExternalLink className="h-2.5 w-2.5" />
+                                        DOI
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          {claim.search_terms && (
+                            <p className="text-xs text-muted-foreground mt-2 pt-2 border-t">
+                              Search: <a
+                                href={`https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(claim.search_terms)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="font-mono text-primary hover:underline"
+                              >
+                                {claim.search_terms}
+                              </a>
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Existing Citation Review */}
+                {result.existing_citations_review && result.existing_citations_review.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Existing Citation Review</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {result.existing_citations_review.map((cit, i) => (
+                        <div key={i} className="p-3 rounded-lg bg-muted/50 space-y-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm">{cit.original}</p>
+                            <Badge variant={statusColor(cit.status)}>{cit.status.replace("_", " ")}</Badge>
+                          </div>
+                          {cit.corrected && (
+                            <p className="text-sm text-primary mt-1">Corrected: {cit.corrected}</p>
+                          )}
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Bibliography */}
+                {result.bibliography && result.bibliography.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">
+                        Generated Bibliography ({style.toUpperCase()})
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ol className="space-y-2 list-decimal list-inside">
+                        {result.bibliography.map((ref, i) => (
+                          <li key={i} className="text-sm pl-2">{ref}</li>
+                        ))}
+                      </ol>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Disclaimer */}
+                {result.disclaimer && (
+                  <p className="text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg p-3 italic">
+                    {result.disclaimer}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {result?.raw && (
+              <Card>
+                <CardContent className="pt-6">
+                  <pre className="whitespace-pre-wrap text-sm bg-muted p-4 rounded-lg overflow-auto">
+                    {result.raw}
+                  </pre>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="review-response">
+          <ReviewResponseTab />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
+
+// ── Review Response Tab ──────────────────────────────────────────────
+
+interface ReviewResponse {
+  reviewer_comment: string;
+  response_type: "revision" | "clarification" | "rebuttal";
+  response: string;
+  manuscript_change: string | null;
+}
+
+interface ReviewResponseResult {
+  response_letter?: string;
+  responses?: ReviewResponse[];
+  summary_of_changes?: string[];
+  thank_you_note?: string;
+  raw?: string;
+}
+
+const RESPONSE_TYPE_STYLES: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+  revision: { label: "Revision", variant: "default" },
+  clarification: { label: "Clarification", variant: "secondary" },
+  rebuttal: { label: "Rebuttal", variant: "outline" },
+};
+
+function ReviewResponseTab() {
+  const [manuscript, setManuscript] = useState("");
+  const [reviewerComments, setReviewerComments] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<ReviewResponseResult | null>(null);
+  const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
+  const [copied, setCopied] = useState(false);
+
+  async function handleGenerate() {
+    if (!manuscript.trim() || !reviewerComments.trim()) return;
+    if (manuscript.length > MAX_LENGTH) {
+      toast.error("Manuscript text exceeds 50,000 character limit");
+      return;
+    }
+    setLoading(true);
+    setResult(null);
+    setPhiWarnings([]);
+
+    try {
+      const res = await fetch("/api/analyze/review-response", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ manuscript, reviewerComments }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.error || "Failed to generate response");
+        return;
+      }
+      if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
+      setResult(data.result);
+      toast.success("Response letter generated");
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleCopyLetter() {
+    if (!result?.response_letter) return;
+    navigator.clipboard.writeText(result.response_letter);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Paste Your Manuscript</CardTitle>
+          <CardTitle className="text-base">Peer Review Response Generator</CardTitle>
           <CardDescription>
-            We&apos;ll identify claims needing citations and suggest properly formatted references.
+            Paste your manuscript and the reviewer comments to generate a professional point-by-point response letter.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Textarea
-            placeholder="Paste your manuscript text here...&#10;&#10;Example: Recent studies have shown that machine learning algorithms can predict patient outcomes with high accuracy. The prevalence of type 2 diabetes has increased significantly over the past decade..."
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            className="min-h-[200px]"
-          />
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <p className={`text-xs ${input.length > MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                {input.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()} chars · {input.trim() ? input.trim().split(/\s+/).length.toLocaleString() : "0"} words
-              </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".txt,.md,.doc,.docx,.rtf"
-                className="hidden"
-                onChange={handleFileUpload}
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload className="h-3 w-3" />
-                Upload file
-              </Button>
-            </div>
-            <div className="flex items-center gap-3">
-              <label className="text-sm text-muted-foreground">Citation Style:</label>
-              <Select value={style} onValueChange={setStyle}>
-                <SelectTrigger className="w-48">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STYLES.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button onClick={handleAnalyze} disabled={loading || loadingSaved || !input.trim() || input.length > MAX_LENGTH}>
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Analyzing...
-                  </>
-                ) : loadingSaved ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Loading...
-                  </>
-                ) : savedId && result ? (
-                  "Re-run Citations"
-                ) : (
-                  "Find Citations"
-                )}
-              </Button>
-            </div>
+          <div>
+            <label className="text-sm font-medium mb-1.5 block">Manuscript Text</label>
+            <Textarea
+              placeholder="Paste your manuscript text here..."
+              value={manuscript}
+              onChange={(e) => setManuscript(e.target.value)}
+              className="min-h-[150px]"
+            />
+            <p className={`text-xs mt-1 ${manuscript.length > MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+              {manuscript.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()} chars
+            </p>
+          </div>
+          <div>
+            <label className="text-sm font-medium mb-1.5 block">Reviewer Comments</label>
+            <Textarea
+              placeholder={"Paste the reviewer comments here...\n\nExample:\nReviewer 1:\n1. The methodology section lacks detail on sample size justification.\n2. The authors should discuss limitations of the cross-sectional design.\n\nReviewer 2:\n1. Table 2 results are not discussed in the text..."}
+              value={reviewerComments}
+              onChange={(e) => setReviewerComments(e.target.value)}
+              className="min-h-[150px]"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              {reviewerComments.length.toLocaleString()} chars
+            </p>
+          </div>
+          <div className="flex justify-end">
+            <Button
+              onClick={handleGenerate}
+              disabled={loading || !manuscript.trim() || !reviewerComments.trim() || manuscript.length > MAX_LENGTH}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <MessageSquare className="h-4 w-4" />
+                  Generate Response
+                </>
+              )}
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -306,260 +727,78 @@ function ManuscriptCitationsContent() {
 
       {result && !result.raw && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <h2 className="text-lg font-semibold">Citation Results</h2>
-            <div className="flex gap-2 flex-wrap">
-              <ResultActions savedId={savedId} />
-              <Button variant="outline" size="sm" onClick={handleCopy}>
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                {copied ? "Copied" : "Copy"}
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleExport}>
-                <Download className="h-4 w-4" />
-                Export
-              </Button>
-            </div>
-          </div>
-
-          {result.summary && (
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-sm">{result.summary}</p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Claims Needing Citations */}
-          {result.claims_needing_citations && result.claims_needing_citations.length > 0 && (
+          {/* Thank You Note */}
+          {result.thank_you_note && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">
-                  Claims Needing Citations ({result.claims_needing_citations.length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {result.claims_needing_citations.map((claim, i) => (
-                  <div key={i} className="p-4 rounded-lg border bg-muted/30">
-                    <p className="text-sm italic mb-1">&ldquo;{claim.text}&rdquo;</p>
-                    <p className="text-xs text-muted-foreground mb-1">{claim.location}</p>
-                    {claim.why_citation_needed && (
-                      <p className="text-xs text-muted-foreground mb-3">{claim.why_citation_needed}</p>
-                    )}
-                    {/* PubMed-First Verified Results */}
-                    {claim.pubmed_results && claim.pubmed_results.length > 0 && (
-                      <div className="mb-3 space-y-2">
-                        <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Verified from PubMed ({claim.pubmed_results.length})
-                        </p>
-                        {claim.pubmed_results.map((pr, k) => (
-                          <div key={k} className="pl-3 border-l-2 border-emerald-400 dark:border-emerald-600 p-2 rounded-r bg-emerald-50/50 dark:bg-emerald-950/20">
-                            <p className="text-sm font-medium">{pr.title}</p>
-                            <p className="text-xs text-muted-foreground">{pr.authors} - {pr.journal} ({pr.year})</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              {pr.pmid && (
-                                <a href={`https://pubmed.ncbi.nlm.nih.gov/${pr.pmid}/`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                                  <ExternalLink className="h-2.5 w-2.5" /> PMID: {pr.pmid}
-                                </a>
-                              )}
-                              {pr.doi && (
-                                <a href={`https://doi.org/${pr.doi}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                                  <ExternalLink className="h-2.5 w-2.5" /> DOI
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {/* CrossRef Results */}
-                    {claim.crossref_results && claim.crossref_results.length > 0 && (
-                      <div className="mb-3 space-y-2">
-                        <p className="text-xs font-medium text-blue-700 dark:text-blue-400 flex items-center gap-1">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Found via CrossRef ({claim.crossref_results.length})
-                        </p>
-                        {claim.crossref_results.map((cr, k) => (
-                          <div key={k} className="pl-3 border-l-2 border-blue-400 dark:border-blue-600 p-2 rounded-r bg-blue-50/50 dark:bg-blue-950/20">
-                            <p className="text-sm font-medium">{cr.title}</p>
-                            <p className="text-xs text-muted-foreground">{cr.authors} - {cr.journal} ({cr.year})</p>
-                            {cr.doi && (
-                              <a href={`https://doi.org/${cr.doi}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1">
-                                <ExternalLink className="h-2.5 w-2.5" /> DOI: {cr.doi}
-                              </a>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {/* AI-Suggested Citations */}
-                    <div className="space-y-2">
-                      {claim.suggested_citations.map((cit, j) => (
-                        <div key={j} className="pl-3 border-l-2 border-primary/30">
-                          <div className="flex items-start gap-2">
-                            <p className="text-sm flex-1">{cit.formatted}</p>
-                            <div className="flex items-center gap-1 shrink-0">
-                              {cit.pubmed_verified === true ? (
-                                <Badge variant="success" className="text-[10px] flex items-center gap-0.5">
-                                  <CheckCircle2 className="h-2.5 w-2.5" />
-                                  PubMed Verified
-                                </Badge>
-                              ) : cit.pubmed_verified === false && cit.verification_confidence === "partial" ? (
-                                <Badge variant="warning" className="text-[10px] flex items-center gap-0.5">
-                                  <AlertTriangle className="h-2.5 w-2.5" />
-                                  Partial Match
-                                </Badge>
-                              ) : cit.pubmed_verified === false ? (
-                                <Badge variant="destructive" className="text-[10px] flex items-center gap-0.5">
-                                  <XCircle className="h-2.5 w-2.5" />
-                                  Not Found
-                                </Badge>
-                              ) : (
-                                <Badge variant="warning" className="text-[10px]">VERIFY</Badge>
-                              )}
-                            </div>
-                          </div>
-                          {cit.pubmed_match && (
-                            <div className="mt-1.5 p-2 rounded bg-muted/60 text-xs space-y-0.5">
-                              <p className="font-medium">{cit.pubmed_match.title}</p>
-                              <p className="text-muted-foreground">
-                                {cit.pubmed_match.authors} - {cit.pubmed_match.journal} ({cit.pubmed_match.year})
-                              </p>
-                              <div className="flex items-center gap-2 pt-0.5">
-                                <a
-                                  href={`https://pubmed.ncbi.nlm.nih.gov/${cit.pubmed_match.pmid}/`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-primary hover:underline"
-                                >
-                                  <ExternalLink className="h-2.5 w-2.5" />
-                                  PMID: {cit.pubmed_match.pmid}
-                                </a>
-                                {cit.pubmed_match.doi && (
-                                  <a
-                                    href={`https://doi.org/${cit.pubmed_match.doi}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 text-primary hover:underline"
-                                  >
-                                    <ExternalLink className="h-2.5 w-2.5" />
-                                    DOI
-                                  </a>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                          {!cit.pubmed_match && cit.doi && (
-                            <p className="text-xs text-muted-foreground mt-0.5">DOI: {cit.doi}</p>
-                          )}
-                          <p className="text-xs text-muted-foreground">{cit.relevance}</p>
-                          {cit.note && (
-                            <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">{cit.note}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    {/* PubMed Alternative Suggestions */}
-                    {claim.pubmed_suggestions && claim.pubmed_suggestions.length > 0 && (
-                      <div className="mt-3 pt-3 border-t space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          PubMed found these related articles:
-                        </p>
-                        {claim.pubmed_suggestions.map((ps, k) => (
-                          <div key={k} className="pl-3 border-l-2 border-emerald-300 dark:border-emerald-700">
-                            <p className="text-sm font-medium">{ps.title}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {ps.authors} - {ps.journal} ({ps.year})
-                            </p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <a
-                                href={`https://pubmed.ncbi.nlm.nih.gov/${ps.pmid}/`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                              >
-                                <ExternalLink className="h-2.5 w-2.5" />
-                                PMID: {ps.pmid}
-                              </a>
-                              {ps.doi && (
-                                <a
-                                  href={`https://doi.org/${ps.doi}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                                >
-                                  <ExternalLink className="h-2.5 w-2.5" />
-                                  DOI
-                                </a>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    {claim.search_terms && (
-                      <p className="text-xs text-muted-foreground mt-2 pt-2 border-t">
-                        Search: <a
-                          href={`https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(claim.search_terms)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-mono text-primary hover:underline"
-                        >
-                          {claim.search_terms}
-                        </a>
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Existing Citation Review */}
-          {result.existing_citations_review && result.existing_citations_review.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Existing Citation Review</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {result.existing_citations_review.map((cit, i) => (
-                  <div key={i} className="p-3 rounded-lg bg-muted/50 space-y-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm">{cit.original}</p>
-                      <Badge variant={statusColor(cit.status)}>{cit.status.replace("_", " ")}</Badge>
-                    </div>
-                    {cit.corrected && (
-                      <p className="text-sm text-primary mt-1">Corrected: {cit.corrected}</p>
-                    )}
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Bibliography */}
-          {result.bibliography && result.bibliography.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">
-                  Generated Bibliography ({style.toUpperCase()})
-                </CardTitle>
+                <CardTitle className="text-base">Opening</CardTitle>
               </CardHeader>
               <CardContent>
-                <ol className="space-y-2 list-decimal list-inside">
-                  {result.bibliography.map((ref, i) => (
-                    <li key={i} className="text-sm pl-2">{ref}</li>
-                  ))}
-                </ol>
+                <p className="text-sm whitespace-pre-wrap">{result.thank_you_note}</p>
               </CardContent>
             </Card>
           )}
 
-          {/* Disclaimer */}
-          {result.disclaimer && (
-            <p className="text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg p-3 italic">
-              {result.disclaimer}
-            </p>
+          {/* Individual Responses */}
+          {result.responses && result.responses.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-lg font-semibold">Point-by-Point Responses ({result.responses.length})</h2>
+              {result.responses.map((resp, i) => {
+                const typeStyle = RESPONSE_TYPE_STYLES[resp.response_type] || RESPONSE_TYPE_STYLES.clarification;
+                return (
+                  <Card key={i}>
+                    <CardContent className="pt-6 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <p className="text-sm italic text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                            &ldquo;{resp.reviewer_comment}&rdquo;
+                          </p>
+                        </div>
+                        <Badge variant={typeStyle.variant} className="shrink-0">
+                          {typeStyle.label}
+                        </Badge>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground mb-1">Response:</p>
+                        <p className="text-sm whitespace-pre-wrap">{resp.response}</p>
+                      </div>
+                      {resp.manuscript_change && (
+                        <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900 rounded-lg p-3">
+                          <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400 mb-1">Suggested Manuscript Change:</p>
+                          <p className="text-sm whitespace-pre-wrap">{resp.manuscript_change}</p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Summary of Changes */}
+          {result.summary_of_changes && result.summary_of_changes.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Summary of Changes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-1.5 list-disc list-inside">
+                  {result.summary_of_changes.map((change, i) => (
+                    <li key={i} className="text-sm">{change}</li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Copy Full Letter */}
+          {result.response_letter && (
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={handleCopyLetter}>
+                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copied ? "Copied" : "Copy Full Response Letter"}
+              </Button>
+            </div>
           )}
         </div>
       )}
