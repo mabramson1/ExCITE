@@ -749,6 +749,18 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
   const [humanizing, setHumanizing] = useState(false);
   const [humanizedText, setHumanizedText] = useState<string | null>(null);
   const [copiedHumanized, setCopiedHumanized] = useState(false);
+  const [customTemplate, setCustomTemplate] = useState("");
+  const [showTemplate, setShowTemplate] = useState(false);
+  const [savedTemplates, setSavedTemplates] = useState<{ name: string; template: string }[]>([]);
+  const [templateName, setTemplateName] = useState("");
+
+  // Load saved templates from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("excite-custom-templates");
+      if (stored) setSavedTemplates(JSON.parse(stored));
+    } catch {}
+  }, []);
 
   useEffect(() => {
     if (!prefill) return;
@@ -841,6 +853,7 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
           encounterType,
           voiceSample: voiceSample.trim() || undefined,
           brevity: brevity !== "standard" ? brevity : undefined,
+          customTemplate: customTemplate.trim() || undefined,
         }),
       });
       const data = await res.json();
@@ -918,6 +931,26 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
     } finally {
       setHumanizing(false);
     }
+  }
+
+  function saveTemplate() {
+    const name = templateName.trim();
+    if (!name || !customTemplate.trim()) {
+      toast.error("Enter a template name and content");
+      return;
+    }
+    const updated = [...savedTemplates.filter((t) => t.name !== name), { name, template: customTemplate }];
+    setSavedTemplates(updated);
+    localStorage.setItem("excite-custom-templates", JSON.stringify(updated));
+    setTemplateName("");
+    toast.success(`Template "${name}" saved`);
+  }
+
+  function deleteTemplate(name: string) {
+    const updated = savedTemplates.filter((t) => t.name !== name);
+    setSavedTemplates(updated);
+    localStorage.setItem("excite-custom-templates", JSON.stringify(updated));
+    toast.success("Template deleted");
   }
 
   const levelColor = (level: string) => {
@@ -1108,6 +1141,69 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
                 onChange={(e) => setVoiceSample(e.target.value)}
                 className="min-h-[100px] text-sm"
               />
+            )}
+          </div>
+          {/* Custom Template (optional) */}
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={() => setShowTemplate(!showTemplate)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <LayoutTemplate className="h-3.5 w-3.5" />
+              {showTemplate ? "Hide" : "Use my note template"} (optional)
+            </button>
+            {showTemplate && (
+              <div className="space-y-3 rounded-lg border p-3 bg-muted/20">
+                <p className="text-xs text-muted-foreground">
+                  Paste your note template with <code className="bg-muted px-1 rounded">{"{{placeholders}}"}</code> and we&apos;ll fill them in.
+                  E.g. <code className="bg-muted px-1 rounded">{"{{diagnosis}}"}</code>, <code className="bg-muted px-1 rounded">{"{{assessment}}"}</code>, <code className="bg-muted px-1 rounded">{"{{plan}}"}</code>, <code className="bg-muted px-1 rounded">{"{{labs}}"}</code>, <code className="bg-muted px-1 rounded">{"{{followup}}"}</code>
+                </p>
+                {savedTemplates.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {savedTemplates.map((t) => (
+                      <div key={t.name} className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-6 text-xs"
+                          onClick={() => setCustomTemplate(t.template)}
+                        >
+                          {t.name}
+                        </Button>
+                        <button
+                          onClick={() => deleteTemplate(t.name)}
+                          className="text-muted-foreground hover:text-destructive text-xs"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <Textarea
+                  placeholder={"Paste your note template here, e.g.:\n\nProblem #{{number}}: {{diagnosis}} — {{status}}\n  Assessment: {{assessment}}\n  Current data: {{labs}}\n  Plan: {{plan}}\n  Follow-up: {{followup}}"}
+                  value={customTemplate}
+                  onChange={(e) => setCustomTemplate(e.target.value)}
+                  className="min-h-[120px] text-sm font-mono"
+                />
+                <div className="flex items-center gap-2">
+                  <Input
+                    placeholder="Template name..."
+                    value={templateName}
+                    onChange={(e) => setTemplateName(e.target.value)}
+                    className="h-7 text-xs flex-1"
+                  />
+                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={saveTemplate}>
+                    Save
+                  </Button>
+                  {customTemplate && (
+                    <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setCustomTemplate("")}>
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </CardContent>

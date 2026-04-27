@@ -216,7 +216,7 @@ Respond ONLY with valid JSON. No markdown, no code fences.`;
 export async function generateAssessmentPlan(
   skeleton: string,
   encounterType: string,
-  options?: { voiceSample?: string; brevity?: string }
+  options?: { voiceSample?: string; brevity?: string; customTemplate?: string }
 ): Promise<string> {
   let userMessage = "";
 
@@ -235,6 +235,19 @@ ${options.voiceSample}
     userMessage += `BREVITY MODE: Write a CONCISE A/P. Use short sentences, standard abbreviations (HTN, DM2, CKD, etc.), minimal prose. Each problem: 2-3 sentences max. Skip filler phrases. This is for a physician who wants documentation-ready bullet-style notes, not narrative paragraphs.\n\n`;
   } else if (options?.brevity === "detailed") {
     userMessage += `DETAILED MODE: Write a THOROUGH narrative A/P with full clinical reasoning. Explain decision-making, reference relevant guidelines, discuss differential diagnoses where applicable, and provide comprehensive follow-up plans.\n\n`;
+  }
+
+  if (options?.customTemplate) {
+    userMessage += `CUSTOM TEMPLATE: The physician provided their own note template with {{placeholders}}. You MUST use this exact template structure and fill in every placeholder with appropriate clinical content from the skeleton. Keep ALL text outside placeholders exactly as-is. If a placeholder has no corresponding data in the skeleton, write "[not provided]" rather than fabricating data.
+
+Template:
+"""
+${options.customTemplate}
+"""
+
+Fill in this template using the skeleton below. The "assessment_and_plan" field in your response should be the completed template with all placeholders filled in.
+
+`;
   }
 
   userMessage += `Generate a robust Assessment & Plan from this skeleton. Encounter type: ${encounterType}.

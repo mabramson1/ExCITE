@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { skeleton, encounterType = "established_office", voiceSample, brevity } = await req.json();
+    const { skeleton, encounterType = "established_office", voiceSample, brevity, customTemplate } = await req.json();
     const v = validateInput(skeleton);
     if (!v.ok) {
       return NextResponse.json({ error: v.error }, { status: 400 });
@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
     const analysis = await generateAssessmentPlan(phiResult.censoredText, encounterType, {
       voiceSample: voiceSample || undefined,
       brevity: brevity || undefined,
+      customTemplate: customTemplate || undefined,
     });
 
     let parsed;
