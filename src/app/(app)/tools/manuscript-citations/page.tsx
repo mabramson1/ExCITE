@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { BookOpen, Loader2, Copy, Check, Download, ExternalLink, CheckCircle2, XCircle, AlertTriangle, Upload, MessageSquare } from "lucide-react";
+import { BookOpen, Loader2, Copy, Check, Download, ExternalLink, CheckCircle2, XCircle, AlertTriangle, Upload, MessageSquare, PenTool, Fingerprint, Wand2, ScanSearch } from "lucide-react";
 import { useKeyboardSubmit } from "@/hooks/use-keyboard-submit";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -254,6 +254,10 @@ function ManuscriptCitationsContent() {
           <TabsTrigger value="review-response" className="gap-1.5">
             <MessageSquare className="h-4 w-4" />
             Review Response
+          </TabsTrigger>
+          <TabsTrigger value="write" className="gap-1.5">
+            <PenTool className="h-4 w-4" />
+            Write Manuscript
           </TabsTrigger>
         </TabsList>
 
@@ -607,6 +611,10 @@ function ManuscriptCitationsContent() {
 
         <TabsContent value="review-response">
           <ReviewResponseTab />
+        </TabsContent>
+
+        <TabsContent value="write">
+          <ManuscriptWriterTab />
         </TabsContent>
       </Tabs>
     </div>
