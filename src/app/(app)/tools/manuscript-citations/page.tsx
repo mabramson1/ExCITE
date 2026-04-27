@@ -771,7 +771,25 @@ function ReviewResponseTab() {
           {/* Individual Responses */}
           {result.responses && result.responses.length > 0 && (
             <div className="space-y-3">
-              <h2 className="text-lg font-semibold">Point-by-Point Responses ({result.responses.length})</h2>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <h2 className="text-lg font-semibold">Point-by-Point Responses ({result.responses.length})</h2>
+                {result.responses && result.responses.some(r => r.manuscript_change) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const changes = result.responses!
+                        .filter(r => r.manuscript_change)
+                        .map((r, i) => `${i + 1}. ${r.manuscript_change}`)
+                        .join("\n\n");
+                      navigator.clipboard.writeText(changes);
+                      toast.success("All suggested changes copied to clipboard");
+                    }}
+                  >
+                    <Check className="h-4 w-4" /> Copy All Changes
+                  </Button>
+                )}
+              </div>
               {result.responses.map((resp, i) => {
                 const typeStyle = RESPONSE_TYPE_STYLES[resp.response_type] || RESPONSE_TYPE_STYLES.clarification;
                 return (

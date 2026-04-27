@@ -788,13 +788,35 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
   const [showTemplate, setShowTemplate] = useState(false);
   const [savedTemplates, setSavedTemplates] = useState<{ name: string; template: string }[]>([]);
   const [templateName, setTemplateName] = useState("");
+  const [loadedVoiceSample, setLoadedVoiceSample] = useState("");
+  const [loadedBrevity, setLoadedBrevity] = useState("standard");
 
-  // Load saved templates from localStorage
+  // Load saved preferences (voice sample, brevity, custom templates) from DB
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("excite-custom-templates");
-      if (stored) setSavedTemplates(JSON.parse(stored));
-    } catch {}
+    fetch("/api/preferences")
+      .then((r) => (r.ok ? r.json() : { preferences: null }))
+      .then((data) => {
+        const prefs = data?.preferences;
+        if (!prefs) return;
+        const persistedVoice =
+          typeof prefs.voiceSampleClinical === "string" ? prefs.voiceSampleClinical : "";
+        const persistedBrevity =
+          typeof prefs.defaultBrevity === "string" && prefs.defaultBrevity
+            ? prefs.defaultBrevity
+            : "standard";
+        const persistedTemplates: { name: string; template: string }[] = Array.isArray(
+          prefs.customTemplates,
+        )
+          ? prefs.customTemplates
+          : [];
+        setLoadedVoiceSample(persistedVoice);
+        setLoadedBrevity(persistedBrevity);
+        setVoiceSample((prev) => (prev ? prev : persistedVoice));
+        if (persistedVoice) setShowVoice(true);
+        setBrevity((prev) => (prev && prev !== "standard" ? prev : persistedBrevity));
+        setSavedTemplates(persistedTemplates);
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -938,6 +960,33 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
       // Persist tokenMap locally so reload-from-history still shows real values
       if (data.savedId) saveTokenMap(data.savedId, tokenMap);
 
+      // Persist voice sample / brevity preference changes to DB
+      if (res.ok) {
+        const prefUpdates: Record<string, string> = {};
+        if (trimmedVoice && trimmedVoice !== loadedVoiceSample.trim()) {
+          prefUpdates.voiceSampleClinical = trimmedVoice;
+        }
+        if (brevity !== loadedBrevity) {
+          prefUpdates.defaultBrevity = brevity;
+        }
+        if (Object.keys(prefUpdates).length > 0) {
+          fetch("/api/preferences", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(prefUpdates),
+          })
+            .then(() => {
+              if (prefUpdates.voiceSampleClinical !== undefined) {
+                setLoadedVoiceSample(prefUpdates.voiceSampleClinical);
+              }
+              if (prefUpdates.defaultBrevity !== undefined) {
+                setLoadedBrevity(prefUpdates.defaultBrevity);
+              }
+            })
+            .catch(() => {});
+        }
+      }
+
       // Auto-show clarification dialog if there are items
       if (data.result?.clarification_needed?.length > 0 && !additionalContext) {
         setClarificationAnswers({});
@@ -1029,23 +1078,51 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
     }
   }
 
-  function saveTemplate() {
+  async function persistCustomTemplates(updated: { name: string; template: string }[]) {
+    try {
+      const res = await fetch("/api/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customTemplates: updated }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      return true;
+    } catch {
+      toast.error("Failed to save template");
+      return false;
+    }
+  }
+
+  async function saveTemplate() {
     const name = templateName.trim();
     if (!name || !customTemplate.trim()) {
       toast.error("Enter a template name and content");
       return;
     }
-    const updated = [...savedTemplates.filter((t) => t.name !== name), { name, template: customTemplate }];
+    const previous = savedTemplates;
+    const updated = [
+      ...savedTemplates.filter((t) => t.name !== name),
+      { name, template: customTemplate },
+    ];
     setSavedTemplates(updated);
-    localStorage.setItem("excite-custom-templates", JSON.stringify(updated));
+    const ok = await persistCustomTemplates(updated);
+    if (!ok) {
+      setSavedTemplates(previous);
+      return;
+    }
     setTemplateName("");
     toast.success(`Template "${name}" saved`);
   }
 
-  function deleteTemplate(name: string) {
+  async function deleteTemplate(name: string) {
+    const previous = savedTemplates;
     const updated = savedTemplates.filter((t) => t.name !== name);
     setSavedTemplates(updated);
-    localStorage.setItem("excite-custom-templates", JSON.stringify(updated));
+    const ok = await persistCustomTemplates(updated);
+    if (!ok) {
+      setSavedTemplates(previous);
+      return;
+    }
     toast.success("Template deleted");
   }
 
@@ -1570,7 +1647,40 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
                       <p className="text-[10px] text-muted-foreground">Est. Reimbursement</p>
                     </div>
                   </div>
-                  {showUpgrade && diff && (
+                  {result.supported_em_level?.documentation_gaps && result.supported_em_level.documentation_gaps.length > 0 ? (() => {
+                    const currentCode = result.supported_em_level.code;
+                    // Find next-level code in same series
+                    const isEstablishedSeries = currentCode.startsWith("9921");
+                    const upgradeCode = (() => {
+                      const num = parseInt(currentCode);
+                      if (isEstablishedSeries && num < 99215) return String(num + 1);
+                      if (!isEstablishedSeries && num < 99205) return String(num + 1);
+                      return null;
+                    })();
+                    if (!upgradeCode || !RVU_TABLE[upgradeCode]) return null;
+                    const upgradeDiff = getRvuDifference(currentCode, upgradeCode);
+                    return (
+                      <div className="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 p-3">
+                        <div className="flex items-start gap-2">
+                          <DollarSign className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                              Potential upgrade to {upgradeCode}: <span className="font-bold">+${upgradeDiff.dollarDiff.toFixed(2)}</span> per encounter (+{upgradeDiff.rvuDiff} Work RVU)
+                            </p>
+                            <p className="text-xs text-amber-800 dark:text-amber-300 mt-1">Document these to qualify:</p>
+                            <ul className="mt-1 space-y-0.5">
+                              {result.supported_em_level!.documentation_gaps!.map((gap, i) => (
+                                <li key={i} className="text-xs text-amber-800 dark:text-amber-300 flex items-start gap-1.5">
+                                  <span className="h-1 w-1 rounded-full bg-amber-600 mt-1.5 shrink-0" />
+                                  {gap}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })() : showUpgrade && diff && (
                     <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
                       <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
                         With additional documentation, this could support {nextCode}
