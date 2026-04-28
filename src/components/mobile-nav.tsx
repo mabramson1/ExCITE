@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import {
   FileText,
@@ -18,6 +18,7 @@ import {
   Sun,
   Moon,
   CreditCard,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +37,16 @@ export function MobileNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const { theme, setTheme } = useTheme();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/admin/whoami")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.role === "admin") setIsAdmin(true);
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div className="md:hidden">
@@ -80,6 +91,21 @@ export function MobileNav() {
               </Link>
             );
           })}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              onClick={() => setOpen(false)}
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                pathname === "/admin"
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted"
+              )}
+            >
+              <Shield className="h-4 w-4" />
+              Admin
+            </Link>
+          )}
         </nav>
       )}
     </div>
