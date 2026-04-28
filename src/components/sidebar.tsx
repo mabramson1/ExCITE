@@ -20,7 +20,7 @@ import {
   Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { signOut, useSession } from "@/lib/auth-client";
+import { signOut } from "@/lib/auth-client";
 import { clearAllTokenMaps } from "@/lib/phi-tokenmap-storage";
 
 const navItems = [
@@ -37,18 +37,16 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
-  const { data: session } = useSession();
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    if (!session?.user) return;
     fetch("/api/admin/whoami")
       .then((r) => r.ok ? r.json() : null)
       .then((data) => {
         if (data?.role === "admin") setIsAdmin(true);
       })
       .catch(() => {});
-  }, [session?.user]);
+  }, []);
 
   return (
     <aside className="hidden md:flex w-64 flex-col border-r bg-card min-h-screen">
