@@ -1269,7 +1269,7 @@ function ManuscriptWriterTab() {
           {result.sections && result.sections.map((section, i) => (
             <Card key={i}>
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <CardTitle className="text-base">{section.heading}</CardTitle>
                   <Button
                     variant="ghost"
