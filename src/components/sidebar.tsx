@@ -42,9 +42,12 @@ export function Sidebar() {
 
   useEffect(() => {
     if (!session?.user) return;
-    fetch("/api/admin/stats").then((r) => {
-      setIsAdmin(r.ok);
-    }).catch(() => {});
+    fetch("/api/admin/whoami")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.role === "admin") setIsAdmin(true);
+      })
+      .catch(() => {});
   }, [session?.user]);
 
   return (
