@@ -110,6 +110,7 @@ function ManuscriptCitationsContent() {
   const searchParams = useSearchParams();
   const loadId = searchParams.get("load");
 
+  const [activeTab, setActiveTab] = useState("citations");
   const [input, setInput] = useState("");
   const [style, setStyle] = useState("apa");
   const [loading, setLoading] = useState(false);
@@ -245,21 +246,43 @@ function ManuscriptCitationsContent() {
 
       <PrivacyBanner />
 
-      <Tabs defaultValue="citations" className="space-y-4">
-        <TabsList className="w-full flex overflow-x-auto whitespace-nowrap">
-          <TabsTrigger value="citations" className="gap-1.5">
-            <BookOpen className="h-4 w-4" />
-            Find Citations
-          </TabsTrigger>
-          <TabsTrigger value="review-response" className="gap-1.5">
-            <MessageSquare className="h-4 w-4" />
-            Review Response
-          </TabsTrigger>
-          <TabsTrigger value="write" className="gap-1.5">
-            <PenTool className="h-4 w-4" />
-            Write Manuscript
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+        {/* Desktop tabs */}
+        <div className="hidden sm:block">
+          <TabsList className="w-full flex overflow-x-auto whitespace-nowrap">
+            <TabsTrigger value="citations" className="gap-1.5">
+              <BookOpen className="h-4 w-4" />
+              Find Citations
+            </TabsTrigger>
+            <TabsTrigger value="review-response" className="gap-1.5">
+              <MessageSquare className="h-4 w-4" />
+              Review Response
+            </TabsTrigger>
+            <TabsTrigger value="write" className="gap-1.5">
+              <PenTool className="h-4 w-4" />
+              Write Manuscript
+            </TabsTrigger>
+          </TabsList>
+        </div>
+        {/* Mobile dropdown */}
+        <div className="sm:hidden">
+          <Select value={activeTab} onValueChange={setActiveTab}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="citations">
+                <span className="flex items-center gap-2"><BookOpen className="h-4 w-4" /> Find Citations</span>
+              </SelectItem>
+              <SelectItem value="review-response">
+                <span className="flex items-center gap-2"><MessageSquare className="h-4 w-4" /> Review Response</span>
+              </SelectItem>
+              <SelectItem value="write">
+                <span className="flex items-center gap-2"><PenTool className="h-4 w-4" /> Write Manuscript</span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
         <TabsContent value="citations">
           <div className="space-y-6">

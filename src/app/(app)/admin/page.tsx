@@ -16,6 +16,10 @@ import {
   ArrowUpDown,
   Check,
   X,
+  Activity,
+  BarChart3,
+  Server,
+  TrendingUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,6 +44,23 @@ import {
 
 /* ---------- Types ---------- */
 
+interface DailyCount {
+  date: string;
+  count: number;
+}
+
+interface TopUser {
+  name: string | null;
+  email: string;
+  count: number;
+}
+
+interface ToolPopularity {
+  type: string;
+  count: number;
+  pct: number;
+}
+
 interface Stats {
   totalUsers: number;
   totalProjects: number;
@@ -48,6 +69,18 @@ interface Stats {
   recentSignups: number;
   recentProjects: number;
   projectsByType: Record<string, number>;
+  dailyProjects?: DailyCount[];
+  dailySignups?: DailyCount[];
+  topUsers?: TopUser[];
+  avgProjectsPerUser?: number;
+  phiDetectionRate?: number;
+  popularTools?: ToolPopularity[];
+  activeUsers?: number;
+}
+
+interface SystemInfo {
+  envStatus: Record<string, boolean>;
+  nodeVersion: string;
 }
 
 interface User {
@@ -114,6 +147,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [activeTab, setActiveTab] = useState("overview");
 
   useEffect(() => {
     async function fetchStats() {
@@ -164,17 +198,50 @@ export default function AdminPage() {
         </p>
       </div>
 
-      <Tabs defaultValue="overview">
-        <TabsList className="w-full flex overflow-x-auto whitespace-nowrap">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="projects">Projects</TabsTrigger>
-          <TabsTrigger value="shares">Shares</TabsTrigger>
-          <TabsTrigger value="database">
-            <Database className="h-4 w-4" />
-            Database
-          </TabsTrigger>
-        </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        {/* Desktop tabs */}
+        <div className="hidden sm:block">
+          <TabsList className="w-full flex overflow-x-auto whitespace-nowrap">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="projects">Projects</TabsTrigger>
+            <TabsTrigger value="shares">Shares</TabsTrigger>
+            <TabsTrigger value="database">
+              <Database className="h-4 w-4" />
+              Database
+            </TabsTrigger>
+            <TabsTrigger value="system">
+              <Server className="h-4 w-4" />
+              System
+            </TabsTrigger>
+          </TabsList>
+        </div>
+        {/* Mobile dropdown */}
+        <div className="sm:hidden">
+          <Select value={activeTab} onValueChange={setActiveTab}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="overview">Overview</SelectItem>
+              <SelectItem value="users">
+                <span className="flex items-center gap-2"><Users className="h-4 w-4" /> Users</span>
+              </SelectItem>
+              <SelectItem value="projects">
+                <span className="flex items-center gap-2"><FileText className="h-4 w-4" /> Projects</span>
+              </SelectItem>
+              <SelectItem value="shares">
+                <span className="flex items-center gap-2"><Link2 className="h-4 w-4" /> Shares</span>
+              </SelectItem>
+              <SelectItem value="database">
+                <span className="flex items-center gap-2"><Database className="h-4 w-4" /> Database</span>
+              </SelectItem>
+              <SelectItem value="system">
+                <span className="flex items-center gap-2"><Server className="h-4 w-4" /> System</span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
 
         <TabsContent value="overview">
           <OverviewTab stats={stats} />
@@ -191,6 +258,9 @@ export default function AdminPage() {
         <TabsContent value="database">
           <DatabaseTab />
         </TabsContent>
+        <TabsContent value="system">
+          <SystemTab />
+        </TabsContent>
       </Tabs>
     </div>
   );
@@ -206,6 +276,11 @@ function OverviewTab({ stats }: { stats: Stats | null }) {
       </p>
     );
   }
+
+  const maxDailyProjects = Math.max(
+    1,
+    ...(stats.dailyProjects?.map((d) => d.count) ?? [1])
+  );
 
   return (
     <div className="space-y-6">
@@ -233,18 +308,75 @@ function OverviewTab({ stats }: { stats: Stats | null }) {
         />
       </div>
 
-      {/* Recent activity */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Additional metric cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard
+          icon={Activity}
+          label="Active Users (7d)"
+          value={stats.activeUsers ?? 0}
+        />
+        <StatCard
+          icon={TrendingUp}
+          label="Avg Projects/User"
+          value={stats.avgProjectsPerUser ?? 0}
+        />
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Recent Signups (7 days)
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              PHI Detection Rate
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-2xl font-bold">
+              {((stats.phiDetectionRate ?? 0) * 100).toFixed(1)}%
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Recent Signups (7d)
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{stats.recentSignups}</p>
           </CardContent>
         </Card>
+      </div>
+
+      {/* 30-day activity chart */}
+      {stats.dailyProjects && stats.dailyProjects.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              30-Day Activity
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-end gap-0.5 h-32">
+              {stats.dailyProjects.map((day, i) => (
+                <div
+                  key={i}
+                  className="flex-1 bg-primary/60 hover:bg-primary rounded-t transition-colors"
+                  style={{
+                    height: `${Math.max(4, (day.count / maxDailyProjects) * 100)}%`,
+                  }}
+                  title={`${day.date}: ${day.count} projects`}
+                />
+              ))}
+            </div>
+            <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+              <span>30 days ago</span>
+              <span>Today</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Recent activity + Top users row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -255,9 +387,71 @@ function OverviewTab({ stats }: { stats: Stats | null }) {
             <p className="text-2xl font-bold">{stats.recentProjects}</p>
           </CardContent>
         </Card>
+
+        {/* Top users table */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Top Users by Activity
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {stats.topUsers && stats.topUsers.length > 0 ? (
+                stats.topUsers.map((u, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center justify-between text-sm"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-muted-foreground w-5">
+                        {i + 1}.
+                      </span>
+                      <span className="truncate">{u.name || u.email}</span>
+                    </div>
+                    <Badge variant="secondary">{u.count}</Badge>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">No data yet.</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Projects by type */}
+      {/* Tool popularity breakdown */}
+      {stats.popularTools && stats.popularTools.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Tool Popularity
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {stats.popularTools.map((tool) => (
+                <div key={tool.type} className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span>{tool.type}</span>
+                    <span className="text-muted-foreground">
+                      {tool.count} ({tool.pct}%)
+                    </span>
+                  </div>
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full"
+                      style={{ width: `${tool.pct}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Projects by type (legacy badges view) */}
       {Object.keys(stats.projectsByType).length > 0 && (
         <Card>
           <CardHeader className="pb-2">
@@ -267,9 +461,9 @@ function OverviewTab({ stats }: { stats: Stats | null }) {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-2">
-              {Object.entries(stats.projectsByType).map(([type, count]) => (
+              {Object.entries(stats.projectsByType).map(([type, cnt]) => (
                 <Badge key={type} variant="secondary">
-                  {type}: {count}
+                  {type}: {cnt}
                 </Badge>
               ))}
             </div>
@@ -1376,5 +1570,98 @@ function CellDisplay({
     >
       {strValue}
     </span>
+  );
+}
+
+/* ---------- System Tab ---------- */
+
+function SystemTab() {
+  const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchSystemInfo() {
+      try {
+        const res = await fetch("/api/admin/system");
+        if (!res.ok) throw new Error("Failed to fetch system info");
+        const data: SystemInfo = await res.json();
+        setSystemInfo(data);
+      } catch {
+        toast.error("Failed to load system info");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchSystemInfo();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!systemInfo) {
+    return (
+      <p className="text-sm text-muted-foreground py-8 text-center">
+        Failed to load system information.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Environment info */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <Server className="h-4 w-4" />
+            Environment
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Node.js Version</span>
+              <span className="font-mono">{systemInfo.nodeVersion}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Framework</span>
+              <span className="font-mono">Next.js</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* API key / env var status */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <Shield className="h-4 w-4" />
+            Environment Variables
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-2">
+            {Object.entries(systemInfo.envStatus).map(([key, configured]) => (
+              <div
+                key={key}
+                className="flex items-center justify-between text-sm"
+              >
+                <span className="font-mono text-xs">{key}</span>
+                <Badge
+                  variant={configured ? "secondary" : "destructive"}
+                  className="text-[10px]"
+                >
+                  {configured ? "Configured" : "Missing"}
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

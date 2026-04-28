@@ -84,3 +84,14 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans, Arial, Helvetica, sans-serif);
 }
+
+/* Prevent any element from causing horizontal overflow on mobile */
+@media (max-width: 640px) {
+  * {
+    max-width: 100%;
+  }
+  pre, code, .font-mono {
+    overflow-x: auto;
+    word-break: break-all;
+  }
+}

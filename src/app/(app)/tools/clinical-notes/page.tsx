@@ -234,28 +234,56 @@ function ClinicalNotesContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="w-full flex overflow-x-auto whitespace-nowrap">
-          <TabsTrigger value="analyze" className="flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Analyze
-          </TabsTrigger>
-          <TabsTrigger value="ap-writer" className="flex items-center gap-2">
-            <PenTool className="h-4 w-4" />
-            Write A/P
-          </TabsTrigger>
-          <TabsTrigger value="prior-auth" className="flex items-center gap-2">
-            <FileCheck className="h-4 w-4" />
-            Prior Auth
-          </TabsTrigger>
-          <TabsTrigger value="discharge" className="flex items-center gap-2">
-            <ClipboardList className="h-4 w-4" />
-            Discharge
-          </TabsTrigger>
-          <TabsTrigger value="referral" className="flex items-center gap-2">
-            <Send className="h-4 w-4" />
-            Referral
-          </TabsTrigger>
-        </TabsList>
+        {/* Desktop tabs */}
+        <div className="hidden sm:block">
+          <TabsList className="w-full flex overflow-x-auto whitespace-nowrap">
+            <TabsTrigger value="analyze" className="flex items-center gap-2">
+              <FileText className="h-4 w-4" />
+              Analyze
+            </TabsTrigger>
+            <TabsTrigger value="ap-writer" className="flex items-center gap-2">
+              <PenTool className="h-4 w-4" />
+              Write A/P
+            </TabsTrigger>
+            <TabsTrigger value="prior-auth" className="flex items-center gap-2">
+              <FileCheck className="h-4 w-4" />
+              Prior Auth
+            </TabsTrigger>
+            <TabsTrigger value="discharge" className="flex items-center gap-2">
+              <ClipboardList className="h-4 w-4" />
+              Discharge
+            </TabsTrigger>
+            <TabsTrigger value="referral" className="flex items-center gap-2">
+              <Send className="h-4 w-4" />
+              Referral
+            </TabsTrigger>
+          </TabsList>
+        </div>
+        {/* Mobile dropdown */}
+        <div className="sm:hidden">
+          <Select value={activeTab} onValueChange={setActiveTab}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="analyze">
+                <span className="flex items-center gap-2"><FileText className="h-4 w-4" /> Analyze</span>
+              </SelectItem>
+              <SelectItem value="ap-writer">
+                <span className="flex items-center gap-2"><PenTool className="h-4 w-4" /> Write A/P</span>
+              </SelectItem>
+              <SelectItem value="prior-auth">
+                <span className="flex items-center gap-2"><FileCheck className="h-4 w-4" /> Prior Auth</span>
+              </SelectItem>
+              <SelectItem value="discharge">
+                <span className="flex items-center gap-2"><ClipboardList className="h-4 w-4" /> Discharge</span>
+              </SelectItem>
+              <SelectItem value="referral">
+                <span className="flex items-center gap-2"><Send className="h-4 w-4" /> Referral</span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <TabsContent value="analyze">
           <AnalyzeTab prefill={analyzePrefill} />
         </TabsContent>
