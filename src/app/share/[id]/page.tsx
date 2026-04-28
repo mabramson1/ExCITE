@@ -93,13 +93,13 @@ export default async function SharedPage({ params }: { params: Promise<{ id: str
       </Suspense>
       <div id="share-content" className="max-w-4xl mx-auto px-4 py-8 space-y-6 print:px-0 print:py-2">
         {/* Header */}
-        <div className="flex items-center gap-3 print:gap-2">
-          <div className={`h-10 w-10 rounded-lg flex items-center justify-center print:h-8 print:w-8 ${config.color}`}>
+        <div className="flex flex-wrap items-center gap-3 print:gap-2">
+          <div className={`h-10 w-10 rounded-lg flex items-center justify-center print:h-8 print:w-8 shrink-0 ${config.color}`}>
             <Icon className="h-5 w-5 print:h-4 print:w-4" />
           </div>
-          <div className="flex-1">
-            <h1 className="text-xl font-bold tracking-tight print:text-lg">{result.title}</h1>
-            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl font-bold tracking-tight print:text-lg truncate">{result.title}</h1>
+            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-0.5">
               <span className="flex items-center gap-1">
                 <User className="h-3 w-3" /> Shared by {result.userName || "Anonymous"}
               </span>
@@ -108,7 +108,7 @@ export default async function SharedPage({ params }: { params: Promise<{ id: str
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-2 print:hidden">
+          <div className="flex items-center gap-2 print:hidden shrink-0">
             <Badge variant="secondary">{config.label}</Badge>
             <PrintButton />
           </div>

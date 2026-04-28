@@ -76,7 +76,7 @@ export default function LandingPage() {
             AI-powered tools to cite clinical notes for better billing,
             format academic manuscripts, humanize AI-generated text, and detect AI writing patterns.
           </p>
-          <div className="flex items-center justify-center gap-4">
+          <div className="flex flex-wrap items-center justify-center gap-4">
             <Link href="/sign-up">
               <Button size="lg" className="gap-2">
                 Start for Free <ArrowRight className="h-4 w-4" />
