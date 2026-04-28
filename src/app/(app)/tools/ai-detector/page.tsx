@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { ScanSearch, Loader2, Copy, Check, AlertTriangle, CheckCircle2, XCircle, Shield, Upload } from "lucide-react";
+import { ScanSearch, Loader2, Copy, Check, AlertTriangle, CheckCircle2, XCircle, Shield, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +14,8 @@ import { PhiWarning } from "@/components/phi-warning";
 import { PrivacyBanner } from "@/components/privacy-banner";
 import { ResultActions } from "@/components/result-actions";
 import { useKeyboardSubmit } from "@/hooks/use-keyboard-submit";
+import { useProgressMessage } from "@/hooks/use-progress-message";
+import { SuccessFlash } from "@/components/success-flash";
 import { scanAndCensorPhi, deepReinject, reinjectTokens } from "@/lib/phi-detection";
 import { saveTokenMap, getTokenMap } from "@/lib/phi-tokenmap-storage";
 import { ComplianceReport } from "./compliance-report";
@@ -86,8 +88,12 @@ function AiDetectorContent() {
   const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [loadingSaved, setLoadingSaved] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const progressMsg = useProgressMessage(loading);
   useKeyboardSubmit(handleDetect, !loading && !!input.trim());
+
+  const EXAMPLE_TEXT = `In today's rapidly evolving digital landscape, the intersection of technology and human creativity represents a multifaceted tapestry of innovation. It is not just about the tools we use — it is about the way we think, the way we collaborate, and ultimately, the way we reimagine what is possible. As we move forward into this new era, the opportunities are truly limitless.`;
 
   useEffect(() => {
     if (!loadId) return;
@@ -143,6 +149,11 @@ function AiDetectorContent() {
       // Persist tokenMap locally so reload-from-history still shows real values
       if (data.savedId) saveTokenMap(data.savedId, phi.tokenMap);
       toast.success("Analysis complete");
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 2000);
+      setTimeout(() => {
+        document.getElementById("detection-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
     } catch {
       toast.error("Network error. Please try again.");
     } finally {
@@ -183,6 +194,7 @@ function AiDetectorContent() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      <SuccessFlash show={showSuccess} />
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 rounded-lg bg-amber-50 dark:bg-amber-950/40 flex items-center justify-center">
           <ScanSearch className="h-5 w-5 text-amber-600" />
@@ -211,46 +223,67 @@ function AiDetectorContent() {
             onChange={(e) => setInput(e.target.value)}
             className="min-h-[200px]"
           />
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <p className={`text-xs ${input.length > MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                {input.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()} chars · {input.trim() ? input.trim().split(/\s+/).length.toLocaleString() : "0"} words
-              </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".txt,.md,.doc,.docx,.rtf"
-                className="hidden"
-                onChange={handleFileUpload}
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload className="h-3 w-3" />
-                Upload file
-              </Button>
+          <div className="sticky bottom-0 bg-card pt-2 pb-1 -mx-6 px-6 border-t sm:static sm:border-t-0 sm:mx-0 sm:px-0 sm:pt-0 sm:pb-0 z-10">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-3">
+                <p className={`text-xs ${input.length > MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                  {input.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()} chars · {input.trim() ? input.trim().split(/\s+/).length.toLocaleString() : "0"} words
+                </p>
+                {input && (
+                  <button
+                    onClick={() => { setInput(""); setResult(null); }}
+                    className="text-muted-foreground/50 hover:text-foreground transition-colors"
+                    title="Clear input"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".txt,.md,.doc,.docx,.rtf"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="h-3 w-3" />
+                  Upload file
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setInput(EXAMPLE_TEXT)}
+                >
+                  Try an example
+                </Button>
+                <Button className="bg-amber-600 hover:bg-amber-700 text-white" onClick={handleDetect} disabled={loading || loadingSaved || !input.trim() || input.length > MAX_LENGTH}>
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {progressMsg}
+                    </>
+                  ) : loadingSaved ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <ScanSearch className="h-4 w-4" />
+                      {savedId && result ? "Re-scan" : "Detect AI"}
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
-            <Button onClick={handleDetect} disabled={loading || loadingSaved || !input.trim() || input.length > MAX_LENGTH}>
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Scanning...
-                </>
-              ) : loadingSaved ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                <>
-                  <ScanSearch className="h-4 w-4" />
-                  {savedId && result ? "Re-scan" : "Detect AI"}
-                </>
-              )}
-            </Button>
           </div>
         </CardContent>
       </Card>
@@ -291,7 +324,7 @@ function AiDetectorContent() {
       )}
 
       {result && !result.raw && (
-        <div className="space-y-4">
+        <div id="detection-results" className="space-y-4 border-t-2 border-amber-500">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="text-lg font-semibold">Detection Results</h2>
             <div className="flex items-center gap-1.5 flex-wrap">

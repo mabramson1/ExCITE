@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { FileText, Loader2, Copy, Check, Download, BookOpen, ExternalLink, AlertTriangle, CheckCircle2, XCircle, Activity, PenTool, RefreshCw, SkipForward, MessageSquarePlus, LayoutTemplate, Star, Upload, Fingerprint, Wand2, DollarSign, FileCheck, ClipboardList, Send } from "lucide-react";
+import { FileText, Loader2, Copy, Check, Download, BookOpen, ExternalLink, AlertTriangle, CheckCircle2, XCircle, Activity, PenTool, RefreshCw, SkipForward, MessageSquarePlus, LayoutTemplate, Star, Upload, Fingerprint, Wand2, DollarSign, FileCheck, ClipboardList, Send, X } from "lucide-react";
 import { useKeyboardSubmit } from "@/hooks/use-keyboard-submit";
+import { SuccessFlash } from "@/components/success-flash";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -313,6 +314,7 @@ function AnalyzeTab({ prefill }: { prefill: Prefill | null }) {
   const [savedId, setSavedId] = useState<string | null>(null);
   const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useKeyboardSubmit(handleAnalyze, !loading && !!input.trim());
@@ -361,6 +363,8 @@ function AnalyzeTab({ prefill }: { prefill: Prefill | null }) {
       // Persist tokenMap locally so reload-from-history still shows real values
       if (data.savedId) saveTokenMap(data.savedId, phi.tokenMap);
       toast.success("Analysis complete");
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 2000);
     } catch {
       toast.error("Network error. Please try again.");
     } finally {
@@ -423,6 +427,7 @@ function AnalyzeTab({ prefill }: { prefill: Prefill | null }) {
 
   return (
     <div className="space-y-6 mt-4">
+      <SuccessFlash show={showSuccess} />
       <PrivacyBanner />
       <Card>
         <CardHeader>
@@ -438,35 +443,56 @@ function AnalyzeTab({ prefill }: { prefill: Prefill | null }) {
             onChange={(e) => setInput(e.target.value)}
             className="min-h-[200px]"
           />
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <p className={`text-xs ${input.length > MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                {input.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()} chars · {input.trim() ? input.trim().split(/\s+/).length.toLocaleString() : "0"} words
-              </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".txt,.md,.doc,.docx,.rtf"
-                className="hidden"
-                onChange={handleFileUpload}
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload className="h-3 w-3" />
-                Upload file
-              </Button>
+          <div className="sticky bottom-0 bg-card pt-2 pb-1 -mx-6 px-6 border-t sm:static sm:border-t-0 sm:mx-0 sm:px-0 sm:pt-0 sm:pb-0 z-10">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-3">
+                <p className={`text-xs ${input.length > MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                  {input.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()} chars · {input.trim() ? input.trim().split(/\s+/).length.toLocaleString() : "0"} words
+                </p>
+                {input && (
+                  <button
+                    onClick={() => { setInput(""); setResult(null); }}
+                    className="text-muted-foreground/50 hover:text-foreground transition-colors"
+                    title="Clear input"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".txt,.md,.doc,.docx,.rtf"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="h-3 w-3" />
+                  Upload file
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setInput(`62M established patient f/u HTN, DM2, CKD3a\nBP 158/94, HR 72, BMI 31.2\nLabs: Cr 1.4, K 4.8, A1c 8.2%, LDL 118\nMeds: lisinopril 20mg, metformin 1000 BID, atorvastatin 40mg\nAssessment: HTN uncontrolled, DM2 suboptimal, CKD stable\nPlan: increase lisinopril to 40mg, add empagliflozin 10mg, recheck labs 3mo`)}
+                >
+                  Try an example
+                </Button>
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={handleAnalyze} disabled={loading || !input.trim() || input.length > MAX_LENGTH}>
+                  {loading ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing...</>
+                  ) : (
+                    "Analyze Note"
+                  )}
+                </Button>
+              </div>
             </div>
-            <Button onClick={handleAnalyze} disabled={loading || !input.trim() || input.length > MAX_LENGTH}>
-              {loading ? (
-                <><Loader2 className="h-4 w-4 animate-spin" /> Analyzing...</>
-              ) : (
-                "Analyze Note"
-              )}
-            </Button>
           </div>
         </CardContent>
       </Card>
@@ -474,7 +500,7 @@ function AnalyzeTab({ prefill }: { prefill: Prefill | null }) {
       {phiWarnings.length > 0 && <PhiWarning warnings={phiWarnings} />}
 
       {result && !result.raw && (
-        <div className="space-y-4">
+        <div className="space-y-4 border-t-2 border-blue-500">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="text-lg font-semibold">Analysis Results</h2>
             <div className="flex gap-2 flex-wrap">
@@ -818,6 +844,7 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
   const [templateName, setTemplateName] = useState("");
   const [loadedVoiceSample, setLoadedVoiceSample] = useState("");
   const [loadedBrevity, setLoadedBrevity] = useState("standard");
+  const [showSuccess, setShowSuccess] = useState(false);
 
   // Load saved preferences (voice sample, brevity, custom templates) from DB
   useEffect(() => {
@@ -987,6 +1014,11 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
       setSavedId(data.savedId || null);
       // Persist tokenMap locally so reload-from-history still shows real values
       if (data.savedId) saveTokenMap(data.savedId, tokenMap);
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 2000);
+      setTimeout(() => {
+        document.getElementById("ap-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
 
       // Persist voice sample / brevity preference changes to DB
       if (res.ok) {
@@ -1182,6 +1214,7 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
 
   return (
     <div className="space-y-6 mt-4">
+      <SuccessFlash show={showSuccess} />
       {/* Clarification Dialog */}
       <Dialog open={showClarificationDialog} onOpenChange={setShowClarificationDialog}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
@@ -1290,41 +1323,60 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
             onChange={(e) => setSkeleton(e.target.value)}
             className="min-h-[250px]"
           />
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-muted-foreground">Encounter:</label>
-              <Select value={encounterType} onValueChange={setEncounterType}>
-                <SelectTrigger className="w-56">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ENCOUNTER_TYPES.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-muted-foreground">Length:</label>
-              <Select value={brevity} onValueChange={setBrevity}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="brief">Brief</SelectItem>
-                  <SelectItem value="standard">Standard</SelectItem>
-                  <SelectItem value="detailed">Detailed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="ml-auto">
-              <Button onClick={() => handleGenerate()} disabled={loading || refining || !skeleton.trim()}>
-                {loading || refining ? (
-                  <><Loader2 className="h-4 w-4 animate-spin" /> {refining ? "Refining..." : "Generating..."}</>
-                ) : (
-                  <><PenTool className="h-4 w-4" /> Generate A/P</>
-                )}
-              </Button>
+          <div className="sticky bottom-0 bg-card pt-2 pb-1 -mx-6 px-6 border-t sm:static sm:border-t-0 sm:mx-0 sm:px-0 sm:pt-0 sm:pb-0 z-10">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-muted-foreground">Encounter:</label>
+                <Select value={encounterType} onValueChange={setEncounterType}>
+                  <SelectTrigger className="w-56">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ENCOUNTER_TYPES.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-muted-foreground">Length:</label>
+                <Select value={brevity} onValueChange={setBrevity}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="brief">Brief</SelectItem>
+                    <SelectItem value="standard">Standard</SelectItem>
+                    <SelectItem value="detailed">Detailed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {skeleton && (
+                <button
+                  onClick={() => { setSkeleton(""); setResult(null); }}
+                  className="text-muted-foreground/50 hover:text-foreground transition-colors"
+                  title="Clear input"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+              <div className="ml-auto flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setSkeleton(`62M established patient f/u HTN, DM2, CKD3a\nBP 158/94, HR 72, BMI 31.2\nLabs: Cr 1.4, K 4.8, A1c 8.2%, LDL 118\nMeds: lisinopril 20mg, metformin 1000 BID, atorvastatin 40mg\nAssessment: HTN uncontrolled, DM2 suboptimal, CKD stable\nPlan: increase lisinopril to 40mg, add empagliflozin 10mg, recheck labs 3mo`)}
+                >
+                  Try an example
+                </Button>
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => handleGenerate()} disabled={loading || refining || !skeleton.trim()}>
+                  {loading || refining ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> {refining ? "Refining..." : "Generating..."}</>
+                  ) : (
+                    <><PenTool className="h-4 w-4" /> Generate A/P</>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
           {/* Voice Calibration (optional) */}
@@ -1415,7 +1467,7 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
       {phiWarnings.length > 0 && <PhiWarning warnings={phiWarnings} />}
 
       {result && !result.raw && (
-        <div className="space-y-4">
+        <div id="ap-results" className="space-y-4 border-t-2 border-blue-500">
           {/* Clarification banner (after dialog closed) */}
           {result.clarification_needed && result.clarification_needed.length > 0 && (
             <Card className="border-amber-300 dark:border-amber-700">

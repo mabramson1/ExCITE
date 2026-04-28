@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Wand2, Loader2, Copy, Check, ArrowRight, ArrowDown, Shield, Upload, Fingerprint } from "lucide-react";
+import { Wand2, Loader2, Copy, Check, ArrowRight, ArrowDown, Shield, Upload, Fingerprint, X } from "lucide-react";
 import { useKeyboardSubmit } from "@/hooks/use-keyboard-submit";
+import { useProgressMessage } from "@/hooks/use-progress-message";
+import { SuccessFlash } from "@/components/success-flash";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -78,9 +80,13 @@ function DeAiIfyContent() {
   const [saveAsDefault, setSaveAsDefault] = useState(false);
   const [loadedVoiceSample, setLoadedVoiceSample] = useState("");
   const [loadedWritingStyle, setLoadedWritingStyle] = useState("general");
+  const [showSuccess, setShowSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const progressMsg = useProgressMessage(loading);
 
   useKeyboardSubmit(handleProcess, !loading && !!input.trim());
+
+  const EXAMPLE_TEXT = `In today's rapidly evolving digital landscape, the intersection of technology and human creativity represents a multifaceted tapestry of innovation. It is not just about the tools we use — it is about the way we think, the way we collaborate, and ultimately, the way we reimagine what is possible. As we move forward into this new era, the opportunities are truly limitless.`;
 
   // Load persisted preferences on mount
   useEffect(() => {
@@ -173,6 +179,11 @@ function DeAiIfyContent() {
       // Persist tokenMap locally so reload-from-history still shows real values
       if (data.savedId) saveTokenMap(data.savedId, tokenMap);
       toast.success("Analysis complete");
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 2000);
+      setTimeout(() => {
+        document.getElementById("deai-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
 
       // Persist preferences if user opted in or values changed from loaded defaults
       const trimmedSampleForSave = voiceSample.trim();
@@ -239,6 +250,7 @@ function DeAiIfyContent() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      <SuccessFlash show={showSuccess} />
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 rounded-lg bg-violet-50 dark:bg-violet-950/40 flex items-center justify-center">
           <Wand2 className="h-5 w-5 text-violet-600" />
@@ -267,63 +279,82 @@ function DeAiIfyContent() {
             onChange={(e) => setInput(e.target.value)}
             className="min-h-[200px]"
           />
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <p className={`text-xs ${input.length > MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                {input.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()} chars · {input.trim() ? input.trim().split(/\s+/).length.toLocaleString() : "0"} words
-              </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".txt,.md,.doc,.docx,.rtf"
-                className="hidden"
-                onChange={handleFileUpload}
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload className="h-3 w-3" />
-                Upload file
-              </Button>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="text-sm text-muted-foreground">Rewrite for:</label>
-              <Select value={writingStyle} onValueChange={setWritingStyle}>
-                <SelectTrigger className="w-56">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {WRITING_STYLES.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      <div>
-                        <span>{s.label}</span>
-                        <span className="text-muted-foreground ml-1.5 text-xs">- {s.description}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button onClick={handleProcess} disabled={loading || loadingSaved || !input.trim() || input.length > MAX_LENGTH}>
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : loadingSaved ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Loading...
-                  </>
-                ) : (
-                  <>
-                    <Wand2 className="h-4 w-4" />
-                    {savedId && result ? "Re-run" : "De-AI-ify"}
-                  </>
+          <div className="sticky bottom-0 bg-card pt-2 pb-1 -mx-6 px-6 border-t sm:static sm:border-t-0 sm:mx-0 sm:px-0 sm:pt-0 sm:pb-0 z-10">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-3">
+                <p className={`text-xs ${input.length > MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                  {input.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()} chars · {input.trim() ? input.trim().split(/\s+/).length.toLocaleString() : "0"} words
+                </p>
+                {input && (
+                  <button
+                    onClick={() => { setInput(""); setResult(null); }}
+                    className="text-muted-foreground/50 hover:text-foreground transition-colors"
+                    title="Clear input"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
                 )}
-              </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".txt,.md,.doc,.docx,.rtf"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="h-3 w-3" />
+                  Upload file
+                </Button>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="text-sm text-muted-foreground">Rewrite for:</label>
+                <Select value={writingStyle} onValueChange={setWritingStyle}>
+                  <SelectTrigger className="w-56">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WRITING_STYLES.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>
+                        <div>
+                          <span>{s.label}</span>
+                          <span className="text-muted-foreground ml-1.5 text-xs">- {s.description}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs"
+                  onClick={() => setInput(EXAMPLE_TEXT)}
+                >
+                  Try an example
+                </Button>
+                <Button className="bg-violet-600 hover:bg-violet-700 text-white" onClick={handleProcess} disabled={loading || loadingSaved || !input.trim() || input.length > MAX_LENGTH}>
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {progressMsg}
+                    </>
+                  ) : loadingSaved ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="h-4 w-4" />
+                      {savedId && result ? "Re-run" : "De-AI-ify"}
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
           {/* Voice Calibration (optional) */}
@@ -362,7 +393,7 @@ function DeAiIfyContent() {
       {phiWarnings.length > 0 && <PhiWarning warnings={phiWarnings} />}
 
       {result && !result.raw && (
-        <div className="space-y-4">
+        <div id="deai-results" className="space-y-4 border-t-2 border-violet-500">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="text-lg font-semibold">Humanized Output</h2>
             <ResultActions savedId={savedId} />
