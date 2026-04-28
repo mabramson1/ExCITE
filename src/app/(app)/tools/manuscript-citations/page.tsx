@@ -1084,8 +1084,6 @@ function ManuscriptWriterTab() {
 
   return (
     <div className="space-y-6">
-      <PrivacyBanner />
-
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Write a Manuscript</CardTitle>
