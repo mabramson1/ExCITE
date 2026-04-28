@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { BookOpen, Loader2, Copy, Check, Download, ExternalLink, CheckCircle2, XCircle, AlertTriangle, Upload, MessageSquare, PenTool, Fingerprint, Wand2, ScanSearch } from "lucide-react";
+import { BookOpen, Loader2, Copy, Check, Download, ExternalLink, CheckCircle2, XCircle, AlertTriangle, Upload, MessageSquare, PenTool, Fingerprint, Wand2, ScanSearch, X } from "lucide-react";
 import { useKeyboardSubmit } from "@/hooks/use-keyboard-submit";
+import { SuccessFlash } from "@/components/success-flash";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -119,6 +120,7 @@ function ManuscriptCitationsContent() {
   const [phiWarnings, setPhiWarnings] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
   const [loadingSaved, setLoadingSaved] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useKeyboardSubmit(handleAnalyze, !loading && !!input.trim());
@@ -178,6 +180,11 @@ function ManuscriptCitationsContent() {
       // Persist tokenMap locally so reload-from-history still shows real values
       if (data.savedId) saveTokenMap(data.savedId, phi.tokenMap);
       toast.success("Analysis complete");
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 2000);
+      setTimeout(() => {
+        document.getElementById("citation-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
     } catch {
       toast.error("Network error. Please try again.");
     } finally {
@@ -232,6 +239,7 @@ function ManuscriptCitationsContent() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
+      <SuccessFlash show={showSuccess} />
       <div className="flex items-center gap-3">
         <div className="h-10 w-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 flex items-center justify-center">
           <BookOpen className="h-5 w-5 text-emerald-600" />
@@ -336,6 +344,14 @@ function ManuscriptCitationsContent() {
                         ))}
                       </SelectContent>
                     </Select>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => setInput(`Studies have shown that SGLT2 inhibitors reduce the risk of heart failure hospitalization in patients with type 2 diabetes. The EMPA-REG OUTCOME trial demonstrated significant cardiovascular benefits. Furthermore, recent meta-analyses suggest these agents may also slow CKD progression independently of glycemic control.`)}
+                    >
+                      Try an example
+                    </Button>
                     <Button onClick={handleAnalyze} disabled={loading || loadingSaved || !input.trim() || input.length > MAX_LENGTH}>
                       {loading ? (
                         <>
@@ -361,7 +377,7 @@ function ManuscriptCitationsContent() {
             {phiWarnings.length > 0 && <PhiWarning warnings={phiWarnings} />}
 
             {result && !result.raw && (
-              <div className="space-y-4">
+              <div id="citation-results" className="space-y-4">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <h2 className="text-lg font-semibold">Citation Results</h2>
                   <div className="flex gap-2 flex-wrap">

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   FileText,
@@ -9,10 +10,10 @@ import {
   ArrowRight,
   TrendingUp,
   Clock,
-  Zap,
+  Star,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 const tools = [
   {
@@ -45,13 +46,59 @@ const tools = [
   },
 ];
 
-const stats = [
-  { icon: TrendingUp, label: "Analyses Run", value: "--" },
-  { icon: Clock, label: "Time Saved", value: "--" },
-  { icon: Zap, label: "Citations Generated", value: "--" },
-];
+const TYPE_TOOL_MAP: Record<string, { href: string; label: string }> = {
+  ai_detect: { href: "/tools/ai-detector", label: "AI Detector" },
+  "de-ai-ify": { href: "/tools/de-ai-ify", label: "De-AI-ifier" },
+  clinical_note: { href: "/tools/clinical-notes", label: "Clinical Notes" },
+  ap_writer: { href: "/tools/clinical-notes", label: "A/P Writer" },
+  manuscript: { href: "/tools/manuscript-citations", label: "Citations" },
+  review_response: { href: "/tools/manuscript-citations", label: "Review Response" },
+  manuscript_writer: { href: "/tools/manuscript-citations", label: "Write Manuscript" },
+};
+
+interface Project {
+  id: string;
+  title?: string;
+  type?: string;
+  createdAt: string;
+  favorite?: boolean;
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return `${Math.floor(days / 7)}w ago`;
+}
 
 export default function DashboardPage() {
+  const [stats, setStats] = useState({ total: 0, thisWeek: 0, favorites: 0 });
+  const [recent, setRecent] = useState<Project[]>([]);
+
+  useEffect(() => {
+    fetch("/api/history").then(r => r.ok ? r.json() : { projects: [] }).then(data => {
+      const projects: Project[] = data.projects || [];
+      const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      setStats({
+        total: projects.length,
+        thisWeek: projects.filter(p => new Date(p.createdAt).getTime() > weekAgo).length,
+        favorites: projects.filter(p => p.favorite).length,
+      });
+      setRecent(projects.slice(0, 5));
+    }).catch(() => {});
+  }, []);
+
+  const statCards = [
+    { icon: TrendingUp, label: "Analyses Run", value: stats.total },
+    { icon: Clock, label: "This Week", value: stats.thisWeek },
+    { icon: Star, label: "Favorites", value: stats.favorites },
+  ];
+
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       <div>
@@ -63,7 +110,7 @@ export default function DashboardPage() {
 
       {/* Quick Stats */}
       <div className="grid grid-cols-3 gap-4">
-        {stats.map((stat) => (
+        {statCards.map((stat) => (
           <Card key={stat.label}>
             <CardContent className="pt-6">
               <div className="flex items-center gap-3">
@@ -98,16 +145,58 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Quick Start */}
+      {/* Recent Analyses */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Getting Started</CardTitle>
+          <CardTitle className="text-base">Recent Analyses</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm text-muted-foreground">
-          <p>1. Select a tool above based on your task</p>
-          <p>2. Paste or type your text into the input area</p>
-          <p>3. Any PHI (Protected Health Information) is automatically detected and redacted</p>
-          <p>4. Review your AI-powered results and export as needed</p>
+        <CardContent>
+          {recent.length === 0 ? (
+            <div className="text-center py-6">
+              <p className="text-sm text-muted-foreground mb-3">
+                Run your first analysis to see it here.
+              </p>
+              <Link
+                href="/tools/ai-detector"
+                className="text-sm text-primary hover:underline"
+              >
+                Get started with AI Text Detector
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {recent.map((project) => {
+                const toolInfo = TYPE_TOOL_MAP[project.type || ""] || {
+                  href: "/dashboard",
+                  label: project.type || "Analysis",
+                };
+                const title =
+                  project.title && project.title.length > 60
+                    ? project.title.slice(0, 60) + "..."
+                    : project.title || "Untitled";
+                return (
+                  <Link
+                    key={project.id}
+                    href={`${toolInfo.href}?load=${project.id}`}
+                  >
+                    <div className="flex items-center justify-between gap-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors cursor-pointer">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {timeAgo(project.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant="secondary" className="text-[10px] shrink-0">
+                        {toolInfo.label}
+                      </Badge>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
