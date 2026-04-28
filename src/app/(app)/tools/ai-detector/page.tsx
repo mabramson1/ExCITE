@@ -294,7 +294,7 @@ function AiDetectorContent() {
         <div className="space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="text-lg font-semibold">Detection Results</h2>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <Button
                 variant="outline"
                 size="sm"
