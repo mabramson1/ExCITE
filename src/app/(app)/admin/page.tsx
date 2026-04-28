@@ -165,7 +165,7 @@ export default function AdminPage() {
       </div>
 
       <Tabs defaultValue="overview">
-        <TabsList>
+        <TabsList className="w-full flex overflow-x-auto whitespace-nowrap">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="users">Users</TabsTrigger>
           <TabsTrigger value="projects">Projects</TabsTrigger>
@@ -397,7 +397,7 @@ function UsersTab() {
       ) : (
         <Card>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="min-w-[600px] w-full text-sm">
               <thead>
                 <tr className="border-b text-left">
                   <th className="px-4 py-3 font-medium">Name</th>
@@ -584,7 +584,7 @@ function ProjectsTab() {
       ) : (
         <Card>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="min-w-[700px] w-full text-sm">
               <thead>
                 <tr className="border-b text-left">
                   <th className="px-4 py-3 font-medium">Title</th>
@@ -739,7 +739,7 @@ function SharesTab() {
   return (
     <Card>
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="min-w-[700px] w-full text-sm">
           <thead>
             <tr className="border-b text-left">
               <th className="px-4 py-3 font-medium">Title</th>
@@ -1088,7 +1088,7 @@ function DatabaseTab() {
       ) : (
         <Card>
           <div className="overflow-x-auto">
-            <table className="w-full text-xs">
+            <table className="min-w-[600px] w-full text-xs">
               <thead>
                 <tr className="border-b text-left">
                   {data.columns.map((col) => (

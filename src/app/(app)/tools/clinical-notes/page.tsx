@@ -234,7 +234,7 @@ function ClinicalNotesContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="w-full flex overflow-x-auto">
+        <TabsList className="w-full flex overflow-x-auto whitespace-nowrap">
           <TabsTrigger value="analyze" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Analyze
@@ -410,8 +410,8 @@ function AnalyzeTab({ prefill }: { prefill: Prefill | null }) {
             onChange={(e) => setInput(e.target.value)}
             className="min-h-[200px]"
           />
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-3">
               <p className={`text-xs ${input.length > MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
                 {input.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()} chars · {input.trim() ? input.trim().split(/\s+/).length.toLocaleString() : "0"} words
               </p>
@@ -1392,9 +1392,9 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
           {result.clarification_needed && result.clarification_needed.length > 0 && (
             <Card className="border-amber-300 dark:border-amber-700">
               <CardContent className="pt-4 pb-3">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                    <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />
                     <p className="text-sm text-amber-700 dark:text-amber-400">
                       {result.clarification_needed.length} detail{result.clarification_needed.length > 1 ? "s" : ""} could strengthen this A/P
                     </p>
@@ -1446,7 +1446,7 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
           {humanizedText && (
             <Card className="border-violet-300 dark:border-violet-700">
               <CardHeader>
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <CardTitle className="text-base flex items-center gap-2">
                     <Wand2 className="h-4 w-4 text-violet-600" />
                     Humanized A/P (side-by-side)
@@ -1471,7 +1471,7 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
                     <p className="text-xs font-medium text-muted-foreground mb-1">Original (AI-generated)</p>
                     <div className="whitespace-pre-wrap text-sm leading-relaxed bg-muted/30 rounded-lg p-3 border max-h-[400px] overflow-y-auto">
@@ -1633,7 +1633,7 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="text-center p-2 rounded bg-muted/50">
                       <p className="text-lg font-bold">{rvu.workRvu}</p>
                       <p className="text-[10px] text-muted-foreground">Work RVU</p>

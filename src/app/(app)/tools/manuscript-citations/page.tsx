@@ -246,7 +246,7 @@ function ManuscriptCitationsContent() {
       <PrivacyBanner />
 
       <Tabs defaultValue="citations" className="space-y-4">
-        <TabsList>
+        <TabsList className="w-full flex overflow-x-auto whitespace-nowrap">
           <TabsTrigger value="citations" className="gap-1.5">
             <BookOpen className="h-4 w-4" />
             Find Citations
@@ -277,8 +277,8 @@ function ManuscriptCitationsContent() {
                   onChange={(e) => setInput(e.target.value)}
                   className="min-h-[200px]"
                 />
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-3">
                     <p className={`text-xs ${input.length > MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
                       {input.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()} chars · {input.trim() ? input.trim().split(/\s+/).length.toLocaleString() : "0"} words
                     </p>
@@ -299,7 +299,7 @@ function ManuscriptCitationsContent() {
                       Upload file
                     </Button>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <label className="text-sm text-muted-foreground">Citation Style:</label>
                     <Select value={style} onValueChange={setStyle}>
                       <SelectTrigger className="w-48">
@@ -1183,8 +1183,8 @@ function ManuscriptWriterTab() {
           </div>
 
           {/* Bottom row: counts, upload, generate */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-3">
               <p className={`text-xs ${input.length > MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
                 {input.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()} chars · {input.trim() ? input.trim().split(/\s+/).length.toLocaleString() : "0"} words
               </p>
