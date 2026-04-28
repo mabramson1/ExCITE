@@ -308,67 +308,78 @@ function ManuscriptCitationsContent() {
                   onChange={(e) => setInput(e.target.value)}
                   className="min-h-[200px]"
                 />
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <p className={`text-xs ${input.length > MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                      {input.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()} chars · {input.trim() ? input.trim().split(/\s+/).length.toLocaleString() : "0"} words
-                    </p>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".txt,.md,.doc,.docx,.rtf"
-                      className="hidden"
-                      onChange={handleFileUpload}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 text-xs"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <Upload className="h-3 w-3" />
-                      Upload file
-                    </Button>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <label className="text-sm text-muted-foreground">Citation Style:</label>
-                    <Select value={style} onValueChange={setStyle}>
-                      <SelectTrigger className="w-48">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {STYLES.map((s) => (
-                          <SelectItem key={s.value} value={s.value}>
-                            {s.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 text-xs"
-                      onClick={() => setInput(`Studies have shown that SGLT2 inhibitors reduce the risk of heart failure hospitalization in patients with type 2 diabetes. The EMPA-REG OUTCOME trial demonstrated significant cardiovascular benefits. Furthermore, recent meta-analyses suggest these agents may also slow CKD progression independently of glycemic control.`)}
-                    >
-                      Try an example
-                    </Button>
-                    <Button onClick={handleAnalyze} disabled={loading || loadingSaved || !input.trim() || input.length > MAX_LENGTH}>
-                      {loading ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Analyzing...
-                        </>
-                      ) : loadingSaved ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          Loading...
-                        </>
-                      ) : savedId && result ? (
-                        "Re-run Citations"
-                      ) : (
-                        "Find Citations"
+                <div className="sticky bottom-0 bg-card pt-2 pb-1 -mx-6 px-6 border-t sm:static sm:border-t-0 sm:mx-0 sm:px-0 sm:pt-0 sm:pb-0 z-10">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <p className={`text-xs ${input.length > MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                        {input.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()} chars · {input.trim() ? input.trim().split(/\s+/).length.toLocaleString() : "0"} words
+                      </p>
+                      {input && (
+                        <button
+                          onClick={() => { setInput(""); setResult(null); }}
+                          className="text-muted-foreground/50 hover:text-foreground transition-colors"
+                          title="Clear input"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
                       )}
-                    </Button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept=".txt,.md,.doc,.docx,.rtf"
+                        className="hidden"
+                        onChange={handleFileUpload}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <Upload className="h-3 w-3" />
+                        Upload file
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="text-sm text-muted-foreground">Citation Style:</label>
+                      <Select value={style} onValueChange={setStyle}>
+                        <SelectTrigger className="w-48">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {STYLES.map((s) => (
+                            <SelectItem key={s.value} value={s.value}>
+                              {s.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => setInput(`Studies have shown that SGLT2 inhibitors reduce the risk of heart failure hospitalization in patients with type 2 diabetes. The EMPA-REG OUTCOME trial demonstrated significant cardiovascular benefits. Furthermore, recent meta-analyses suggest these agents may also slow CKD progression independently of glycemic control.`)}
+                      >
+                        Try an example
+                      </Button>
+                      <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleAnalyze} disabled={loading || loadingSaved || !input.trim() || input.length > MAX_LENGTH}>
+                        {loading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Analyzing...
+                          </>
+                        ) : loadingSaved ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Loading...
+                          </>
+                        ) : savedId && result ? (
+                          "Re-run Citations"
+                        ) : (
+                          "Find Citations"
+                        )}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -377,7 +388,7 @@ function ManuscriptCitationsContent() {
             {phiWarnings.length > 0 && <PhiWarning warnings={phiWarnings} />}
 
             {result && !result.raw && (
-              <div id="citation-results" className="space-y-4">
+              <div id="citation-results" className="space-y-4 border-t-2 border-emerald-500">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <h2 className="text-lg font-semibold">Citation Results</h2>
                   <div className="flex gap-2 flex-wrap">
@@ -953,6 +964,7 @@ function ManuscriptWriterTab() {
   const [aiScore, setAiScore] = useState<number | null>(null);
   const [humanizing, setHumanizing] = useState(false);
   const [humanizedSections, setHumanizedSections] = useState<Record<number, string>>({});
+  const [showSuccess, setShowSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -1021,6 +1033,8 @@ function ManuscriptWriterTab() {
       setResult(restored);
       if (data.savedId) saveTokenMap(data.savedId, phi.tokenMap);
       toast.success("Manuscript generated");
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 2000);
     } catch {
       toast.error("Network error. Please try again.");
     } finally {
@@ -1123,6 +1137,7 @@ function ManuscriptWriterTab() {
 
   return (
     <div className="space-y-6">
+      <SuccessFlash show={showSuccess} />
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Write a Manuscript</CardTitle>
@@ -1222,41 +1237,52 @@ function ManuscriptWriterTab() {
           </div>
 
           {/* Bottom row: counts, upload, generate */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-3">
-              <p className={`text-xs ${input.length > MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
-                {input.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()} chars · {input.trim() ? input.trim().split(/\s+/).length.toLocaleString() : "0"} words
-              </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".txt,.md,.doc,.docx,.rtf"
-                className="hidden"
-                onChange={handleFileUpload}
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload className="h-3 w-3" />
-                Upload file
+          <div className="sticky bottom-0 bg-card pt-2 pb-1 -mx-6 px-6 border-t sm:static sm:border-t-0 sm:mx-0 sm:px-0 sm:pt-0 sm:pb-0 z-10">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-3">
+                <p className={`text-xs ${input.length > MAX_LENGTH ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                  {input.length.toLocaleString()} / {MAX_LENGTH.toLocaleString()} chars · {input.trim() ? input.trim().split(/\s+/).length.toLocaleString() : "0"} words
+                </p>
+                {input && (
+                  <button
+                    onClick={() => { setInput(""); setResult(null); }}
+                    className="text-muted-foreground/50 hover:text-foreground transition-colors"
+                    title="Clear input"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".txt,.md,.doc,.docx,.rtf"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="h-3 w-3" />
+                  Upload file
+                </Button>
+              </div>
+              <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleGenerate} disabled={loading || !input.trim() || input.length > MAX_LENGTH}>
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <PenTool className="h-4 w-4" />
+                    Generate Manuscript
+                  </>
+                )}
               </Button>
             </div>
-            <Button onClick={handleGenerate} disabled={loading || !input.trim() || input.length > MAX_LENGTH}>
-              {loading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <PenTool className="h-4 w-4" />
-                  Generate Manuscript
-                </>
-              )}
-            </Button>
           </div>
         </CardContent>
       </Card>
@@ -1264,7 +1290,7 @@ function ManuscriptWriterTab() {
       {phiWarnings.length > 0 && <PhiWarning warnings={phiWarnings} />}
 
       {result && !result.raw && (
-        <div className="space-y-4">
+        <div className="space-y-4 border-t-2 border-emerald-500">
           {/* Action buttons */}
           <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="sm" onClick={handleCopyAll}>
