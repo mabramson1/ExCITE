@@ -22,6 +22,7 @@ import {
 import { cn } from "@/lib/utils";
 import { signOut } from "@/lib/auth-client";
 import { clearAllTokenMaps } from "@/lib/phi-tokenmap-storage";
+import { checkIsAdmin, clearAdminCache } from "@/lib/admin-check";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -40,12 +41,7 @@ export function Sidebar() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    fetch("/api/admin/whoami")
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (data?.role === "admin") setIsAdmin(true);
-      })
-      .catch(() => {});
+    checkIsAdmin().then(setIsAdmin);
   }, []);
 
   return (
@@ -109,6 +105,7 @@ export function Sidebar() {
         <button
           onClick={async () => {
             clearAllTokenMaps();
+            clearAdminCache();
             await signOut();
           }}
           className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground w-full transition-colors cursor-pointer"

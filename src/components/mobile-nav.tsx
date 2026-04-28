@@ -21,6 +21,7 @@ import {
   Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { checkIsAdmin } from "@/lib/admin-check";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -40,12 +41,7 @@ export function MobileNav() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    fetch("/api/admin/whoami")
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => {
-        if (data?.role === "admin") setIsAdmin(true);
-      })
-      .catch(() => {});
+    checkIsAdmin().then(setIsAdmin);
   }, []);
 
   return (
