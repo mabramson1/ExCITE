@@ -30,8 +30,8 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
-    // Auto-enables once RESEND_API_KEY is set on Vercel.
-    requireEmailVerification: !!process.env.RESEND_API_KEY,
+    // Disabled while debugging email pipeline. Set ENABLE_EMAIL_VERIFICATION=1 on Vercel to enable.
+    requireEmailVerification: process.env.ENABLE_EMAIL_VERIFICATION === "1",
     sendVerificationEmail: async ({ user, url }: { user: { email: string; name?: string }; url: string }) => {
       const result = await sendVerificationEmail({ to: user.email, url, name: user.name });
       if (!result.ok) {
