@@ -195,9 +195,11 @@ export async function GET() {
       activeUsers,
     });
   } catch (error) {
-    console.error("Admin stats error:", error);
+    const detail = error instanceof Error ? error.message : "Unknown error";
+    const stack = error instanceof Error ? error.stack : undefined;
+    console.error("Admin stats error:", detail, stack);
     return NextResponse.json(
-      { error: "Failed to fetch stats" },
+      { error: "Failed to fetch stats", detail },
       { status: 500 }
     );
   }
