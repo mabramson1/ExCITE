@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "./db";
 import * as schema from "./db/schema";
+import { sendVerificationEmail } from "./email";
 
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL || "https://docsquared.app",
@@ -29,11 +30,10 @@ export const auth = betterAuth({
   },
   emailAndPassword: {
     enabled: true,
-    requireEmailVerification: false, // TODO: flip to true once Resend is wired up
-    sendVerificationEmail: async ({ user, url }: { user: { email: string }; url: string }) => {
-      // For now, log the verification URL. In production, integrate with Resend/SendGrid.
-      console.log(`[Email Verification] Send to ${user.email}: ${url}`);
-      // TODO: Replace with actual email sending (Resend, SendGrid, etc.)
+    // Auto-enables once RESEND_API_KEY is set on Vercel.
+    requireEmailVerification: !!process.env.RESEND_API_KEY,
+    sendVerificationEmail: async ({ user, url }: { user: { email: string; name?: string }; url: string }) => {
+      await sendVerificationEmail({ to: user.email, url, name: user.name });
     },
   },
   session: {
