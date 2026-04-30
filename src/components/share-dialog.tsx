@@ -88,7 +88,7 @@ export function ShareDialog({
       title ? `Docs² — ${title}` : "Docs² Analysis — Shared with you"
     );
     const body = encodeURIComponent(
-      `Here's an Docs² analysis shared with you:\n\n${shareUrl}\n\nThis is a read-only link to the results.`
+      `Here's a Docs² analysis shared with you:\n\n${shareUrl}\n\nThis is a read-only link to the results.`
     );
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
   }
