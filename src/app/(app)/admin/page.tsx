@@ -144,12 +144,16 @@ const PAGE_LIMIT = 25;
 /* ---------- Main Page ---------- */
 
 export default function AdminPage() {
+  const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
   const [stats, setStats] = useState<Stats | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
 
+  useEffect(() => { setMounted(true); }, []);
+
   useEffect(() => {
+    if (!mounted) return;
     async function fetchStats() {
       try {
         const res = await fetch("/api/admin/stats");
@@ -167,7 +171,7 @@ export default function AdminPage() {
       }
     }
     fetchStats();
-  }, []);
+  }, [mounted]);
 
   if (loading) {
     return (
