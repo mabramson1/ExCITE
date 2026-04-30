@@ -33,7 +33,12 @@ export const auth = betterAuth({
     // Auto-enables once RESEND_API_KEY is set on Vercel.
     requireEmailVerification: !!process.env.RESEND_API_KEY,
     sendVerificationEmail: async ({ user, url }: { user: { email: string; name?: string }; url: string }) => {
-      await sendVerificationEmail({ to: user.email, url, name: user.name });
+      const result = await sendVerificationEmail({ to: user.email, url, name: user.name });
+      if (!result.ok) {
+        console.error(`[Auth] Verification email failed for ${user.email}: ${result.error}. URL: ${url}`);
+      } else {
+        console.log(`[Auth] Verification email sent to ${user.email}`);
+      }
     },
   },
   session: {
