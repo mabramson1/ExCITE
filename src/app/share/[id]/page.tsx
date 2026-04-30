@@ -29,15 +29,15 @@ export async function generateMetadata({
     .where(eq(project.shareId, id))
     .limit(1);
 
-  if (!result) return { title: "Shared Analysis — exCITE" };
+  if (!result) return { title: "Shared Analysis — Docs²" };
 
   const typeLabel = typeLabels[result.type] || "Analysis";
   return {
-    title: `${result.title} — exCITE`,
-    description: `${typeLabel} shared via exCITE — Citation Intelligence for Healthcare & Academia.`,
+    title: `${result.title} — Docs²`,
+    description: `${typeLabel} shared via Docs² — Docs for Docs.`,
     openGraph: {
-      title: `${result.title} — exCITE`,
-      description: `${typeLabel} shared via exCITE.`,
+      title: `${result.title} — Docs²`,
+      description: `${typeLabel} shared via Docs².`,
       type: "article",
     },
   };
@@ -133,7 +133,7 @@ export default async function SharedPage({ params }: { params: Promise<{ id: str
         )}
 
         <p className="text-xs text-center text-muted-foreground print:hidden">
-          Powered by <span className="font-semibold">exCITE</span> — read-only shared view
+          Powered by <span className="font-semibold">Docs&sup2;</span> — read-only shared view
         </p>
       </div>
     </div>

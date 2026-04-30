@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Quote, Mail, Loader2 } from "lucide-react";
+import { Mail, Loader2 } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { authClient } from "@/lib/auth-client";
@@ -32,10 +33,7 @@ export default function VerifyEmailPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <Link href="/" className="inline-flex items-center justify-center gap-2 mb-2">
-            <Quote className="h-6 w-6 text-primary" />
-            <span className="text-lg font-bold">
-              ex<span className="text-primary">CITE</span>
-            </span>
+            <BrandLogo />
           </Link>
           <div className="flex justify-center mb-2">
             <div className="rounded-full bg-primary/10 p-3">

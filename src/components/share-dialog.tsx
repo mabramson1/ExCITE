@@ -85,10 +85,10 @@ export function ShareDialog({
   function emailShare() {
     if (!shareUrl) return;
     const subject = encodeURIComponent(
-      title ? `exCITE — ${title}` : "exCITE Analysis — Shared with you"
+      title ? `Docs² — ${title}` : "Docs² Analysis — Shared with you"
     );
     const body = encodeURIComponent(
-      `Here's an exCITE analysis shared with you:\n\n${shareUrl}\n\nThis is a read-only link to the results.`
+      `Here's a Docs² analysis shared with you:\n\n${shareUrl}\n\nThis is a read-only link to the results.`
     );
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
   }
@@ -97,8 +97,8 @@ export function ShareDialog({
     if (!shareUrl) return;
     try {
       await navigator.share({
-        title: title || "exCITE Analysis",
-        text: "exCITE analysis shared with you",
+        title: title || "Docs² Analysis",
+        text: "Docs² analysis shared with you",
         url: shareUrl,
       });
     } catch {
@@ -120,7 +120,7 @@ export function ShareDialog({
     if (!qrDataUrl) return;
     const a = document.createElement("a");
     a.href = qrDataUrl;
-    a.download = `excite-share-${shareId}.png`;
+    a.download = `docsq-share-${shareId}.png`;
     a.click();
   }
 

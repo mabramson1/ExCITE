@@ -77,7 +77,7 @@ export default function OnboardingPage() {
           <>
             <CardHeader className="text-center">
               <CardTitle className="text-2xl">
-                Welcome to exCITE, {firstName}!
+                Welcome to Docs&sup2;, {firstName}!
               </CardTitle>
               <CardDescription className="text-base">
                 Your AI-powered platform for clinical documentation, citation
@@ -86,7 +86,7 @@ export default function OnboardingPage() {
             </CardHeader>
             <CardContent className="text-center text-sm text-muted-foreground">
               <p>
-                exCITE helps healthcare professionals and researchers work
+                Docs&sup2; helps healthcare professionals and researchers work
                 smarter with AI tools built for accuracy and compliance.
               </p>
             </CardContent>

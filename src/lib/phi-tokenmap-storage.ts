@@ -9,7 +9,7 @@
  * Privacy guarantee: nothing in this file ever talks to the server.
  */
 
-const STORAGE_KEY = "excite-phi-tokenmaps";
+const STORAGE_KEY = "docsq-phi-tokenmaps";
 const MAX_AGE_MS = 1000 * 60 * 60 * 24 * 90; // 90 days
 
 interface StoredEntry {

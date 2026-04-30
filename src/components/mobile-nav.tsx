@@ -14,12 +14,12 @@ import {
   Settings,
   Menu,
   X,
-  Quote,
   Sun,
   Moon,
   CreditCard,
   Shield,
 } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 import { cn } from "@/lib/utils";
 import { checkIsAdmin } from "@/lib/admin-check";
 
@@ -48,10 +48,7 @@ export function MobileNav() {
     <div className="md:hidden">
       <div className="flex items-center justify-between border-b px-4 py-3">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <Quote className="h-6 w-6 text-primary" />
-          <span className="font-bold">
-            ex<span className="text-primary">CITE</span>
-          </span>
+          <BrandLogo size="sm" />
         </Link>
         <div className="flex items-center gap-2">
           <button

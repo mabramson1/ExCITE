@@ -13,12 +13,12 @@ import {
   History,
   Settings,
   LogOut,
-  Quote,
   Sun,
   Moon,
   CreditCard,
   Shield,
 } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 import { cn } from "@/lib/utils";
 import { signOut } from "@/lib/auth-client";
 import { clearAllTokenMaps } from "@/lib/phi-tokenmap-storage";
@@ -47,15 +47,7 @@ export function Sidebar() {
   return (
     <aside className="hidden md:flex w-64 flex-col border-r bg-card min-h-screen">
       <div className="flex items-center gap-2 px-6 py-5 border-b">
-        <Quote className="h-7 w-7 text-primary" />
-        <div>
-          <h1 className="text-lg font-bold tracking-tight">
-            ex<span className="text-primary">CITE</span>
-          </h1>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
-            Citation Intelligence
-          </p>
-        </div>
+        <BrandLogo showTagline />
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">

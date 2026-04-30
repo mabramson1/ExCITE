@@ -17,24 +17,24 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "exCITE — Citation Intelligence for Healthcare & Academia",
-    template: "%s — exCITE",
+    default: "Docs² — Docs for Docs",
+    template: "%s — Docs²",
   },
   description:
-    "AI-powered tools to cite clinical notes, format manuscripts, humanize AI text, and detect AI writing. HIPAA-compliant PHI auto-redaction.",
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://ex-cite.vercel.app"),
+    "AI-powered medical writing suite: cite clinical notes, generate manuscripts, humanize AI text, and detect AI patterns. HIPAA-compliant.",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://docsquared.app"),
   openGraph: {
-    title: "exCITE — Citation Intelligence for Healthcare & Academia",
+    title: "Docs² — Docs for Docs",
     description:
-      "AI-powered tools to cite clinical notes, format manuscripts, humanize AI text, and detect AI writing.",
+      "AI-powered medical writing suite: cite clinical notes, generate manuscripts, humanize AI text, and detect AI patterns. HIPAA-compliant.",
     type: "website",
-    siteName: "exCITE",
+    siteName: "Docs²",
   },
   twitter: {
     card: "summary_large_image",
-    title: "exCITE — Citation Intelligence for Healthcare & Academia",
+    title: "Docs² — Docs for Docs",
     description:
-      "AI-powered tools to cite clinical notes, format manuscripts, humanize AI text, and detect AI writing.",
+      "AI-powered medical writing suite: cite clinical notes, generate manuscripts, humanize AI text, and detect AI patterns. HIPAA-compliant.",
   },
 };
 

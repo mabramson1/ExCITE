@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Quote, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -60,13 +61,10 @@ export default function SignUpPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <Link href="/" className="inline-flex items-center justify-center gap-2 mb-2">
-            <Quote className="h-6 w-6 text-primary" />
-            <span className="text-lg font-bold">
-              ex<span className="text-primary">CITE</span>
-            </span>
+            <BrandLogo />
           </Link>
           <CardTitle className="text-xl">Create your account</CardTitle>
-          <CardDescription>Start using exCITE for free</CardDescription>
+          <CardDescription>Start using Docs&sup2; for free</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">

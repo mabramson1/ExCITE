@@ -1,4 +1,4 @@
-export const metadata = { title: "Terms of Use — exCITE" };
+export const metadata = { title: "Terms of Use — Docs²" };
 
 export default function TermsPage() {
   return (
@@ -13,8 +13,7 @@ export default function TermsPage() {
         <section>
           <h2>1. Acceptance of Terms</h2>
           <p>
-            By accessing or using exCITE (Citation Intelligence Tool for
-            Healthcare &amp; Academia), you agree to be bound by these Terms of
+            By accessing or using Docs² (Docs for Docs), you agree to be bound by these Terms of
             Use. If you do not agree, you may not use the service.
           </p>
         </section>
@@ -22,12 +21,12 @@ export default function TermsPage() {
         <section>
           <h2>2. Description of Service</h2>
           <p>
-            exCITE is an AI-powered medical writing assistant that helps
+            Docs² is an AI-powered medical writing assistant that helps
             healthcare professionals and researchers analyze clinical notes,
             draft and rewrite manuscripts, generate and format citations, detect
             AI-generated text, and perform medical coding lookups. The service
             is powered by Claude, developed by Anthropic, and is hosted on
-            Vercel. exCITE is currently available free of charge during its beta
+            Vercel. Docs² is currently available free of charge during its beta
             period.
           </p>
         </section>
@@ -41,7 +40,7 @@ export default function TermsPage() {
               citations, medical codes, rewritten text, and analysis results.
             </li>
             <li>
-              Although exCITE includes HIPAA-compliant automatic redaction of
+              Although Docs² includes HIPAA-compliant automatic redaction of
               Protected Health Information (PHI), you should avoid inputting
               sensitive patient data unless necessary. You are responsible for
               ensuring your use complies with all applicable privacy laws and
@@ -57,12 +56,12 @@ export default function TermsPage() {
         <section>
           <h2>4. Medical Disclaimer</h2>
           <p>
-            exCITE is <strong>not a medical device</strong> and does{" "}
+            Docs² is <strong>not a medical device</strong> and does{" "}
             <strong>not provide medical advice</strong>, diagnosis, or
             treatment recommendations. The service is not a substitute for
             professional medical judgment. All clinical decisions must be made
             by qualified healthcare professionals exercising independent
-            judgment. Nothing produced by exCITE should be relied upon as a
+            judgment. Nothing produced by Docs² should be relied upon as a
             basis for patient care without independent verification.
           </p>
         </section>
@@ -70,7 +69,7 @@ export default function TermsPage() {
         <section>
           <h2>5. AI-Generated Content Disclaimer</h2>
           <p>
-            All output produced by exCITE — including citations, coding
+            All output produced by Docs² — including citations, coding
             suggestions, manuscript rewrites, and text analysis — is generated
             by artificial intelligence and may contain errors, omissions, or
             inaccuracies. AI-generated citations may reference works that do
@@ -85,8 +84,8 @@ export default function TermsPage() {
         <section>
           <h2>6. Intellectual Property</h2>
           <p>
-            You retain ownership of all text and content you submit to exCITE,
-            as well as the output generated from your inputs. The exCITE name,
+            You retain ownership of all text and content you submit to Docs²,
+            as well as the output generated from your inputs. The Docs² name,
             logo, and underlying software are the intellectual property of
             their respective owners. You may not copy, modify, or redistribute
             the application itself without prior written permission.
@@ -96,7 +95,7 @@ export default function TermsPage() {
         <section>
           <h2>7. Privacy &amp; Data Handling</h2>
           <p>
-            exCITE automatically scans all submitted text for Protected Health
+            Docs² automatically scans all submitted text for Protected Health
             Information and redacts detected PHI (including names, dates of
             birth, medical record numbers, Social Security numbers, and
             addresses) before processing. Despite these safeguards, no
@@ -111,7 +110,7 @@ export default function TermsPage() {
           <p>
             The service is provided &ldquo;as is&rdquo; and &ldquo;as
             available&rdquo; without warranties of any kind, express or
-            implied. To the fullest extent permitted by law, exCITE and its
+            implied. To the fullest extent permitted by law, Docs² and its
             operators shall not be liable for any indirect, incidental,
             special, consequential, or punitive damages, or any loss of data,
             revenue, or profits arising from your use of or inability to use
@@ -133,7 +132,7 @@ export default function TermsPage() {
         <section>
           <h2>10. Termination</h2>
           <p>
-            We may suspend or terminate your access to exCITE at any time, with
+            We may suspend or terminate your access to Docs² at any time, with
             or without cause, and without prior notice. Upon termination, your
             right to use the service ceases immediately.
           </p>
@@ -154,8 +153,8 @@ export default function TermsPage() {
           <p>
             If you have questions about these Terms of Use, please contact us
             at{" "}
-            <a href="mailto:support@excite.health" className="underline">
-              support@excite.health
+            <a href="mailto:support@docsquared.app" className="underline">
+              support@docsquared.app
             </a>
             .
           </p>
