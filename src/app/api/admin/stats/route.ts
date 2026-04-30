@@ -26,9 +26,6 @@ export async function GET() {
     const admin = await requireAdmin();
     if (admin instanceof NextResponse) return admin;
 
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
     // Run all queries in parallel — using array indexing instead of destructuring
     // so any missing field doesn't crash the whole route
     const [
@@ -73,13 +70,13 @@ export async function GET() {
       db
         .select({ recentSignups: count() })
         .from(user)
-        .where(sql`${user.createdAt} >= ${sevenDaysAgo}`),
+        .where(sql`${user.createdAt} > NOW() - INTERVAL '7 days'`),
 
       // Recent projects (last 7 days)
       db
         .select({ recentProjects: count() })
         .from(project)
-        .where(sql`${project.createdAt} >= ${sevenDaysAgo}`),
+        .where(sql`${project.createdAt} > NOW() - INTERVAL '7 days'`),
 
       // Daily projects last 30 days
       db.execute(sql`
