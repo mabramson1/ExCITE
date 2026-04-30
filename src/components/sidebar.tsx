@@ -37,9 +37,11 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme } = useTheme();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
+  useEffect(() => { setMounted(true); }, []);
   useEffect(() => {
     checkIsAdmin().then(setIsAdmin);
   }, []);
@@ -92,7 +94,7 @@ export function Sidebar() {
         >
           <Sun className="h-4 w-4 dark:hidden" />
           <Moon className="h-4 w-4 hidden dark:block" />
-          {theme === "dark" ? "Light Mode" : "Dark Mode"}
+          {mounted ? (resolvedTheme === "dark" ? "Light Mode" : "Dark Mode") : "Toggle Theme"}
         </button>
         <button
           onClick={async () => {
