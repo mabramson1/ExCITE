@@ -29,19 +29,20 @@ export async function GET() {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    // Run all queries in parallel
+    // Run all queries in parallel — using array indexing instead of destructuring
+    // so any missing field doesn't crash the whole route
     const [
-      [{ totalUsers }],
-      [{ totalProjects }],
+      totalUsersR,
+      totalProjectsR,
       usersByRoleRows,
       projectsByTypeRows,
-      [{ recentSignups }],
-      [{ recentProjects }],
+      recentSignupsR,
+      recentProjectsR,
       dailyProjectsRaw,
       dailySignupsRaw,
       topUsersRaw,
-      [{ avgProjectsPerUser }],
-      [{ phiTotal }],
+      avgProjectsR,
+      phiTotalR,
       activeUsersRaw,
     ] = await Promise.all([
       // Total users
@@ -129,6 +130,15 @@ export async function GET() {
       `),
     ]);
 
+    // Safely extract scalar counts
+    const totalUsers = Number(totalUsersR?.[0]?.totalUsers ?? 0);
+    const totalProjects = Number(totalProjectsR?.[0]?.totalProjects ?? 0);
+    const recentSignups = Number(recentSignupsR?.[0]?.recentSignups ?? 0);
+    const recentProjects = Number(recentProjectsR?.[0]?.recentProjects ?? 0);
+    const phiTotal = Number(phiTotalR?.[0]?.phiTotal ?? 0);
+    const avgRow = avgProjectsR as unknown as { avgProjectsPerUser: string | number }[];
+    const avgProjectsPerUser = Number(avgRow?.[0]?.avgProjectsPerUser ?? 0);
+
     // Build usersByRole object
     const usersByRole: Record<string, number> = {
       free: 0,
@@ -136,8 +146,8 @@ export async function GET() {
       unlimited: 0,
       admin: 0,
     };
-    for (const row of usersByRoleRows) {
-      usersByRole[row.role] = Number(row.count);
+    for (const row of usersByRoleRows ?? []) {
+      if (row?.role) usersByRole[row.role] = Number(row.count);
     }
 
     // Build projectsByType object
@@ -147,20 +157,20 @@ export async function GET() {
       deai: 0,
       ai_detector: 0,
     };
-    for (const row of projectsByTypeRows) {
-      projectsByType[row.type] = Number(row.count);
+    for (const row of projectsByTypeRows ?? []) {
+      if (row?.type) projectsByType[row.type] = Number(row.count);
     }
 
     // Cast raw SQL results
-    const dailyProjects = dailyProjectsRaw as unknown as DailyCount[];
-    const dailySignups = dailySignupsRaw as unknown as DailyCount[];
-    const topUsers = topUsersRaw as unknown as TopUser[];
+    const dailyProjects = (dailyProjectsRaw ?? []) as unknown as DailyCount[];
+    const dailySignups = (dailySignupsRaw ?? []) as unknown as DailyCount[];
+    const topUsers = (topUsersRaw ?? []) as unknown as TopUser[];
 
     // PHI detection rate
-    const totalProjectsNum = Number(totalProjects);
+    const totalProjectsNum = totalProjects;
     const phiDetectionRate =
       totalProjectsNum > 0
-        ? Math.round((Number(phiTotal) / totalProjectsNum) * 10000) / 10000
+        ? Math.round((phiTotal / totalProjectsNum) * 10000) / 10000
         : 0;
 
     // Popular tools (project types with percentages)
@@ -179,20 +189,26 @@ export async function GET() {
     const activeUsersRow = activeUsersRaw as unknown as { activeUsers: number }[];
     const activeUsers = activeUsersRow.length > 0 ? Number(activeUsersRow[0].activeUsers) : 0;
 
+    // Derive proUsers and unlimitedUsers for the OverviewTab cards
+    const proUsers = usersByRole.pro || 0;
+    const unlimitedUsers = usersByRole.unlimited || 0;
+
     return NextResponse.json({
-      totalUsers: Number(totalUsers),
+      totalUsers,
       totalProjects: totalProjectsNum,
       usersByRole,
       projectsByType,
-      recentSignups: Number(recentSignups),
-      recentProjects: Number(recentProjects),
+      recentSignups,
+      recentProjects,
       dailyProjects,
       dailySignups,
       topUsers,
-      avgProjectsPerUser: Number(avgProjectsPerUser),
+      avgProjectsPerUser,
       phiDetectionRate,
       popularTools,
       activeUsers,
+      proUsers,
+      unlimitedUsers,
     });
   } catch (error) {
     const detail = error instanceof Error ? error.message : "Unknown error";
