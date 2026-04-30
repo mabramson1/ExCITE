@@ -4,11 +4,11 @@ import {
   BookOpen,
   Wand2,
   ScanSearch,
-  Quote,
   ArrowRight,
   Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/brand-logo";
 
 const features = [
   {
@@ -43,12 +43,7 @@ export default function LandingPage() {
       {/* Header */}
       <header className="border-b">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Quote className="h-7 w-7 text-primary" />
-            <span className="text-xl font-bold tracking-tight">
-              ex<span className="text-primary">CITE</span>
-            </span>
-          </div>
+          <BrandLogo />
           <div className="flex items-center gap-3">
             <Link href="/sign-in">
               <Button variant="ghost">Sign In</Button>
@@ -68,13 +63,10 @@ export default function LandingPage() {
             HIPAA-compliant PHI auto-redaction
           </div>
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6">
-            Citation Intelligence
-            <br />
-            <span className="text-primary">for Healthcare & Academia</span>
+            Docs for Docs
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-            AI-powered tools to cite clinical notes for better billing,
-            format academic manuscripts, humanize AI-generated text, and detect AI writing patterns.
+            AI-powered medical writing suite — cite clinical notes, generate manuscripts, humanize AI text, and detect AI patterns.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-4">
             <Link href="/sign-up">
@@ -117,7 +109,7 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t py-8 text-sm text-muted-foreground">
         <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span>exCITE &copy; {new Date().getFullYear()}. Citation Intelligence for Healthcare &amp; Academia.</span>
+          <span>Docs&sup2; &copy; {new Date().getFullYear()}. Citation Intelligence for Healthcare &amp; Academia.</span>
           <div className="flex items-center gap-4">
             <Link href="/privacy" className="hover:text-foreground transition-colors">
               Privacy Policy

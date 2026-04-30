@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Pricing — exCITE",
+  title: "Pricing — Docs²",
 };
 
 export default function PricingLayout({

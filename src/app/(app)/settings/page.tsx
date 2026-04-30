@@ -18,7 +18,7 @@ export default function SettingsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground text-sm">
-          Configure your exCITE preferences
+          Configure your Docs&sup2; preferences
         </p>
       </div>
 

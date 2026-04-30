@@ -264,7 +264,7 @@ export async function searchCrossRef(
       `https://api.crossref.org/works?${params}`,
       {
         headers: {
-          "User-Agent": "ExCITE/1.0 (mailto:support@ex-cite.vercel.app)",
+          "User-Agent": "DocsSquared/1.0 (mailto:support@docsquared.app)",
         },
       }
     );

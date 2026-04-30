@@ -1,4 +1,4 @@
-const CACHE_KEY = "excite-is-admin";
+const CACHE_KEY = "docsq-is-admin";
 const CACHE_TTL = 1000 * 60 * 10; // 10 minutes
 
 interface CachedRole {

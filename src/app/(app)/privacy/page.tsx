@@ -1,4 +1,4 @@
-export const metadata = { title: "Privacy Policy — exCITE" };
+export const metadata = { title: "Privacy Policy — Docs²" };
 
 export default function PrivacyPolicyPage() {
   return (
@@ -12,7 +12,7 @@ export default function PrivacyPolicyPage() {
 
       <div className="prose prose-sm dark:prose-invert max-w-none space-y-6">
         <p>
-          exCITE (Citation Intelligence Tool for Healthcare &amp; Academia) is a
+          Docs² (Docs for Docs) is a
           medical writing application that uses AI to help healthcare
           professionals and researchers with clinical documentation, manuscript
           citations, and text analysis. Your privacy matters to us. This policy
@@ -44,7 +44,7 @@ export default function PrivacyPolicyPage() {
         <section>
           <h2 className="text-lg font-semibold">How We Use Your Information</h2>
           <ul className="list-disc pl-5 space-y-1">
-            <li>To provide and improve the exCITE analysis tools.</li>
+            <li>To provide and improve the Docs² analysis tools.</li>
             <li>To store your analysis history so you can revisit past results.</li>
             <li>To generate shareable read-only links when you choose to share a result.</li>
             <li>To authenticate your account and maintain your session.</li>
@@ -65,7 +65,7 @@ export default function PrivacyPolicyPage() {
             security practices to protect your information.
           </p>
           <p>
-            <strong>HIPAA-compliant PHI handling:</strong> exCITE automatically
+            <strong>HIPAA-compliant PHI handling:</strong> Docs² automatically
             detects and redacts Protected Health Information (PHI) — including
             Social Security numbers, medical record numbers, dates of birth,
             phone numbers, email addresses, street addresses, patient names,
@@ -78,7 +78,7 @@ export default function PrivacyPolicyPage() {
         <section>
           <h2 className="text-lg font-semibold">Third-Party Services</h2>
           <p>
-            exCITE integrates with the following external services to provide its
+            Docs² integrates with the following external services to provide its
             features. Each service receives only the minimum data necessary and
             only after PHI has been redacted:
           </p>
@@ -155,7 +155,7 @@ export default function PrivacyPolicyPage() {
         <section>
           <h2 className="text-lg font-semibold">Children&apos;s Privacy</h2>
           <p>
-            exCITE is designed for healthcare professionals and academic
+            Docs² is designed for healthcare professionals and academic
             researchers. We do not knowingly collect information from anyone
             under the age of 18. If you believe a minor has provided us with
             personal data, please contact us and we will promptly delete it.
@@ -177,10 +177,10 @@ export default function PrivacyPolicyPage() {
             If you have questions or concerns about this privacy policy or your
             data, please reach out to us at{" "}
             <a
-              href="mailto:privacy@excite.health"
+              href="mailto:privacy@docsquared.app"
               className="text-primary underline underline-offset-4 hover:text-primary/80"
             >
-              privacy@excite.health
+              privacy@docsquared.app
             </a>
             .
           </p>
