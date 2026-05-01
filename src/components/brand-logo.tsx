@@ -14,18 +14,18 @@ export function BrandLogo({ size = "default", showTagline = false }: BrandLogoPr
   }[size];
 
   const iconSize = {
-    hero: "h-10 w-10 md:h-12 md:w-12",
-    lg: "h-7 w-7",
-    default: "h-5 w-5",
-    sm: "h-4 w-4",
+    hero: "h-8 w-8 md:h-10 md:w-10",
+    lg: "h-6 w-6",
+    default: "h-4 w-4",
+    sm: "h-3.5 w-3.5",
   }[size];
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-0.5">
       <div>
-        <div className="flex items-end">
+        <div className="flex items-start">
           <span className={textSize}>docs</span>
-          <DocsLogo className={`${iconSize} text-primary mb-[0.15em]`} />
+          <DocsLogo className={`${iconSize} text-primary -mt-[0.1em]`} />
         </div>
         {showTagline && (
           <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
