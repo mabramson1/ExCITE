@@ -17,19 +17,17 @@ export default function Icon() {
           justifyContent: "center",
         }}
       >
-        <svg width="22" height="26" viewBox="0 0 48 56" fill="none">
-          <path
-            d="M12 4 C12 4, 36 0, 40 10 C44 20, 36 28, 24 32 C12 36, 8 40, 12 46"
-            stroke="white"
-            strokeWidth="4"
-            strokeLinecap="round"
-            fill="none"
-          />
-          <circle cx="12" cy="4" r="3.5" fill="white" />
-          <path
-            d="M12 46 C12 42, 6 40, 6 44 C6 47, 12 52, 12 52 C12 52, 18 47, 18 44 C18 40, 12 42, 12 46 Z"
-            fill="white"
-          />
+        <svg width="20" height="26" viewBox="0 0 36 52" fill="none">
+          {/* Two earpiece dots */}
+          <circle cx="8" cy="3" r="2.5" fill="white" />
+          <circle cx="20" cy="3" r="2.5" fill="white" />
+          {/* Two arms to junction */}
+          <path d="M8 5.5 C8 9, 14 12, 14 12" stroke="white" strokeWidth="3" strokeLinecap="round" fill="none" />
+          <path d="M20 5.5 C20 9, 14 12, 14 12" stroke="white" strokeWidth="3" strokeLinecap="round" fill="none" />
+          {/* Tubing curves */}
+          <path d="M14 12 C14 12, 32 16, 30 24 C28 32, 16 34, 10 38" stroke="white" strokeWidth="3" strokeLinecap="round" fill="none" />
+          {/* Heart */}
+          <path d="M10 38 C10 36, 6.5 35, 6.5 37 C6.5 38.5, 10 41.5, 10 41.5 C10 41.5, 13.5 38.5, 13.5 37 C13.5 35, 10 36, 10 38 Z" fill="white" />
         </svg>
       </div>
     ),
