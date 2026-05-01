@@ -204,147 +204,111 @@ export default function LandingPage() {
         </div>
       </section>
 
+
       {/* ── Section 1: Clinical Documentation ─────────────────── */}
-      <section id="features" className="py-20 scroll-mt-16">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            {/* Text side */}
-            <div>
-              <Badge variant="secondary" className="mb-4">Clinical Documentation</Badge>
-              <h3 className="text-3xl font-bold mb-4">Write better clinical notes, faster</h3>
-              <p className="text-muted-foreground mb-6">
-                Generate complete A/P sections, prior auth letters, discharge
-                summaries, and referral letters — all optimized for proper E&amp;M
-                coding and maximum reimbursement.
-              </p>
-              <ul className="space-y-3">
-                {clinicalFeatures.map((f) => (
-                  <li key={f.title} className="flex items-start gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-medium">{f.title}</span>
-                      <span className="text-muted-foreground"> — {f.description}</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            {/* Visual side */}
-            <div className="flex items-center justify-center">
-              <div className="w-full max-w-sm aspect-square rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/20 flex items-center justify-center">
-                <FileText className="h-24 w-24 text-blue-400/30" />
-              </div>
-            </div>
+      <section id="features" className="py-16 scroll-mt-16">
+        <div className="max-w-3xl mx-auto px-4">
+          <div className="border-l-4 border-blue-500 pl-6">
+            <Badge variant="secondary" className="mb-3">Clinical Documentation</Badge>
+            <h3 className="text-2xl font-bold mb-3">Write better clinical notes, faster</h3>
+            <p className="text-muted-foreground mb-5">
+              Generate complete A/P sections, prior auth letters, discharge
+              summaries, and referral letters — all optimized for proper E&amp;M
+              coding and maximum reimbursement.
+            </p>
+            <ul className="space-y-2.5">
+              {clinicalFeatures.map((f) => (
+                <li key={f.title} className="flex items-start gap-2.5">
+                  <CheckCircle2 className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-medium">{f.title}</span>
+                    <span className="text-muted-foreground"> — {f.description}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>
 
-      {/* ── Section 2: Academic Writing (flipped) ─────────────── */}
-      <section className="bg-muted/30 dark:bg-muted/10 py-20">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            {/* Text side (order-2 on md to flip) */}
-            <div className="md:order-2">
-              <Badge variant="secondary" className="mb-4">Academic Writing</Badge>
-              <h3 className="text-3xl font-bold mb-4">From rough notes to polished manuscripts</h3>
-              <p className="text-muted-foreground mb-6">
-                Transform bullet points into journal-ready manuscripts. Find real
-                citations from PubMed, never hallucinated. Respond to peer
-                reviewers point-by-point.
-              </p>
-              <ul className="space-y-3">
-                {academicFeatures.map((f) => (
-                  <li key={f.title} className="flex items-start gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-medium">{f.title}</span>
-                      <span className="text-muted-foreground"> — {f.description}</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            {/* Visual side (order-1 on md to flip) */}
-            <div className="flex items-center justify-center md:order-1">
-              <div className="w-full max-w-sm aspect-square rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/30 dark:to-emerald-900/20 flex items-center justify-center">
-                <BookOpen className="h-24 w-24 text-emerald-400/30" />
-              </div>
-            </div>
+      {/* ── Section 2: Academic Writing ────────────────────────── */}
+      <section className="bg-muted/30 dark:bg-muted/10 py-16">
+        <div className="max-w-3xl mx-auto px-4">
+          <div className="border-l-4 border-emerald-500 pl-6">
+            <Badge variant="secondary" className="mb-3">Academic Writing</Badge>
+            <h3 className="text-2xl font-bold mb-3">From rough notes to polished manuscripts</h3>
+            <p className="text-muted-foreground mb-5">
+              Transform bullet points into journal-ready manuscripts. Find real
+              citations from PubMed, never hallucinated. Respond to peer
+              reviewers point-by-point.
+            </p>
+            <ul className="space-y-2.5">
+              {academicFeatures.map((f) => (
+                <li key={f.title} className="flex items-start gap-2.5">
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-medium">{f.title}</span>
+                    <span className="text-muted-foreground"> — {f.description}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>
 
       {/* ── Section 3: AI Writing Integrity ────────────────────── */}
-      <section className="py-20">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            {/* Text side */}
-            <div>
-              <Badge variant="secondary" className="mb-4">AI Writing Integrity</Badge>
-              <h3 className="text-3xl font-bold mb-4">Detect, humanize, and verify</h3>
-              <p className="text-muted-foreground mb-6">
-                Multi-source AI detection with consensus scoring. Rewrite
-                AI-generated text to sound naturally human. Export compliance
-                reports with signature lines.
-              </p>
-              <ul className="space-y-3">
-                {aiIntegrityFeatures.map((f) => (
-                  <li key={f.title} className="flex items-start gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-medium">{f.title}</span>
-                      <span className="text-muted-foreground"> — {f.description}</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            {/* Visual side */}
-            <div className="flex items-center justify-center">
-              <div className="w-full max-w-sm aspect-square rounded-2xl bg-gradient-to-br from-violet-50 to-violet-100 dark:from-violet-950/30 dark:to-violet-900/20 flex items-center justify-center">
-                <ScanSearch className="h-24 w-24 text-violet-400/30" />
-              </div>
-            </div>
+      <section className="py-16">
+        <div className="max-w-3xl mx-auto px-4">
+          <div className="border-l-4 border-violet-500 pl-6">
+            <Badge variant="secondary" className="mb-3">AI Writing Integrity</Badge>
+            <h3 className="text-2xl font-bold mb-3">Detect, humanize, and verify</h3>
+            <p className="text-muted-foreground mb-5">
+              Multi-source AI detection with consensus scoring. Rewrite
+              AI-generated text to sound naturally human. Export compliance
+              reports with signature lines.
+            </p>
+            <ul className="space-y-2.5">
+              {aiIntegrityFeatures.map((f) => (
+                <li key={f.title} className="flex items-start gap-2.5">
+                  <CheckCircle2 className="h-4 w-4 text-violet-500 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-medium">{f.title}</span>
+                    <span className="text-muted-foreground"> — {f.description}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>
 
-      {/* ── Section 4: Privacy-First (flipped) ─────────────────── */}
-      <section className="bg-muted/30 dark:bg-muted/10 py-20">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="grid md:grid-cols-2 gap-12 items-center">
-            {/* Text side (order-2 on md to flip) */}
-            <div className="md:order-2">
-              <Badge variant="secondary" className="mb-4">Privacy-First Architecture</Badge>
-              <h3 className="text-3xl font-bold mb-4">Built-in PHI auto-detection</h3>
-              <p className="text-muted-foreground mb-6">
-                Detected identifiers are automatically redacted in your browser
-                before any text leaves your device. Clinical details the AI needs
-                pass through untouched.
-              </p>
-              <ul className="space-y-3">
-                {privacyFeatures.map((f) => (
-                  <li key={f.title} className="flex items-start gap-3">
-                    <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                    <div>
-                      <span className="font-medium">{f.title}</span>
-                      <span className="text-muted-foreground"> — {f.description}</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            {/* Visual side (order-1 on md to flip) */}
-            <div className="flex items-center justify-center md:order-1">
-              <div className="w-full max-w-sm aspect-square rounded-2xl bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/30 dark:to-green-900/20 flex items-center justify-center">
-                <Lock className="h-24 w-24 text-green-400/30" />
-              </div>
-            </div>
+      {/* ── Section 4: Privacy-First ───────────────────────────── */}
+      <section className="bg-muted/30 dark:bg-muted/10 py-16">
+        <div className="max-w-3xl mx-auto px-4">
+          <div className="border-l-4 border-green-500 pl-6">
+            <Badge variant="secondary" className="mb-3">Privacy-First Architecture</Badge>
+            <h3 className="text-2xl font-bold mb-3">Built-in PHI auto-detection</h3>
+            <p className="text-muted-foreground mb-5">
+              Detected identifiers are automatically redacted in your browser
+              before any text leaves your device. Clinical details the AI needs
+              pass through untouched.
+            </p>
+            <ul className="space-y-2.5">
+              {privacyFeatures.map((f) => (
+                <li key={f.title} className="flex items-start gap-2.5">
+                  <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-medium">{f.title}</span>
+                    <span className="text-muted-foreground"> — {f.description}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>
 
-      {/* ── How It Works ───────────────────────────────────────── */}
       <section className="py-20">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <h3 className="text-2xl md:text-3xl font-bold mb-12">
