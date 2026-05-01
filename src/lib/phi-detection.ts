@@ -1,7 +1,11 @@
 /**
  * PHI (Protected Health Information) Detection & Censoring
  *
- * Detects and redacts common PHI patterns per HIPAA Safe Harbor guidelines.
+ * Best-effort detection and redaction of common PHI patterns. Covers SSNs,
+ * MRNs, phone/fax numbers, emails, dates, labeled DOBs, addresses, zip codes,
+ * labeled patient/provider names, ages 90+, and IP addresses. This is pattern
+ * matching — not comprehensive HIPAA Safe Harbor de-identification. Users
+ * should minimize unnecessary PHI input.
  *
  * IMPORTANT: This module is isomorphic — runs on both client and server.
  * Client-side usage is preferred so PHI never leaves the user's browser:
@@ -34,11 +38,24 @@ const PHI_PATTERNS: { name: string; pattern: RegExp }[] = [
   // DOB with label
   { name: "DOB", pattern: /\b(?:DOB|Date of Birth|Birth\s*Date)\s*:?\s*\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/gi },
 
-  // Phone numbers (must come AFTER SSN)
+  // Generic dates (MM/DD/YYYY, MM-DD-YYYY, DD/MM/YYYY) — HIPAA Safe Harbor
+  // requires all dates more specific than year to be removed. Must come AFTER
+  // labeled DOB to avoid double-matching.
+  { name: "Date", pattern: /\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/g },
+
+  // Fax numbers (with label)
+  { name: "Fax", pattern: /\b(?:fax|facsimile)\s*(?:#|:)?\s*(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/gi },
+
+  // Phone numbers (must come AFTER SSN and Fax)
   { name: "Phone", pattern: /\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g },
 
   // Street addresses
   { name: "Address", pattern: /\b\d{1,5}\s+(?:[A-Za-z]+\s){1,3}(?:St(?:reet)?|Ave(?:nue)?|Blvd|Dr(?:ive)?|Rd|Road|Ln|Lane|Way|Ct|Court|Pl(?:ace)?|Cir(?:cle)?)\b\.?(?:\s*(?:#|Apt|Suite|Ste|Unit)\s*\w+)?\b/gi },
+
+  // Zip codes — only when labeled or after a state abbreviation to avoid
+  // false positives on lab values, dosages, etc.
+  { name: "ZipCode", pattern: /\b(?:zip(?:\s*code)?|postal\s*code)\s*:?\s*\d{5}(?:-\d{4})?\b/gi },
+  { name: "ZipCode", pattern: /\b[A-Z]{2}\s+\d{5}(?:-\d{4})?\b/g },
 
   // Patient name with label ("Patient: John Smith")
   { name: "PatientName", pattern: /\b(?:Patient(?:\s*Name)?|Pt)\s*:?\s*[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3}\b/g },

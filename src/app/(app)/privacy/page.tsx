@@ -65,13 +65,16 @@ export default function PrivacyPolicyPage() {
             security practices to protect your information.
           </p>
           <p>
-            <strong>HIPAA-compliant PHI handling:</strong> Docs² automatically
-            detects and redacts Protected Health Information (PHI) — including
-            Social Security numbers, medical record numbers, dates of birth,
-            phone numbers, email addresses, street addresses, patient names,
-            insurance numbers, and IP addresses — <em>before</em> any text is
-            sent to external AI services. The original unredacted content is
-            never transmitted to third-party APIs.
+            <strong>PHI auto-detection and redaction:</strong> Docs²
+            automatically scans your input for common Protected Health
+            Information (PHI) patterns — including names (when labeled), MRNs,
+            SSNs, dates of birth, phone numbers, email addresses, street
+            addresses, insurance numbers, and IP addresses — and redacts them
+            in your browser <em>before</em> any text is sent to external
+            services. This is best-effort pattern matching and may not catch
+            all identifiers. You should avoid inputting unnecessary patient
+            data and should not rely solely on automatic redaction for
+            regulatory compliance.
           </p>
         </section>
 
@@ -80,7 +83,7 @@ export default function PrivacyPolicyPage() {
           <p>
             Docs² integrates with the following external services to provide its
             features. Each service receives only the minimum data necessary and
-            only after PHI has been redacted:
+            only after detected PHI has been redacted:
           </p>
           <ul className="list-disc pl-5 space-y-1">
             <li>

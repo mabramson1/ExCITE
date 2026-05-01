@@ -85,10 +85,10 @@ const aiIntegrityFeatures = [
 ];
 
 const privacyPoints = [
-  "Your patient data never leaves your browser",
-  "Client-side PHI redaction",
-  "HIPAA Safe Harbor compliant",
-  "Real values re-injected for display only",
+  "Detected patient identifiers are redacted in your browser before sending",
+  "Client-side PHI auto-detection covers names, MRNs, SSNs, dates, phones, addresses, and more",
+  "Automatic redaction is best-effort — do not rely solely on it for regulatory compliance",
+  "Real values are re-injected locally for display only",
 ];
 
 const steps = [
@@ -203,8 +203,9 @@ export default function LandingPage() {
           <BrandEquation className="mb-8" />
 
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
-            The AI-powered medical writing suite that keeps your patient data on
-            your device.
+            The AI-powered medical writing suite with built-in PHI
+            auto-detection. Identifiers are redacted in your browser before
+            any text is sent.
           </p>
 
           <div className="flex justify-center mb-8">
@@ -213,7 +214,7 @@ export default function LandingPage() {
               className="gap-1.5 px-3 py-1 text-sm"
             >
               <Shield className="h-3.5 w-3.5" />
-              HIPAA-compliant PHI auto-redaction
+              Built-in PHI auto-detection &amp; redaction
             </Badge>
           </div>
 
