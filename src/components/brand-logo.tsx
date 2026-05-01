@@ -30,13 +30,10 @@ export function BrandLogo({ size = "default", showTagline = false, showIcon = fa
 
 export function BrandEquation({ className = "" }: { className?: string }) {
   return (
-    <div className={`flex flex-col items-center gap-2 ${className}`}>
+    <div className={`flex flex-col items-center ${className}`}>
       <div className="text-4xl md:text-6xl font-bold tracking-tight">
         docs <span className="text-primary">×</span> docs
       </div>
-      <p className="text-lg text-muted-foreground">
-        documents <span className="text-primary">×</span> doctors
-      </p>
     </div>
   );
 }
