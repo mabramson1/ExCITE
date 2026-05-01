@@ -40,9 +40,13 @@ export default function TermsPage() {
               citations, medical codes, rewritten text, and analysis results.
             </li>
             <li>
-              Although Docs² includes HIPAA-compliant automatic redaction of
-              Protected Health Information (PHI), you should avoid inputting
-              sensitive patient data unless necessary. You are responsible for
+              Docs² includes automatic detection and redaction of common
+              Protected Health Information (PHI) patterns, but this is
+              best-effort pattern matching and may not catch every identifier.
+              You should minimize sensitive patient data in your inputs
+              whenever possible. Automatic redaction is not a substitute for
+              proper HIPAA compliance measures, and Docs² is not a HIPAA
+              Covered Entity or Business Associate. You are responsible for
               ensuring your use complies with all applicable privacy laws and
               institutional policies.
             </li>
