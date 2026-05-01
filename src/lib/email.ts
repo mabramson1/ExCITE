@@ -34,14 +34,14 @@ export async function sendVerificationEmail(opts: {
     html: `<!DOCTYPE html>
 <html><body style="font-family: -apple-system, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
   <div style="text-align: center; margin-bottom: 32px;">
-    <h1 style="font-size: 24px; margin: 0; color: #0f4c81;">Docs<sup>2</sup></h1>
+    <h1 style="font-size: 24px; margin: 0; color: #4A90D2;">Docs<sup>2</sup></h1>
     <p style="color: #71717a; font-size: 12px; margin: 4px 0 0;">Docs for Docs</p>
   </div>
   <h2 style="font-size: 20px;">Verify your email</h2>
   <p>Hi${opts.name ? ` ${opts.name}` : ""},</p>
   <p>Click the button below to verify your email and finish creating your Docs<sup>2</sup> account.</p>
   <div style="text-align: center; margin: 32px 0;">
-    <a href="${opts.url}" style="display: inline-block; background: #0f4c81; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Verify email</a>
+    <a href="${opts.url}" style="display: inline-block; background: #4A90D2; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Verify email</a>
   </div>
   <p style="color: #71717a; font-size: 14px;">Or copy and paste this URL: <br/><code style="font-size: 12px; word-break: break-all;">${opts.url}</code></p>
   <hr style="border: 0; border-top: 1px solid #e4e4e7; margin: 32px 0;" />
@@ -69,12 +69,12 @@ export async function sendPasswordResetEmail(opts: {
     subject: "Reset your Docs Squared password",
     html: `<!DOCTYPE html>
 <html><body style="font-family: -apple-system, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
-  <h1 style="font-size: 24px; margin: 0 0 16px; color: #0f4c81;">Docs<sup>2</sup></h1>
+  <h1 style="font-size: 24px; margin: 0 0 16px; color: #4A90D2;">Docs<sup>2</sup></h1>
   <h2 style="font-size: 20px;">Reset your password</h2>
   <p>Hi${opts.name ? ` ${opts.name}` : ""},</p>
   <p>Click the button below to reset your password. This link expires in 1 hour.</p>
   <div style="text-align: center; margin: 32px 0;">
-    <a href="${opts.url}" style="display: inline-block; background: #0f4c81; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Reset password</a>
+    <a href="${opts.url}" style="display: inline-block; background: #4A90D2; color: #fff; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Reset password</a>
   </div>
   <p style="color: #71717a; font-size: 14px;">If you didn't request this, you can safely ignore this email.</p>
 </body></html>`,
