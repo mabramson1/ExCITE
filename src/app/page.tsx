@@ -15,6 +15,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { BrandLogo, BrandEquation } from "@/components/brand-logo";
+import { FeaturePreview } from "@/components/feature-preview";
+import {
+  ClinicalMockup,
+  AcademicMockup,
+  AiIntegrityMockup,
+  PrivacyMockup,
+} from "@/components/feature-mockups";
 
 /* ------------------------------------------------------------------ */
 /*  Data                                                               */
@@ -227,6 +234,9 @@ export default function LandingPage() {
                 </li>
               ))}
             </ul>
+            <FeaturePreview accent="blue">
+              <ClinicalMockup />
+            </FeaturePreview>
           </div>
         </div>
       </section>
@@ -253,6 +263,9 @@ export default function LandingPage() {
                 </li>
               ))}
             </ul>
+            <FeaturePreview accent="emerald">
+              <AcademicMockup />
+            </FeaturePreview>
           </div>
         </div>
       </section>
@@ -279,6 +292,9 @@ export default function LandingPage() {
                 </li>
               ))}
             </ul>
+            <FeaturePreview accent="violet">
+              <AiIntegrityMockup />
+            </FeaturePreview>
           </div>
         </div>
       </section>
@@ -305,6 +321,9 @@ export default function LandingPage() {
                 </li>
               ))}
             </ul>
+            <FeaturePreview accent="green">
+              <PrivacyMockup />
+            </FeaturePreview>
           </div>
         </div>
       </section>
