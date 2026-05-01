@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
-import { user, project } from "@/lib/db/schema";
+import { user, project, session, account, subscription, userPreference, templateFavorite, usageMeter } from "@/lib/db/schema";
 import { eq, desc, count, sql, and, like } from "drizzle-orm";
 
 export async function GET(req: NextRequest) {
@@ -142,6 +142,17 @@ export async function DELETE(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Delete related rows first — session and account lack ON DELETE CASCADE
+    await Promise.all([
+      db.delete(session).where(eq(session.userId, userId)),
+      db.delete(account).where(eq(account.userId, userId)),
+      db.delete(usageMeter).where(eq(usageMeter.userId, userId)),
+      db.delete(templateFavorite).where(eq(templateFavorite.userId, userId)),
+      db.delete(userPreference).where(eq(userPreference.userId, userId)),
+      db.delete(subscription).where(eq(subscription.userId, userId)),
+      db.delete(project).where(eq(project.userId, userId)),
+    ]);
 
     const [deleted] = await db
       .delete(user)

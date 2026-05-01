@@ -145,32 +145,23 @@ const PAGE_LIMIT = 25;
 /* ---------- Main Page ---------- */
 
 export default function AdminContent() {
-  const [loading, setLoading] = useState(true);
   const [accessDenied, setAccessDenied] = useState(false);
-  const [stats, setStats] = useState<Stats | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
 
   useEffect(() => {
-    async function fetchStats() {
-      try {
-        const res = await fetch("/api/admin/stats");
-        if (res.status === 403) {
-          setAccessDenied(true);
-          return;
-        }
-        if (!res.ok) throw new Error("Failed to fetch stats");
-        const data = await res.json();
-        setStats(data);
-      } catch {
-        toast.error("Failed to load admin stats");
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchStats();
+    fetch("/api/admin/whoami")
+      .then((r) => {
+        if (r.status === 403 || r.status === 401) setAccessDenied(true);
+        setAuthChecked(true);
+      })
+      .catch(() => {
+        setAccessDenied(true);
+        setAuthChecked(true);
+      });
   }, []);
 
-  if (loading) {
+  if (!authChecked) {
     return (
       <div className="max-w-6xl mx-auto flex items-center justify-center py-20">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -252,7 +243,7 @@ export default function AdminContent() {
         </div>
 
         <TabsContent value="overview">
-          <OverviewTab stats={stats} />
+          <OverviewTab />
         </TabsContent>
         <TabsContent value="users">
           <UsersTab />
@@ -279,11 +270,32 @@ export default function AdminContent() {
 
 /* ---------- Overview Tab ---------- */
 
-function OverviewTab({ stats }: { stats: Stats | null }) {
+function OverviewTab() {
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/admin/stats")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data && !data.error) setStats(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   if (!stats) {
     return (
       <p className="text-sm text-muted-foreground py-8 text-center">
-        No stats available.
+        Failed to load stats.
       </p>
     );
   }
