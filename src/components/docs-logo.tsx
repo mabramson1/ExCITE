@@ -32,17 +32,17 @@ export function DocsLogo({ className = "h-7 w-7" }: { className?: string }) {
         strokeLinecap="round"
         fill="none"
       />
-      {/* Bottom twist completing the "2" — curves back right with heart at end */}
+      {/* Bottom curve completing the "2" — sweeps left then hooks right */}
       <path
-        d="M10 40 C6 42, 4 44, 8 46 C10 47, 14 46, 14 46"
+        d="M10 40 C4 43, 2 47, 8 50 C12 52, 22 50, 26 49"
         stroke="currentColor"
         strokeWidth="2.5"
         strokeLinecap="round"
         fill="none"
       />
-      {/* Heart at the end of the twist */}
+      {/* Heart at the end */}
       <path
-        d="M14 46 C14 44, 11 43, 11 44.5 C11 45.5, 14 48, 14 48 C14 48, 17 45.5, 17 44.5 C17 43, 14 44, 14 46 Z"
+        d="M26 49 C26 47, 23 46, 23 47.5 C23 48.5, 26 51, 26 51 C26 51, 29 48.5, 29 47.5 C29 46, 26 47, 26 49 Z"
         fill="currentColor"
       />
     </svg>
@@ -64,8 +64,8 @@ export function DocsLogoCircle({ className = "h-10 w-10" }: { className?: string
         <path d="M5 3.8 C5 8, 11 12, 11 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" />
         <path d="M17 3.8 C17 8, 11 12, 11 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" />
         <path d="M11 12 C18 14, 25 17, 23 22 C21 27, 14 29, 8 32" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" />
-        <path d="M8 32 C5 34, 3 35.5, 6 37 C7.5 37.5, 11 37, 11 37" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" />
-        <path d="M11 37 C11 35.5, 8.5 34.5, 8.5 36 C8.5 37, 11 39, 11 39 C11 39, 13.5 37, 13.5 36 C13.5 34.5, 11 35.5, 11 37 Z" fill="currentColor" />
+        <path d="M8 32 C3 34, 1 37.5, 6 39.5 C9 41, 17 39.5, 20 39" stroke="currentColor" strokeWidth="2" strokeLinecap="round" fill="none" />
+        <path d="M20 39 C20 37.5, 17.5 37, 17.5 38 C17.5 38.8, 20 41, 20 41 C20 41, 22.5 38.8, 22.5 38 C22.5 37, 20 37.5, 20 39 Z" fill="currentColor" />
       </g>
     </svg>
   );
