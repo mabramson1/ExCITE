@@ -92,9 +92,9 @@ export function AiIntegrityMockup() {
           </div>
           <div className="space-y-1 text-[11px]">
             {[
-              ["Claude analysis", 92],
-              ["Sapling", 78],
-              ["Pangram Labs", 91],
+              ["Deep pattern analysis", 92],
+              ["External engine A", 78],
+              ["External engine B", 91],
               ["Local heuristics", 85],
             ].map(([name, score]) => (
               <div key={name} className="flex items-center gap-2">

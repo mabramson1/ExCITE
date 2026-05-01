@@ -92,7 +92,7 @@ export function ComplianceReport({ result, inputText, timestamp }: ComplianceRep
             )}
             <div className="text-center">
               <p className="text-3xl font-bold">{overallPercent}%</p>
-              <p className="text-xs text-gray-500">Claude AI Probability</p>
+              <p className="text-xs text-gray-500">Deep Analysis Probability</p>
             </div>
             <div className="text-center">
               <p className="text-lg font-bold mt-1">
@@ -132,7 +132,7 @@ export function ComplianceReport({ result, inputText, timestamp }: ComplianceRep
             </thead>
             <tbody>
               <tr className="border-b border-gray-200">
-                <td className="py-2 pr-4 font-medium">Claude Pattern Analysis</td>
+                <td className="py-2 pr-4 font-medium">Deep Pattern Analysis</td>
                 <td className="py-2 pr-4">{overallPercent}%</td>
                 <td className="py-2">{verdictLabel[result.verdict || ""] || result.verdict || "N/A"}</td>
               </tr>
@@ -177,8 +177,8 @@ export function ComplianceReport({ result, inputText, timestamp }: ComplianceRep
           <p className="text-sm text-gray-700">
             The analysis was performed using {1 + (result.external_detectors?.filter(d => d.available).length || 0)} detection source{(1 + (result.external_detectors?.filter(d => d.available).length || 0)) !== 1 ? "s" : ""}.
             {consensusPercent !== null
-              ? ` The multi-source consensus score of ${consensusPercent}% reflects a weighted combination of Claude analysis (60%) and external detectors (40%).`
-              : ` The score of ${overallPercent}% is based on Claude pattern analysis.`
+              ? ` The multi-source consensus score of ${consensusPercent}% reflects a weighted combination of deep pattern analysis (60%) and external detectors (40%).`
+              : ` The score of ${overallPercent}% is based on deep pattern analysis.`
             }
             {" "}Confidence level: {getConfidenceLevel(result.consensus_score ?? result.overall_ai_probability ?? 0)}.
           </p>

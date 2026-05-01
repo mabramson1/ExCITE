@@ -87,16 +87,14 @@ export default function PrivacyPolicyPage() {
           </p>
           <ul className="list-disc pl-5 space-y-1">
             <li>
-              <strong>Anthropic (Claude):</strong> Powers AI analysis including
-              clinical note processing, citation generation, and text rewriting.
+              <strong>AI Generation Provider:</strong> A third-party large
+              language model service powers AI analysis including clinical
+              note processing, citation generation, and text rewriting.
             </li>
             <li>
-              <strong>Sapling AI:</strong> Provides AI-generated text detection
-              scores.
-            </li>
-            <li>
-              <strong>Pangram Labs:</strong> Provides additional AI-content
-              detection analysis.
+              <strong>AI Detection Providers:</strong> Third-party detection
+              engines provide AI-generated text scoring used in our consensus
+              detector.
             </li>
             <li>
               <strong>Vercel Analytics:</strong> Collects anonymous, aggregate

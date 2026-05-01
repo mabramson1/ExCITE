@@ -77,7 +77,7 @@ const aiIntegrityFeatures = [
   {
     title: "AI Text Detector",
     description:
-      "Multi-source consensus: Claude + Sapling + Pangram + local heuristics",
+      "Multi-source consensus across multiple detection engines plus local heuristics",
   },
   {
     title: "De-AI-ifier",

@@ -361,7 +361,7 @@ function AiDetectorContent() {
                 </div>
                 <Progress value={Math.round(result.consensus_score * 100)} />
                 <p className="text-xs text-muted-foreground mt-2">
-                  Combined score: Claude (60%) + external detectors (40%, avg of Pangram + Sapling + 2026 heuristics)
+                  Combined score: primary deep analysis (60%) + external detectors (40%, average of multiple engines and 2026 heuristics)
                 </p>
               </CardContent>
             </Card>
@@ -369,7 +369,7 @@ function AiDetectorContent() {
 
           {/* Individual Source Scores */}
           <div className="grid md:grid-cols-2 gap-4">
-            {/* Claude Analysis */}
+            {/* Primary deep analysis */}
             <Card>
               <CardContent className="pt-6">
                 <div className="flex items-center justify-between mb-3">
@@ -379,7 +379,7 @@ function AiDetectorContent() {
                       <span className="font-semibold text-sm">
                         {verdict?.label || "Analysis Complete"}
                       </span>
-                      <p className="text-[10px] text-muted-foreground">Claude Pattern Analysis</p>
+                      <p className="text-[10px] text-muted-foreground">Deep Pattern Analysis</p>
                     </div>
                   </div>
                   <span className="text-xl font-bold">{overallPercent}%</span>

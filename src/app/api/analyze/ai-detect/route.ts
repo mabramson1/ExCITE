@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     } else {
       parsed = {
         verdict: "unavailable",
-        reasoning: "Claude analysis timed out. Results below are from external detectors only.",
+        reasoning: "Deep analysis timed out. Results below are from external detectors only.",
       };
     }
 

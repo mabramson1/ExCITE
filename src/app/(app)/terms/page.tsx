@@ -25,9 +25,9 @@ export default function TermsPage() {
             healthcare professionals and researchers analyze clinical notes,
             draft and rewrite manuscripts, generate and format citations, detect
             AI-generated text, and perform medical coding lookups. The service
-            is powered by Claude, developed by Anthropic, and is hosted on
-            Vercel. Docs² is currently available free of charge during its beta
-            period.
+            is powered by a third-party large language model service and is
+            hosted on Vercel. Docs² is currently available free of charge
+            during its beta period.
           </p>
         </section>
 

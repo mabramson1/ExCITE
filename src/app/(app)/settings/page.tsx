@@ -36,8 +36,8 @@ export default function SettingsPage() {
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
             <div>
-              <p className="text-sm font-medium">Anthropic (Claude) API</p>
-              <p className="text-xs text-muted-foreground">Used for all AI-powered features</p>
+              <p className="text-sm font-medium">AI Engine</p>
+              <p className="text-xs text-muted-foreground">Powers all AI-driven generation</p>
             </div>
             <Badge variant="outline">Server-side</Badge>
           </div>
