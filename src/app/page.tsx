@@ -2,7 +2,6 @@ import Link from "next/link";
 import {
   FileText,
   BookOpen,
-  Wand2,
   ScanSearch,
   Shield,
   Lock,
@@ -84,11 +83,26 @@ const aiIntegrityFeatures = [
   },
 ];
 
-const privacyPoints = [
-  "Detected patient identifiers are redacted in your browser before sending",
-  "Client-side PHI auto-detection covers names, MRNs, SSNs, dates, phones, addresses, and more",
-  "Automatic redaction is best-effort — do not rely solely on it for regulatory compliance",
-  "Real values are re-injected locally for display only",
+const privacyFeatures = [
+  {
+    title: "Browser-Side Redaction",
+    description:
+      "Detected patient identifiers are redacted in your browser before sending",
+  },
+  {
+    title: "Broad PHI Coverage",
+    description:
+      "Client-side PHI auto-detection covers names, MRNs, SSNs, dates, phones, addresses, and more",
+  },
+  {
+    title: "Best-Effort Safeguard",
+    description:
+      "Automatic redaction is best-effort — do not rely solely on it for regulatory compliance",
+  },
+  {
+    title: "Local Re-Injection",
+    description: "Real values are re-injected locally for display only",
+  },
 ];
 
 const steps = [
@@ -129,49 +143,6 @@ const tiers = [
     highlight: false,
   },
 ];
-
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                            */
-/* ------------------------------------------------------------------ */
-
-function FeatureCard({
-  title,
-  description,
-  accent,
-}: {
-  title: string;
-  description: string;
-  accent: string;
-}) {
-  return (
-    <div className="rounded-lg border bg-card p-4 hover:shadow-md transition-shadow">
-      <h4 className={`font-semibold mb-1 ${accent}`}>{title}</h4>
-      <p className="text-sm text-muted-foreground">{description}</p>
-    </div>
-  );
-}
-
-function SectionHeading({
-  icon: Icon,
-  title,
-  accent,
-  secondIcon: SecondIcon,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  accent: string;
-  secondIcon?: React.ComponentType<{ className?: string }>;
-}) {
-  return (
-    <div className="flex items-center gap-3 mb-6">
-      <div className={`rounded-lg p-2 ${accent}`}>
-        <Icon className="h-6 w-6" />
-        {SecondIcon && <SecondIcon className="h-6 w-6 -mt-1" />}
-      </div>
-      <h3 className="text-2xl font-bold">{title}</h3>
-    </div>
-  );
-}
 
 /* ------------------------------------------------------------------ */
 /*  Page                                                               */
@@ -234,87 +205,141 @@ export default function LandingPage() {
       </section>
 
       {/* ── Section 1: Clinical Documentation ─────────────────── */}
-      <section id="features" className="bg-muted/30 dark:bg-muted/10 py-20 scroll-mt-16">
+      <section id="features" className="py-20 scroll-mt-16">
         <div className="max-w-6xl mx-auto px-4">
-          <SectionHeading
-            icon={FileText}
-            title="Clinical Documentation"
-            accent="bg-blue-500/15 text-blue-600 dark:text-blue-400"
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {clinicalFeatures.map((f) => (
-              <FeatureCard
-                key={f.title}
-                title={f.title}
-                description={f.description}
-                accent="text-blue-600 dark:text-blue-400"
-              />
-            ))}
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            {/* Text side */}
+            <div>
+              <Badge variant="secondary" className="mb-4">Clinical Documentation</Badge>
+              <h3 className="text-3xl font-bold mb-4">Write better clinical notes, faster</h3>
+              <p className="text-muted-foreground mb-6">
+                Generate complete A/P sections, prior auth letters, discharge
+                summaries, and referral letters — all optimized for proper E&amp;M
+                coding and maximum reimbursement.
+              </p>
+              <ul className="space-y-3">
+                {clinicalFeatures.map((f) => (
+                  <li key={f.title} className="flex items-start gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-medium">{f.title}</span>
+                      <span className="text-muted-foreground"> — {f.description}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {/* Visual side */}
+            <div className="flex items-center justify-center">
+              <div className="w-full max-w-sm aspect-square rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/20 flex items-center justify-center">
+                <FileText className="h-24 w-24 text-blue-400/30" />
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ── Section 2: Academic Writing ────────────────────────── */}
-      <section className="py-20">
+      {/* ── Section 2: Academic Writing (flipped) ─────────────── */}
+      <section className="bg-muted/30 dark:bg-muted/10 py-20">
         <div className="max-w-6xl mx-auto px-4">
-          <SectionHeading
-            icon={BookOpen}
-            title="Academic Writing"
-            accent="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {academicFeatures.map((f) => (
-              <FeatureCard
-                key={f.title}
-                title={f.title}
-                description={f.description}
-                accent="text-emerald-600 dark:text-emerald-400"
-              />
-            ))}
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            {/* Text side (order-2 on md to flip) */}
+            <div className="md:order-2">
+              <Badge variant="secondary" className="mb-4">Academic Writing</Badge>
+              <h3 className="text-3xl font-bold mb-4">From rough notes to polished manuscripts</h3>
+              <p className="text-muted-foreground mb-6">
+                Transform bullet points into journal-ready manuscripts. Find real
+                citations from PubMed, never hallucinated. Respond to peer
+                reviewers point-by-point.
+              </p>
+              <ul className="space-y-3">
+                {academicFeatures.map((f) => (
+                  <li key={f.title} className="flex items-start gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-medium">{f.title}</span>
+                      <span className="text-muted-foreground"> — {f.description}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {/* Visual side (order-1 on md to flip) */}
+            <div className="flex items-center justify-center md:order-1">
+              <div className="w-full max-w-sm aspect-square rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/30 dark:to-emerald-900/20 flex items-center justify-center">
+                <BookOpen className="h-24 w-24 text-emerald-400/30" />
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* ── Section 3: AI Writing Integrity ────────────────────── */}
-      <section className="bg-muted/30 dark:bg-muted/10 py-20">
+      <section className="py-20">
         <div className="max-w-6xl mx-auto px-4">
-          <SectionHeading
-            icon={Wand2}
-            title="AI Writing Integrity"
-            accent="bg-violet-500/15 text-violet-600 dark:text-violet-400"
-            secondIcon={ScanSearch}
-          />
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            {aiIntegrityFeatures.map((f) => (
-              <FeatureCard
-                key={f.title}
-                title={f.title}
-                description={f.description}
-                accent="text-violet-600 dark:text-violet-400"
-              />
-            ))}
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            {/* Text side */}
+            <div>
+              <Badge variant="secondary" className="mb-4">AI Writing Integrity</Badge>
+              <h3 className="text-3xl font-bold mb-4">Detect, humanize, and verify</h3>
+              <p className="text-muted-foreground mb-6">
+                Multi-source AI detection with consensus scoring. Rewrite
+                AI-generated text to sound naturally human. Export compliance
+                reports with signature lines.
+              </p>
+              <ul className="space-y-3">
+                {aiIntegrityFeatures.map((f) => (
+                  <li key={f.title} className="flex items-start gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-medium">{f.title}</span>
+                      <span className="text-muted-foreground"> — {f.description}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {/* Visual side */}
+            <div className="flex items-center justify-center">
+              <div className="w-full max-w-sm aspect-square rounded-2xl bg-gradient-to-br from-violet-50 to-violet-100 dark:from-violet-950/30 dark:to-violet-900/20 flex items-center justify-center">
+                <ScanSearch className="h-24 w-24 text-violet-400/30" />
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ── Section 4: Privacy-First Banner ────────────────────── */}
-      <section className="bg-green-500/10 dark:bg-green-900/20 border-y border-green-500/20 py-20">
-        <div className="max-w-4xl mx-auto px-4 text-center">
-          <div className="flex justify-center mb-4">
-            <div className="rounded-full bg-green-500/15 p-4">
-              <Lock className="h-10 w-10 text-green-600 dark:text-green-400" />
+      {/* ── Section 4: Privacy-First (flipped) ─────────────────── */}
+      <section className="bg-muted/30 dark:bg-muted/10 py-20">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="grid md:grid-cols-2 gap-12 items-center">
+            {/* Text side (order-2 on md to flip) */}
+            <div className="md:order-2">
+              <Badge variant="secondary" className="mb-4">Privacy-First Architecture</Badge>
+              <h3 className="text-3xl font-bold mb-4">Built-in PHI auto-detection</h3>
+              <p className="text-muted-foreground mb-6">
+                Detected identifiers are automatically redacted in your browser
+                before any text leaves your device. Clinical details the AI needs
+                pass through untouched.
+              </p>
+              <ul className="space-y-3">
+                {privacyFeatures.map((f) => (
+                  <li key={f.title} className="flex items-start gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                    <div>
+                      <span className="font-medium">{f.title}</span>
+                      <span className="text-muted-foreground"> — {f.description}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
             </div>
-          </div>
-          <h3 className="text-2xl md:text-3xl font-bold mb-6">
-            Privacy-First Architecture
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto text-left">
-            {privacyPoints.map((point) => (
-              <div key={point} className="flex items-start gap-2">
-                <Shield className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
-                <span className="text-muted-foreground">{point}</span>
+            {/* Visual side (order-1 on md to flip) */}
+            <div className="flex items-center justify-center md:order-1">
+              <div className="w-full max-w-sm aspect-square rounded-2xl bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950/30 dark:to-green-900/20 flex items-center justify-center">
+                <Lock className="h-24 w-24 text-green-400/30" />
               </div>
-            ))}
+            </div>
           </div>
         </div>
       </section>
