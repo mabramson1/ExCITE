@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ScanSearch, Loader2, Copy, Check, AlertTriangle, CheckCircle2, XCircle, Shield, Upload, X } from "lucide-react";
 import { toast } from "sonner";
+import { handleCreditError } from "@/lib/credit-error";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -139,6 +140,7 @@ function AiDetectorContent() {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (handleCreditError(res.status, data)) return;
         toast.error(data.error || "Analysis failed");
         return;
       }

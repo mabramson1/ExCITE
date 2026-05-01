@@ -6,6 +6,7 @@ import { BookOpen, Loader2, Copy, Check, Download, ExternalLink, CheckCircle2, X
 import { useKeyboardSubmit } from "@/hooks/use-keyboard-submit";
 import { SuccessFlash } from "@/components/success-flash";
 import { toast } from "sonner";
+import { handleCreditError } from "@/lib/credit-error";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -170,6 +171,7 @@ function ManuscriptCitationsContent() {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (handleCreditError(res.status, data)) return;
         toast.error(data.error || "Analysis failed");
         return;
       }
@@ -732,6 +734,7 @@ function ReviewResponseTab() {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (handleCreditError(res.status, data)) return;
         toast.error(data.error || "Failed to generate response");
         return;
       }
@@ -1025,6 +1028,7 @@ function ManuscriptWriterTab() {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (handleCreditError(res.status, data)) return;
         toast.error(data.error || "Manuscript generation failed");
         return;
       }
@@ -1084,6 +1088,7 @@ function ManuscriptWriterTab() {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (handleCreditError(res.status, data)) return;
         toast.error(data.error || "AI detection failed");
         return;
       }
@@ -1124,6 +1129,8 @@ function ManuscriptWriterTab() {
         const data = await res.json();
         if (res.ok) {
           newHumanized[i] = data.result?.rewritten_text ?? data.result?.text ?? data.rewritten_text ?? section.content;
+        } else if (handleCreditError(res.status, data)) {
+          return;
         }
       }
       setHumanizedSections(newHumanized);

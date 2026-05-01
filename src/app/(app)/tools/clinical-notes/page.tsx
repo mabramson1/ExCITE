@@ -6,6 +6,7 @@ import { FileText, Loader2, Copy, Check, Download, BookOpen, ExternalLink, Alert
 import { useKeyboardSubmit } from "@/hooks/use-keyboard-submit";
 import { SuccessFlash } from "@/components/success-flash";
 import { toast } from "sonner";
+import { handleCreditError } from "@/lib/credit-error";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -354,6 +355,7 @@ function AnalyzeTab({ prefill }: { prefill: Prefill | null }) {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (handleCreditError(res.status, data)) return;
         toast.error(data.error || "Analysis failed");
         return;
       }
@@ -1009,6 +1011,11 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
         }),
       });
       const data = await res.json();
+      if (!res.ok) {
+        if (handleCreditError(res.status, data)) return;
+        toast.error(data.error || "Generation failed");
+        return;
+      }
       if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
       setResult(deepReinject(data.result, tokenMap));
       setSavedId(data.savedId || null);
@@ -1118,6 +1125,7 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (handleCreditError(res.status, data)) return;
         toast.error(data.error || "Humanization failed");
         return;
       }
@@ -1846,6 +1854,7 @@ function PriorAuthTab() {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (handleCreditError(res.status, data)) return;
         toast.error(data.error || "Generation failed");
         return;
       }
@@ -2027,6 +2036,7 @@ function DischargeTab() {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (handleCreditError(res.status, data)) return;
         toast.error(data.error || "Generation failed");
         return;
       }
@@ -2239,6 +2249,7 @@ function ReferralTab() {
       });
       const data = await res.json();
       if (!res.ok) {
+        if (handleCreditError(res.status, data)) return;
         toast.error(data.error || "Generation failed");
         return;
       }
