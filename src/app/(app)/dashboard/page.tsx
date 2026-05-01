@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { UsageMeter } from "@/components/usage-meter";
 
 const tools = [
   {
@@ -108,21 +109,24 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        {statCards.map((stat) => (
-          <Card key={stat.label}>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3">
-                <stat.icon className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-2xl font-bold">{stat.value}</p>
-                  <p className="text-xs text-muted-foreground">{stat.label}</p>
+      {/* Quick Stats + Usage Meter */}
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
+          {statCards.map((stat) => (
+            <Card key={stat.label}>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3">
+                  <stat.icon className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-2xl font-bold">{stat.value}</p>
+                    <p className="text-xs text-muted-foreground">{stat.label}</p>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <UsageMeter />
       </div>
 
       {/* Tools Grid */}

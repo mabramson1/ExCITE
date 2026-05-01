@@ -5,6 +5,7 @@ import { runExternalDetectors } from "@/lib/ai-detection";
 import { autoSaveProject } from "@/lib/auto-save";
 import { checkRateLimit, validateInput } from "@/lib/rate-limit";
 import { requireUser } from "@/lib/api-auth";
+import { checkCreditLimit, recordUsage } from "@/lib/usage";
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,6 +20,15 @@ export async function POST(req: NextRequest) {
 
     const authResult = await requireUser();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
+
+    const credit = await checkCreditLimit(userId, "de_ai_ify");
+    if (!credit.allowed) {
+      return NextResponse.json(
+        { error: "Out of credits this month", credit },
+        { status: 402 }
+      );
+    }
 
     const { text, writingStyle = "general", verifyAfter = true, voiceSample } = await req.json();
     const v = validateInput(text);
@@ -27,7 +37,8 @@ export async function POST(req: NextRequest) {
     }
 
     const phiResult = scanAndCensorPhi(text);
-    const analysis = await deAiifyText(phiResult.censoredText, writingStyle, voiceSample);
+    const { text: analysis, usage } = await deAiifyText(phiResult.censoredText, writingStyle, voiceSample);
+    recordUsage(userId, "de_ai_ify", usage);
 
     let parsed;
     try {

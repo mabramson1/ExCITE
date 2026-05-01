@@ -20,12 +20,12 @@ const plans = [
     name: "Free",
     price: "$0",
     period: "forever",
-    description: "Get started with basic citation tools",
+    description: "Try the full suite",
     features: [
-      "10 analyses per month",
-      "All 4 AI tools",
-      "Basic export options",
-      "Community support",
+      "10 credits per month",
+      "All clinical, academic, and AI-integrity tools",
+      "PHI auto-redaction in your browser",
+      "Analysis history",
     ],
     cta: "Current Plan",
     plan: "free" as const,
@@ -37,9 +37,9 @@ const plans = [
     period: "/month",
     description: "For active researchers and clinicians",
     features: [
-      "100 analyses per month",
-      "All 4 AI tools",
-      "Priority support",
+      "100 credits per month",
+      "All tools, no feature gates",
+      "Priority email support",
       "Advanced export options",
       "Analysis history",
     ],
@@ -51,19 +51,30 @@ const plans = [
     name: "Unlimited",
     price: "$39",
     period: "/month",
-    description: "For teams and power users",
+    description: "For high-volume practices",
     features: [
-      "Unlimited analyses",
-      "All 4 AI tools",
+      "500 credits per month (fair-use cap)",
+      "All tools, no feature gates",
       "Priority support",
-      "Advanced export options",
-      "Analysis history",
       "Early access to new features",
     ],
     cta: "Upgrade to Unlimited",
     plan: "unlimited" as const,
     highlighted: false,
   },
+];
+
+const TOOL_CREDIT_TABLE: { tool: string; credits: number }[] = [
+  { tool: "Referral Letter", credits: 1 },
+  { tool: "Prior Auth Letter", credits: 1 },
+  { tool: "AI Detector", credits: 1 },
+  { tool: "Clinical Note Coding", credits: 1 },
+  { tool: "De-AI-ifier", credits: 1 },
+  { tool: "A/P Writer", credits: 1 },
+  { tool: "Manuscript Citations", credits: 1 },
+  { tool: "Discharge Summary", credits: 2 },
+  { tool: "Peer Review Response", credits: 2 },
+  { tool: "Manuscript Writer", credits: 2 },
 ];
 
 export default function PricingPage() {
@@ -228,6 +239,32 @@ function PricingContent() {
             : "Manage existing subscription"}
         </Button>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">How credits work</CardTitle>
+          <CardDescription>
+            Each tool costs 1 or 2 credits per generation. Heavier tools that
+            produce longer outputs (Manuscript Writer, Discharge Summary, Peer
+            Review Response) cost 2 credits. Everything else is 1.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2">
+            {TOOL_CREDIT_TABLE.map((row) => (
+              <div
+                key={row.tool}
+                className="flex items-center justify-between text-sm border-b pb-2 last:border-0"
+              >
+                <span>{row.tool}</span>
+                <span className="font-medium tabular-nums">
+                  {row.credits} credit{row.credits === 1 ? "" : "s"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="text-center text-xs text-muted-foreground space-y-1">
         <p>All prices in USD. Billed monthly. Cancel anytime.</p>

@@ -20,6 +20,7 @@ import {
   BarChart3,
   Server,
   TrendingUp,
+  Gauge,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -206,6 +207,10 @@ export default function AdminContent() {
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="projects">Projects</TabsTrigger>
             <TabsTrigger value="shares">Shares</TabsTrigger>
+            <TabsTrigger value="meter">
+              <Gauge className="h-4 w-4" />
+              Meter
+            </TabsTrigger>
             <TabsTrigger value="database">
               <Database className="h-4 w-4" />
               Database
@@ -233,6 +238,9 @@ export default function AdminContent() {
               <SelectItem value="shares">
                 <span className="flex items-center gap-2"><Link2 className="h-4 w-4" /> Shares</span>
               </SelectItem>
+              <SelectItem value="meter">
+                <span className="flex items-center gap-2"><Gauge className="h-4 w-4" /> Meter</span>
+              </SelectItem>
               <SelectItem value="database">
                 <span className="flex items-center gap-2"><Database className="h-4 w-4" /> Database</span>
               </SelectItem>
@@ -254,6 +262,9 @@ export default function AdminContent() {
         </TabsContent>
         <TabsContent value="shares">
           <SharesTab />
+        </TabsContent>
+        <TabsContent value="meter">
+          <MeterTab />
         </TabsContent>
         <TabsContent value="database">
           <DatabaseTab />
@@ -1570,6 +1581,247 @@ function CellDisplay({
     >
       {strValue}
     </span>
+  );
+}
+
+/* ---------- Meter Tab ---------- */
+
+interface MeterData {
+  month: {
+    calls: number;
+    credits: number;
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheWriteTokens: number;
+    costUsd: string;
+  };
+  allTime: { calls: number; credits: number; costUsd: string };
+  byTool: { tool: string; label: string; calls: number; credits: number; costUsd: string }[];
+  topUsers: {
+    userId: string;
+    email: string | null;
+    name: string | null;
+    calls: number;
+    credits: number;
+    costUsd: string;
+  }[];
+  daily: { date: string; calls: number; credits: number; costUsd: string }[];
+}
+
+function MeterTab() {
+  const [data, setData] = useState<MeterData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [migrating, setMigrating] = useState(false);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    fetch("/api/admin/meter")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d && !d.error) setData(d);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  async function runMigration() {
+    setMigrating(true);
+    const res = await fetch("/api/admin/migrate-usage-meter", { method: "POST" });
+    if (res.ok) {
+      toast.success("Migration ran successfully");
+      load();
+    } else {
+      const j = await res.json().catch(() => ({}));
+      toast.error(j.error || "Migration failed");
+    }
+    setMigrating(false);
+  }
+
+  if (loading) {
+    return <p className="text-sm text-muted-foreground py-8 text-center">Loading meter…</p>;
+  }
+
+  if (!data) {
+    return (
+      <Card>
+        <CardContent className="py-8 text-center space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Meter data unavailable. Run the one-time migration to create the table.
+          </p>
+          <Button onClick={runMigration} disabled={migrating} size="sm">
+            {migrating ? "Running…" : "Create usage_meter table"}
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Top stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-xs text-muted-foreground mb-1">Calls (this month)</p>
+            <p className="text-2xl font-bold tabular-nums">{data.month.calls}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-xs text-muted-foreground mb-1">Credits (this month)</p>
+            <p className="text-2xl font-bold tabular-nums">{data.month.credits}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-xs text-muted-foreground mb-1">Spend (this month)</p>
+            <p className="text-2xl font-bold tabular-nums">${data.month.costUsd}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-xs text-muted-foreground mb-1">All-time spend</p>
+            <p className="text-2xl font-bold tabular-nums">${data.allTime.costUsd}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Token detail */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Token consumption (this month)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+              <p className="text-xs text-muted-foreground">Input</p>
+              <p className="font-semibold tabular-nums">{data.month.inputTokens.toLocaleString()}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Output</p>
+              <p className="font-semibold tabular-nums">{data.month.outputTokens.toLocaleString()}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Cache reads</p>
+              <p className="font-semibold tabular-nums">{data.month.cacheReadTokens.toLocaleString()}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Cache writes</p>
+              <p className="font-semibold tabular-nums">{data.month.cacheWriteTokens.toLocaleString()}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Per-tool breakdown */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">By tool (this month)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {data.byTool.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No usage yet this month.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-muted-foreground border-b">
+                  <th className="text-left py-2 font-medium">Tool</th>
+                  <th className="text-right py-2 font-medium">Calls</th>
+                  <th className="text-right py-2 font-medium">Credits</th>
+                  <th className="text-right py-2 font-medium">Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.byTool
+                  .sort((a, b) => b.credits - a.credits)
+                  .map((row) => (
+                    <tr key={row.tool} className="border-b last:border-0">
+                      <td className="py-2">{row.label}</td>
+                      <td className="text-right tabular-nums">{row.calls}</td>
+                      <td className="text-right tabular-nums">{row.credits}</td>
+                      <td className="text-right tabular-nums">${row.costUsd}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Top users */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Top users by credits (this month)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {data.topUsers.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No usage yet this month.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-muted-foreground border-b">
+                  <th className="text-left py-2 font-medium">User</th>
+                  <th className="text-right py-2 font-medium">Calls</th>
+                  <th className="text-right py-2 font-medium">Credits</th>
+                  <th className="text-right py-2 font-medium">Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.topUsers.map((row) => (
+                  <tr key={row.userId} className="border-b last:border-0">
+                    <td className="py-2">
+                      <div className="font-medium">{row.name || "—"}</div>
+                      <div className="text-xs text-muted-foreground">{row.email || row.userId}</div>
+                    </td>
+                    <td className="text-right tabular-nums">{row.calls}</td>
+                    <td className="text-right tabular-nums">{row.credits}</td>
+                    <td className="text-right tabular-nums">${row.costUsd}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Daily totals */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Daily totals (last 14 days)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {data.daily.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No data yet.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-muted-foreground border-b">
+                  <th className="text-left py-2 font-medium">Date</th>
+                  <th className="text-right py-2 font-medium">Calls</th>
+                  <th className="text-right py-2 font-medium">Credits</th>
+                  <th className="text-right py-2 font-medium">Cost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.daily.map((row) => (
+                  <tr key={row.date} className="border-b last:border-0">
+                    <td className="py-2">{new Date(row.date).toLocaleDateString()}</td>
+                    <td className="text-right tabular-nums">{row.calls}</td>
+                    <td className="text-right tabular-nums">{row.credits}</td>
+                    <td className="text-right tabular-nums">${row.costUsd}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

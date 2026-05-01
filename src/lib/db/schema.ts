@@ -7,13 +7,14 @@ import {
   uuid,
   jsonb,
   primaryKey,
+  integer,
 } from "drizzle-orm/pg-core";
 
 // ── Role enum ─────────────────────────────────────────────────────
 export const userRoleEnum = pgEnum("user_role", [
-  "free",    // Free tier (10 analyses/month)
-  "pro",     // Paid tier 1 ($19/mo, 100 analyses/month)
-  "unlimited", // Paid tier 2 ($39/mo, unlimited)
+  "free",    // Free tier (10 credits/month)
+  "pro",     // Paid tier 1 ($19/mo, 100 credits/month)
+  "unlimited", // Paid tier 2 ($39/mo, 500 credits/month fair-use cap)
   "admin",   // Full platform access
 ]);
 
@@ -164,6 +165,27 @@ export const subscription = pgTable("subscription", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// ── Usage meter ───────────────────────────────────────────────────
+// One row per Claude API call. Tracks credit cost (per-tool weight) and
+// raw token counts so admins can audit COGS and users can see their usage.
+export const usageMeter = pgTable("usage_meter", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  tool: text("tool").notNull(), // e.g. "ap_writer", "manuscript_writer"
+  credits: integer("credits").notNull(), // 1 or 2
+  inputTokens: integer("input_tokens").notNull().default(0),
+  outputTokens: integer("output_tokens").notNull().default(0),
+  cacheReadTokens: integer("cache_read_tokens").notNull().default(0),
+  cacheWriteTokens: integer("cache_write_tokens").notNull().default(0),
+  // Cost in tenths of a cent (millicents) so we can store sub-cent values as int
+  costMillicents: integer("cost_millicents").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type UsageMeter = typeof usageMeter.$inferSelect;
 
 // Types
 export type User = typeof user.$inferSelect;

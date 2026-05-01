@@ -4,6 +4,12 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
+/** Standard return shape: text + token usage so callers can meter cost. */
+export interface ClaudeResult {
+  text: string;
+  usage: Anthropic.Messages.Usage;
+}
+
 // Helper to create a cached system prompt block (Anthropic prompt caching)
 function cachedSystem(text: string): Anthropic.Messages.TextBlockParam[] {
   return [
@@ -58,7 +64,7 @@ PUBLICATION CITATIONS:
 
 Respond ONLY with valid JSON. No markdown, no code fences.`;
 
-export async function analyzeClinicalNote(noteText: string): Promise<string> {
+export async function analyzeClinicalNote(noteText: string): Promise<ClaudeResult> {
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 6144,
@@ -142,7 +148,8 @@ Respond with this exact JSON structure:
   });
 
   const content = message.content[0];
-  return content.type === "text" ? content.text : "";
+  const text = content.type === "text" ? content.text : "";
+  return { text, usage: message.usage };
 }
 
 // ── A/P Note Writer ────────────────────────────────────────────────
@@ -217,7 +224,7 @@ export async function generateAssessmentPlan(
   skeleton: string,
   encounterType: string,
   options?: { voiceSample?: string; brevity?: string; customTemplate?: string }
-): Promise<string> {
+): Promise<ClaudeResult> {
   let userMessage = "";
 
   if (options?.voiceSample) {
@@ -307,7 +314,8 @@ Respond with this exact JSON structure:
   });
 
   const content = message.content[0];
-  return content.type === "text" ? content.text : "";
+  const text = content.type === "text" ? content.text : "";
+  return { text, usage: message.usage };
 }
 
 // ── Prior Authorization Letter ────────────────────────────────────
@@ -336,7 +344,7 @@ export async function generatePriorAuthLetter(
   skeleton: string,
   procedure: string,
   diagnosis: string
-): Promise<string> {
+): Promise<ClaudeResult> {
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 6144,
@@ -365,7 +373,8 @@ Respond with this exact JSON structure:
   });
 
   const content = message.content[0];
-  return content.type === "text" ? content.text : "";
+  const text = content.type === "text" ? content.text : "";
+  return { text, usage: message.usage };
 }
 
 // ── Discharge Summary ────────────────────────────────────────────
@@ -393,7 +402,7 @@ Respond ONLY with valid JSON. No markdown, no code fences.`;
 export async function generateDischargeSummary(
   skeleton: string,
   admitReason: string
-): Promise<string> {
+): Promise<ClaudeResult> {
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 6144,
@@ -430,7 +439,8 @@ Respond with this exact JSON structure:
   });
 
   const content = message.content[0];
-  return content.type === "text" ? content.text : "";
+  const text = content.type === "text" ? content.text : "";
+  return { text, usage: message.usage };
 }
 
 // ── Referral Letter ──────────────────────────────────────────────
@@ -459,7 +469,7 @@ export async function generateReferralLetter(
   skeleton: string,
   referTo: string,
   reason: string
-): Promise<string> {
+): Promise<ClaudeResult> {
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 6144,
@@ -488,7 +498,8 @@ Respond with this exact JSON structure:
   });
 
   const content = message.content[0];
-  return content.type === "text" ? content.text : "";
+  const text = content.type === "text" ? content.text : "";
+  return { text, usage: message.usage };
 }
 
 // ── Manuscript Citation Analysis ───────────────────────────────────
@@ -509,9 +520,9 @@ CRITICAL RULES:
 Respond ONLY with valid JSON. No markdown, no code fences.`;
 
 export async function generateManuscriptCitations(
-  text: string,
+  inputText: string,
   style: string
-): Promise<string> {
+): Promise<ClaudeResult> {
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 6144,
@@ -525,7 +536,7 @@ IMPORTANT: Do not make up citations. Mark every suggestion "verified": false. Pr
 
 Manuscript Text:
 """
-${text}
+${inputText}
 """
 
 Respond with this exact JSON structure:
@@ -564,7 +575,8 @@ Respond with this exact JSON structure:
   });
 
   const content = message.content[0];
-  return content.type === "text" ? content.text : "";
+  const text = content.type === "text" ? content.text : "";
+  return { text, usage: message.usage };
 }
 
 // ── Peer Review Response Generator ────────────────────────────────
@@ -592,7 +604,7 @@ Respond ONLY with valid JSON. No markdown, no code fences.`;
 export async function generateReviewResponse(
   manuscript: string,
   reviewerComments: string
-): Promise<string> {
+): Promise<ClaudeResult> {
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 6144,
@@ -631,7 +643,8 @@ Respond with this exact JSON structure:
   });
 
   const content = message.content[0];
-  return content.type === "text" ? content.text : "";
+  const text = content.type === "text" ? content.text : "";
+  return { text, usage: message.usage };
 }
 
 // ── De-AI-ify Text ─────────────────────────────────────────────────
@@ -773,7 +786,7 @@ function getDeAiSystem(writingStyle: string): string {
   return `${DEAI_SYSTEM_BASE}\n\n${styleInstructions}`;
 }
 
-export async function deAiifyText(text: string, writingStyle = "general", voiceSample?: string): Promise<string> {
+export async function deAiifyText(inputText: string, writingStyle = "general", voiceSample?: string): Promise<ClaudeResult> {
   const styleName = writingStyle.replace(/-/g, " ");
 
   let userMessage = "";
@@ -798,7 +811,7 @@ Return the final (Pass 2) text as "rewritten_text" and list any issues you caugh
 
 Text:
 """
-${text}
+${inputText}
 """
 
 Respond with this exact JSON structure:
@@ -828,7 +841,8 @@ confidence_score: 1.0 = definitely human, 0.0 = still obviously AI. Be honest.`;
   });
 
   const content = message.content[0];
-  return content.type === "text" ? content.text : "";
+  const text = content.type === "text" ? content.text : "";
+  return { text, usage: message.usage };
 }
 
 // ── Manuscript Writer ─────────────────────────────────────────────
@@ -868,7 +882,7 @@ export async function generateManuscript(
     brevity?: string;
     voiceSample?: string;
   }
-): Promise<string> {
+): Promise<ClaudeResult> {
   const format = options.format || "imrad";
   let userMessage = "";
 
@@ -946,7 +960,8 @@ Respond with this exact JSON structure:
   });
 
   const content = message.content[0];
-  return content.type === "text" ? content.text : "";
+  const text = content.type === "text" ? content.text : "";
+  return { text, usage: message.usage };
 }
 
 // ── AI Text Detection ──────────────────────────────────────────────
@@ -1023,7 +1038,7 @@ OUTPUT REQUIREMENTS
 
 Respond ONLY with valid JSON. No markdown, no code fences.`;
 
-export async function detectAiText(text: string): Promise<string> {
+export async function detectAiText(inputText: string): Promise<ClaudeResult> {
   const message = await anthropic.messages.create({
     model: "claude-sonnet-4-20250514",
     max_tokens: 6144,
@@ -1037,7 +1052,7 @@ IMPORTANT: Provide sentence-level scoring — assign an AI probability to each s
 
 Text:
 """
-${text}
+${inputText}
 """
 
 Respond with this exact JSON structure:
@@ -1073,5 +1088,6 @@ Verdict thresholds: likely_human 0.0-0.3, possibly_ai 0.3-0.55, likely_ai 0.55-0
   });
 
   const content = message.content[0];
-  return content.type === "text" ? content.text : "";
+  const text = content.type === "text" ? content.text : "";
+  return { text, usage: message.usage };
 }

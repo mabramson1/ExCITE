@@ -4,6 +4,7 @@ import { scanAndCensorPhi } from "@/lib/phi-detection";
 import { autoSaveProject } from "@/lib/auto-save";
 import { checkRateLimit, validateInput } from "@/lib/rate-limit";
 import { requireUser } from "@/lib/api-auth";
+import { checkCreditLimit, recordUsage } from "@/lib/usage";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,6 +19,15 @@ export async function POST(req: NextRequest) {
 
     const authResult = await requireUser();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
+
+    const credit = await checkCreditLimit(userId, "ap_writer");
+    if (!credit.allowed) {
+      return NextResponse.json(
+        { error: "Out of credits this month", credit },
+        { status: 402 }
+      );
+    }
 
     const { skeleton, encounterType = "established_office", voiceSample, brevity, customTemplate } = await req.json();
     const v = validateInput(skeleton);
@@ -26,11 +36,12 @@ export async function POST(req: NextRequest) {
     }
 
     const phiResult = scanAndCensorPhi(skeleton);
-    const analysis = await generateAssessmentPlan(phiResult.censoredText, encounterType, {
+    const { text: analysis, usage } = await generateAssessmentPlan(phiResult.censoredText, encounterType, {
       voiceSample: voiceSample || undefined,
       brevity: brevity || undefined,
       customTemplate: customTemplate || undefined,
     });
+    recordUsage(userId, "ap_writer", usage);
 
     let parsed;
     try {

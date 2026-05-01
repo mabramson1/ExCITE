@@ -5,6 +5,8 @@ import { runExternalDetectors } from "@/lib/ai-detection";
 import { autoSaveProject } from "@/lib/auto-save";
 import { checkRateLimit, validateInput } from "@/lib/rate-limit";
 import { requireUser } from "@/lib/api-auth";
+import { checkCreditLimit, recordUsage } from "@/lib/usage";
+import type { ClaudeResult } from "@/lib/ai/claude";
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,6 +21,15 @@ export async function POST(req: NextRequest) {
 
     const authResult = await requireUser();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
+
+    const credit = await checkCreditLimit(userId, "ai_detector");
+    if (!credit.allowed) {
+      return NextResponse.json(
+        { error: "Out of credits this month", credit },
+        { status: 402 }
+      );
+    }
 
     const { text } = await req.json();
     const v = validateInput(text);
@@ -38,18 +49,20 @@ export async function POST(req: NextRequest) {
       new Promise<null>((resolve) => setTimeout(() => resolve(null), 30_000)),
     ]);
 
-    const [analysisOrNull, externalResults] = await Promise.all([
-      claudeWithTimeout,
+    const [claudeResult, externalResults] = await Promise.all([
+      claudeWithTimeout as Promise<ClaudeResult | null>,
       externalPromise,
     ]);
 
     let parsed;
-    if (analysisOrNull) {
+    if (claudeResult) {
+      recordUsage(userId, "ai_detector", claudeResult.usage);
+      const analysisText = claudeResult.text;
       try {
-        const jsonMatch = analysisOrNull.match(/\{[\s\S]*\}/);
-        parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { raw: analysisOrNull };
+        const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
+        parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { raw: analysisText };
       } catch {
-        parsed = { raw: analysisOrNull };
+        parsed = { raw: analysisText };
       }
     } else {
       parsed = {

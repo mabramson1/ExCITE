@@ -4,6 +4,7 @@ import { scanAndCensorPhi } from "@/lib/phi-detection";
 import { autoSaveProject } from "@/lib/auto-save";
 import { checkRateLimit, validateInput } from "@/lib/rate-limit";
 import { requireUser } from "@/lib/api-auth";
+import { checkCreditLimit, recordUsage } from "@/lib/usage";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,6 +19,15 @@ export async function POST(req: NextRequest) {
 
     const authResult = await requireUser();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
+
+    const credit = await checkCreditLimit(userId, "review_response");
+    if (!credit.allowed) {
+      return NextResponse.json(
+        { error: "Out of credits this month", credit },
+        { status: 402 }
+      );
+    }
 
     const { manuscript, reviewerComments } = await req.json();
     const v = validateInput(manuscript);
@@ -35,10 +45,11 @@ export async function POST(req: NextRequest) {
     const manuscriptPhi = scanAndCensorPhi(manuscript);
     const commentsPhi = scanAndCensorPhi(reviewerComments);
 
-    const analysis = await generateReviewResponse(
+    const { text: analysis, usage } = await generateReviewResponse(
       manuscriptPhi.censoredText,
       commentsPhi.censoredText
     );
+    recordUsage(userId, "review_response", usage);
 
     let parsed;
     try {

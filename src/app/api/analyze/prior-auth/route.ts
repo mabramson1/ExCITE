@@ -4,6 +4,7 @@ import { scanAndCensorPhi } from "@/lib/phi-detection";
 import { autoSaveProject } from "@/lib/auto-save";
 import { checkRateLimit, validateInput } from "@/lib/rate-limit";
 import { requireUser } from "@/lib/api-auth";
+import { checkCreditLimit, recordUsage } from "@/lib/usage";
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,6 +19,15 @@ export async function POST(req: NextRequest) {
 
     const authResult = await requireUser();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
+
+    const credit = await checkCreditLimit(userId, "prior_auth");
+    if (!credit.allowed) {
+      return NextResponse.json(
+        { error: "Out of credits this month", credit },
+        { status: 402 }
+      );
+    }
 
     const { skeleton, procedure, diagnosis } = await req.json();
     const v = validateInput(skeleton);
@@ -33,7 +43,8 @@ export async function POST(req: NextRequest) {
     }
 
     const phiResult = scanAndCensorPhi(skeleton);
-    const analysis = await generatePriorAuthLetter(phiResult.censoredText, procedure, diagnosis);
+    const { text: analysis, usage } = await generatePriorAuthLetter(phiResult.censoredText, procedure, diagnosis);
+    recordUsage(userId, "prior_auth", usage);
 
     let parsed;
     try {

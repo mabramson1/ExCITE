@@ -5,6 +5,7 @@ import { verifyCitation, searchPubMed } from "@/lib/pubmed";
 import { autoSaveProject } from "@/lib/auto-save";
 import { checkRateLimit, validateInput } from "@/lib/rate-limit";
 import { requireUser } from "@/lib/api-auth";
+import { checkCreditLimit, recordUsage } from "@/lib/usage";
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,6 +20,15 @@ export async function POST(req: NextRequest) {
 
     const authResult = await requireUser();
     if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
+
+    const credit = await checkCreditLimit(userId, "clinical_note");
+    if (!credit.allowed) {
+      return NextResponse.json(
+        { error: "Out of credits this month", credit },
+        { status: 402 }
+      );
+    }
 
     const { text } = await req.json();
     const v = validateInput(text);
@@ -27,7 +37,8 @@ export async function POST(req: NextRequest) {
     }
 
     const phiResult = scanAndCensorPhi(text);
-    const analysis = await analyzeClinicalNote(phiResult.censoredText);
+    const { text: analysis, usage } = await analyzeClinicalNote(phiResult.censoredText);
+    recordUsage(userId, "clinical_note", usage);
 
     let parsed;
     try {
