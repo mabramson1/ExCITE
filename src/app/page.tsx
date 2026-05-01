@@ -4,119 +4,406 @@ import {
   BookOpen,
   Wand2,
   ScanSearch,
-  ArrowRight,
   Shield,
+  Lock,
+  ArrowRight,
+  ArrowDown,
+  Upload,
+  BrainCircuit,
+  CheckCircle2,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BrandLogo } from "@/components/brand-logo";
+import { Badge } from "@/components/ui/badge";
+import { BrandLogo, BrandEquation } from "@/components/brand-logo";
 
-const features = [
+/* ------------------------------------------------------------------ */
+/*  Data                                                               */
+/* ------------------------------------------------------------------ */
+
+const clinicalFeatures = [
   {
-    icon: FileText,
-    title: "Clinical Note Citation",
-    description:
-      "Analyze clinical notes for ICD-10/CPT codes, documentation gaps, and billing optimization with AI-powered suggestions.",
+    title: "A/P Writer",
+    description: "Generate robust Assessment & Plans from skeleton outlines",
   },
   {
-    icon: BookOpen,
-    title: "Manuscript Citations",
-    description:
-      "Identify claims needing references, suggest citations, and format bibliographies in APA, MLA, Chicago, Vancouver, and more.",
+    title: "Prior Auth Letters",
+    description: "Medical necessity letters with guideline citations",
   },
   {
-    icon: Wand2,
-    title: "De-AI-ifier",
-    description:
-      "Transform AI-generated text into natural, human-sounding prose while preserving meaning and academic quality.",
+    title: "Discharge Summaries",
+    description: "Structured hospital discharge with med reconciliation",
   },
   {
-    icon: ScanSearch,
-    title: "AI Text Detector",
-    description:
-      "Detect AI-generated passages, highlight suspicious sections, and get targeted rewrites to eliminate the AI fingerprint.",
+    title: "Referral Letters",
+    description: "Specialist referrals with specific clinical questions",
+  },
+  {
+    title: "RVU Calculator",
+    description: "See reimbursement impact and optimization hints",
+  },
+  {
+    title: "ICD-10/CPT Coding",
+    description: "AI-powered coding with E&M level determination",
   },
 ];
+
+const academicFeatures = [
+  {
+    title: "Manuscript Writer",
+    description: "Transform rough notes into polished IMRAD manuscripts",
+  },
+  {
+    title: "Citation Finder",
+    description: "PubMed & CrossRef verified, never hallucinated",
+  },
+  {
+    title: "Peer Review Response",
+    description: "Point-by-point response letters from reviewer comments",
+  },
+  {
+    title: "Bibliography Formatting",
+    description: "APA, MLA, Chicago, Vancouver, Harvard, IEEE",
+  },
+];
+
+const aiIntegrityFeatures = [
+  {
+    title: "AI Text Detector",
+    description:
+      "Multi-source consensus: Claude + Sapling + Pangram + local heuristics",
+  },
+  {
+    title: "De-AI-ifier",
+    description: "29-pattern rewrite with 2-pass audit and voice calibration",
+  },
+  {
+    title: "Compliance Report",
+    description:
+      "Printable PDF with all detector scores and signature lines",
+  },
+];
+
+const privacyPoints = [
+  "Your patient data never leaves your browser",
+  "Client-side PHI redaction",
+  "HIPAA Safe Harbor compliant",
+  "Real values re-injected for display only",
+];
+
+const steps = [
+  {
+    icon: Upload,
+    label: "Paste or upload your text",
+  },
+  {
+    icon: BrainCircuit,
+    label: "AI analyzes with PHI auto-redacted",
+  },
+  {
+    icon: CheckCircle2,
+    label: "Get results with real values restored",
+  },
+];
+
+const tiers = [
+  {
+    name: "Free",
+    price: "$0",
+    period: "forever",
+    quota: "10 generations / month",
+    highlight: false,
+  },
+  {
+    name: "Pro",
+    price: "$19",
+    period: "/month",
+    quota: "100 generations / month",
+    highlight: true,
+  },
+  {
+    name: "Unlimited",
+    price: "$39",
+    period: "/month",
+    quota: "Unlimited generations",
+    highlight: false,
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/*  Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
+function FeatureCard({
+  title,
+  description,
+  accent,
+}: {
+  title: string;
+  description: string;
+  accent: string;
+}) {
+  return (
+    <div className="rounded-lg border bg-card p-4 hover:shadow-md transition-shadow">
+      <h4 className={`font-semibold mb-1 ${accent}`}>{title}</h4>
+      <p className="text-sm text-muted-foreground">{description}</p>
+    </div>
+  );
+}
+
+function SectionHeading({
+  icon: Icon,
+  title,
+  accent,
+  secondIcon: SecondIcon,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  title: string;
+  accent: string;
+  secondIcon?: React.ComponentType<{ className?: string }>;
+}) {
+  return (
+    <div className="flex items-center gap-3 mb-6">
+      <div className={`rounded-lg p-2 ${accent}`}>
+        <Icon className="h-6 w-6" />
+        {SecondIcon && <SecondIcon className="h-6 w-6 -mt-1" />}
+      </div>
+      <h3 className="text-2xl font-bold">{title}</h3>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Page                                                               */
+/* ------------------------------------------------------------------ */
 
 export default function LandingPage() {
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Header */}
-      <header className="border-b">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-          <BrandLogo />
+      {/* ── Header ─────────────────────────────────────────────── */}
+      <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-sm">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+          <BrandLogo showTagline />
           <div className="flex items-center gap-3">
             <Link href="/sign-in">
-              <Button variant="ghost">Sign In</Button>
+              <Button variant="ghost" size="sm">
+                Sign In
+              </Button>
             </Link>
             <Link href="/sign-up">
-              <Button>Get Started</Button>
+              <Button size="sm">Get Started</Button>
             </Link>
           </div>
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="flex-1 flex items-center">
-        <div className="max-w-6xl mx-auto px-4 py-20 text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm text-muted-foreground mb-6">
-            <Shield className="h-3.5 w-3.5" />
-            HIPAA-compliant PHI auto-redaction
-          </div>
-          <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6">
-            Docs for Docs
-          </h1>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-            AI-powered medical writing suite — cite clinical notes, generate manuscripts, humanize AI text, and detect AI patterns.
+      {/* ── Hero ───────────────────────────────────────────────── */}
+      <section className="py-24 md:py-32 text-center">
+        <div className="max-w-4xl mx-auto px-4">
+          <BrandEquation className="mb-8" />
+
+          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8">
+            The AI-powered medical writing suite that keeps your patient data on
+            your device.
           </p>
+
+          <div className="flex justify-center mb-8">
+            <Badge
+              variant="success"
+              className="gap-1.5 px-3 py-1 text-sm"
+            >
+              <Shield className="h-3.5 w-3.5" />
+              HIPAA-compliant PHI auto-redaction
+            </Badge>
+          </div>
+
           <div className="flex flex-wrap items-center justify-center gap-4">
             <Link href="/sign-up">
               <Button size="lg" className="gap-2">
-                Start for Free <ArrowRight className="h-4 w-4" />
+                Get Started Free <ArrowRight className="h-4 w-4" />
               </Button>
             </Link>
-            <Link href="/sign-in">
-              <Button size="lg" variant="outline">
-                Sign In
+            <a href="#features">
+              <Button size="lg" variant="outline" className="gap-2">
+                See Features <ArrowDown className="h-4 w-4" />
               </Button>
-            </Link>
+            </a>
           </div>
         </div>
       </section>
 
-      {/* Features */}
-      <section className="border-t bg-muted/30">
-        <div className="max-w-6xl mx-auto px-4 py-20">
-          <h2 className="text-2xl font-bold text-center mb-12">
-            Four powerful tools, one platform
-          </h2>
-          <div className="grid md:grid-cols-2 gap-6">
-            {features.map((feature) => (
-              <div
-                key={feature.title}
-                className="rounded-xl border bg-card p-6 hover:shadow-md transition-shadow"
-              >
-                <feature.icon className="h-8 w-8 text-primary mb-3" />
-                <h3 className="font-semibold text-lg mb-2">{feature.title}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {feature.description}
-                </p>
+      {/* ── Section 1: Clinical Documentation ─────────────────── */}
+      <section id="features" className="bg-muted/30 dark:bg-muted/10 py-20 scroll-mt-16">
+        <div className="max-w-6xl mx-auto px-4">
+          <SectionHeading
+            icon={FileText}
+            title="Clinical Documentation"
+            accent="bg-blue-500/15 text-blue-600 dark:text-blue-400"
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {clinicalFeatures.map((f) => (
+              <FeatureCard
+                key={f.title}
+                title={f.title}
+                description={f.description}
+                accent="text-blue-600 dark:text-blue-400"
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Section 2: Academic Writing ────────────────────────── */}
+      <section className="py-20">
+        <div className="max-w-6xl mx-auto px-4">
+          <SectionHeading
+            icon={BookOpen}
+            title="Academic Writing"
+            accent="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {academicFeatures.map((f) => (
+              <FeatureCard
+                key={f.title}
+                title={f.title}
+                description={f.description}
+                accent="text-emerald-600 dark:text-emerald-400"
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Section 3: AI Writing Integrity ────────────────────── */}
+      <section className="bg-muted/30 dark:bg-muted/10 py-20">
+        <div className="max-w-6xl mx-auto px-4">
+          <SectionHeading
+            icon={Wand2}
+            title="AI Writing Integrity"
+            accent="bg-violet-500/15 text-violet-600 dark:text-violet-400"
+            secondIcon={ScanSearch}
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            {aiIntegrityFeatures.map((f) => (
+              <FeatureCard
+                key={f.title}
+                title={f.title}
+                description={f.description}
+                accent="text-violet-600 dark:text-violet-400"
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Section 4: Privacy-First Banner ────────────────────── */}
+      <section className="bg-green-500/10 dark:bg-green-900/20 border-y border-green-500/20 py-20">
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          <div className="flex justify-center mb-4">
+            <div className="rounded-full bg-green-500/15 p-4">
+              <Lock className="h-10 w-10 text-green-600 dark:text-green-400" />
+            </div>
+          </div>
+          <h3 className="text-2xl md:text-3xl font-bold mb-6">
+            Privacy-First Architecture
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto text-left">
+            {privacyPoints.map((point) => (
+              <div key={point} className="flex items-start gap-2">
+                <Shield className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
+                <span className="text-muted-foreground">{point}</span>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Footer */}
+      {/* ── How It Works ───────────────────────────────────────── */}
+      <section className="py-20">
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          <h3 className="text-2xl md:text-3xl font-bold mb-12">
+            How It Works
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {steps.map((step, i) => (
+              <div key={step.label} className="flex flex-col items-center gap-3">
+                <div className="flex items-center justify-center rounded-full bg-primary/10 h-14 w-14 text-primary font-bold text-lg mb-2">
+                  <step.icon className="h-6 w-6" />
+                </div>
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  Step {i + 1}
+                </div>
+                <p className="font-medium">{step.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Pricing Preview ────────────────────────────────────── */}
+      <section className="bg-muted/30 dark:bg-muted/10 py-20">
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          <h3 className="text-2xl md:text-3xl font-bold mb-4">
+            Simple Pricing
+          </h3>
+          <p className="text-muted-foreground mb-10">
+            Start free, upgrade when you need more.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {tiers.map((tier) => (
+              <div
+                key={tier.name}
+                className={`rounded-xl border p-6 text-center ${
+                  tier.highlight
+                    ? "border-primary bg-primary/5 shadow-lg ring-2 ring-primary/20"
+                    : "bg-card"
+                }`}
+              >
+                <h4 className="font-semibold text-lg mb-1">{tier.name}</h4>
+                <div className="text-3xl font-bold mb-1">{tier.price}</div>
+                <div className="text-xs text-muted-foreground mb-4">
+                  {tier.period}
+                </div>
+                <div className="flex items-center justify-center gap-1.5 text-sm text-muted-foreground">
+                  <Check className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  {tier.quota}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-8">
+            <Link href="/pricing">
+              <Button variant="outline" className="gap-2">
+                View Full Pricing <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Footer ─────────────────────────────────────────────── */}
       <footer className="border-t py-8 text-sm text-muted-foreground">
         <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span>Docs&sup2; &copy; {new Date().getFullYear()}. Citation Intelligence for Healthcare &amp; Academia.</span>
+          <span>Docs&sup2; &copy; 2026</span>
           <div className="flex items-center gap-4">
-            <Link href="/privacy" className="hover:text-foreground transition-colors">
+            <Link
+              href="/privacy"
+              className="hover:text-foreground transition-colors"
+            >
               Privacy Policy
             </Link>
-            <Link href="/terms" className="hover:text-foreground transition-colors">
+            <Link
+              href="/terms"
+              className="hover:text-foreground transition-colors"
+            >
               Terms of Use
             </Link>
+            <a
+              href="mailto:support@docsquared.app"
+              className="hover:text-foreground transition-colors"
+            >
+              support@docsquared.app
+            </a>
           </div>
         </div>
       </footer>
