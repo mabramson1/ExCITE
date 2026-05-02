@@ -22,6 +22,8 @@ import { SPECIALTIES, getTemplatesBySpecialty, getCategoriesForSpecialty, type A
 import { RVU_TABLE, estimateReimbursement, getRvuDifference } from "@/lib/rvu-data";
 import { scanAndCensorPhi, deepReinject, reinjectTokens } from "@/lib/phi-detection";
 import { saveTokenMap, getTokenMap } from "@/lib/phi-tokenmap-storage";
+import { TemplateMarketplace } from "@/components/template-marketplace";
+import { useSession } from "@/lib/auth-client";
 
 const MAX_LENGTH = 50_000;
 
@@ -826,6 +828,7 @@ function detectClarificationType(text: string): { type: "dropdown" | "text"; opt
 }
 
 function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
+  const { data: sessionData } = useSession();
   const [skeleton, setSkeleton] = useState("");
   const [encounterType, setEncounterType] = useState("established_office");
   const [loading, setLoading] = useState(false);
@@ -1468,6 +1471,19 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Community Template Marketplace */}
+          <div className="border-t pt-4">
+            <TemplateMarketplace
+              onUseTemplate={(text) => {
+                setSkeleton((prev) => {
+                  if (prev.trim()) return prev + "\n\n" + text;
+                  return text;
+                });
+              }}
+              userId={sessionData?.user?.id}
+            />
           </div>
         </CardContent>
       </Card>

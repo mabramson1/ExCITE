@@ -17,6 +17,7 @@ import {
   Moon,
   CreditCard,
   Shield,
+  Layers,
 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ const navItems = [
   { href: "/tools/manuscript-citations", label: "Manuscript Citations", icon: BookOpen },
   { href: "/tools/de-ai-ify", label: "De-AI-ifier", icon: Wand2 },
   { href: "/tools/ai-detector", label: "AI Detector", icon: ScanSearch },
+  { href: "/tools/batch", label: "Batch", icon: Layers },
   { href: "/history", label: "History", icon: History },
   { href: "/pricing", label: "Pricing", icon: CreditCard },
   { href: "/settings", label: "Settings", icon: Settings },

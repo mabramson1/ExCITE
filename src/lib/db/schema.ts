@@ -188,6 +188,40 @@ export const usageMeter = pgTable("usage_meter", {
 
 export type UsageMeter = typeof usageMeter.$inferSelect;
 
+// ── Shared Template Marketplace ──────────────────────────────────────
+export const sharedTemplate = pgTable("shared_template", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  authorId: text("author_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  category: text("category").notNull(), // e.g. "cardiology", "endocrine", "general"
+  skeleton: text("skeleton").notNull(), // the actual template text
+  starCount: integer("star_count").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const templateStar = pgTable("template_star", {
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  templateId: uuid("template_id").notNull().references(() => sharedTemplate.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => [primaryKey({ columns: [t.userId, t.templateId] })]);
+
+// ── Citation Library ─────────────────────────────────────────────
+export const citationLibrary = pgTable("citation_library", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  pmid: text("pmid"),
+  doi: text("doi"),
+  title: text("title").notNull(),
+  authors: text("authors").notNull(),
+  journal: text("journal"),
+  year: text("year"),
+  tags: jsonb("tags").$type<string[]>(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Types
 export type User = typeof user.$inferSelect;
 export type Project = typeof project.$inferSelect;
@@ -195,5 +229,8 @@ export type Citation = typeof citation.$inferSelect;
 export type TemplateFavorite = typeof templateFavorite.$inferSelect;
 export type Subscription = typeof subscription.$inferSelect;
 export type UserPreference = typeof userPreference.$inferSelect;
+export type SharedTemplate = typeof sharedTemplate.$inferSelect;
+export type TemplateStar = typeof templateStar.$inferSelect;
+export type CitationLibraryEntry = typeof citationLibrary.$inferSelect;
 export type ProjectType = "clinical_note" | "manuscript" | "deai" | "ai_detector";
 export type CitationStyle = "apa" | "mla" | "chicago" | "vancouver" | "harvard" | "ieee";

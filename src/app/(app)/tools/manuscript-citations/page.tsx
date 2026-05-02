@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { BookOpen, Loader2, Copy, Check, Download, ExternalLink, CheckCircle2, XCircle, AlertTriangle, Upload, MessageSquare, PenTool, Fingerprint, Wand2, ScanSearch, X } from "lucide-react";
+import { BookOpen, Loader2, Copy, Check, Download, ExternalLink, CheckCircle2, XCircle, AlertTriangle, Upload, MessageSquare, PenTool, Fingerprint, Wand2, ScanSearch, X, BookmarkPlus, Library } from "lucide-react";
 import { useKeyboardSubmit } from "@/hooks/use-keyboard-submit";
 import { SuccessFlash } from "@/components/success-flash";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ import { PrivacyBanner } from "@/components/privacy-banner";
 import { ResultActions } from "@/components/result-actions";
 import { scanAndCensorPhi, deepReinject, reinjectTokens } from "@/lib/phi-detection";
 import { saveTokenMap, getTokenMap } from "@/lib/phi-tokenmap-storage";
+import { CitationLibrary } from "@/components/citation-library";
 
 interface PubMedMatch {
   pmid: string;
@@ -230,6 +231,31 @@ function ManuscriptCitationsContent() {
     URL.revokeObjectURL(url);
   }
 
+  async function handleSaveToLibrary(citation: { pmid?: string; doi?: string | null; title: string; authors: string; journal?: string; year?: string }) {
+    try {
+      const res = await fetch("/api/citation-library", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pmid: citation.pmid || null,
+          doi: citation.doi || null,
+          title: citation.title,
+          authors: citation.authors,
+          journal: citation.journal || null,
+          year: citation.year || null,
+        }),
+      });
+      if (res.ok) {
+        toast.success("Saved to citation library");
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "Failed to save citation");
+      }
+    } catch {
+      toast.error("Network error");
+    }
+  }
+
   const statusColor = (s: string) => {
     switch (s) {
       case "valid": return "success" as const;
@@ -272,6 +298,10 @@ function ManuscriptCitationsContent() {
               <PenTool className="h-4 w-4" />
               Write Manuscript
             </TabsTrigger>
+            <TabsTrigger value="library" className="gap-1.5">
+              <Library className="h-4 w-4" />
+              Library
+            </TabsTrigger>
           </TabsList>
         </div>
         {/* Mobile dropdown */}
@@ -289,6 +319,9 @@ function ManuscriptCitationsContent() {
               </SelectItem>
               <SelectItem value="write">
                 <span className="flex items-center gap-2"><PenTool className="h-4 w-4" /> Write Manuscript</span>
+              </SelectItem>
+              <SelectItem value="library">
+                <span className="flex items-center gap-2"><Library className="h-4 w-4" /> Library</span>
               </SelectItem>
             </SelectContent>
           </Select>
@@ -452,6 +485,15 @@ function ManuscriptCitationsContent() {
                                         <ExternalLink className="h-2.5 w-2.5" /> DOI
                                       </a>
                                     )}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSaveToLibrary({ pmid: pr.pmid, doi: pr.doi, title: pr.title, authors: pr.authors, journal: pr.journal, year: pr.year })}
+                                      className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 transition-colors"
+                                      title="Save to library"
+                                    >
+                                      <BookmarkPlus className="h-3 w-3" />
+                                      Save
+                                    </button>
                                   </div>
                                 </div>
                               ))}
@@ -468,11 +510,22 @@ function ManuscriptCitationsContent() {
                                 <div key={k} className="pl-3 border-l-2 border-blue-400 dark:border-blue-600 p-2 rounded-r bg-blue-50/50 dark:bg-blue-950/20">
                                   <p className="text-sm font-medium">{cr.title}</p>
                                   <p className="text-xs text-muted-foreground">{cr.authors} - {cr.journal} ({cr.year})</p>
-                                  {cr.doi && (
-                                    <a href={`https://doi.org/${cr.doi}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1">
-                                      <ExternalLink className="h-2.5 w-2.5" /> DOI: {cr.doi}
-                                    </a>
-                                  )}
+                                  <div className="flex items-center gap-2 mt-1">
+                                    {cr.doi && (
+                                      <a href={`https://doi.org/${cr.doi}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                                        <ExternalLink className="h-2.5 w-2.5" /> DOI: {cr.doi}
+                                      </a>
+                                    )}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSaveToLibrary({ pmid: cr.pmid, doi: cr.doi, title: cr.title, authors: cr.authors, journal: cr.journal, year: cr.year })}
+                                      className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 transition-colors"
+                                      title="Save to library"
+                                    >
+                                      <BookmarkPlus className="h-3 w-3" />
+                                      Save
+                                    </button>
+                                  </div>
                                 </div>
                               ))}
                             </div>
@@ -531,6 +584,15 @@ function ManuscriptCitationsContent() {
                                           DOI
                                         </a>
                                       )}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSaveToLibrary({ pmid: cit.pubmed_match!.pmid, doi: cit.pubmed_match!.doi, title: cit.pubmed_match!.title, authors: cit.pubmed_match!.authors, journal: cit.pubmed_match!.journal, year: cit.pubmed_match!.year })}
+                                        className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 transition-colors"
+                                        title="Save to library"
+                                      >
+                                        <BookmarkPlus className="h-3 w-3" />
+                                        Save
+                                      </button>
                                     </div>
                                   </div>
                                 )}
@@ -577,6 +639,15 @@ function ManuscriptCitationsContent() {
                                         DOI
                                       </a>
                                     )}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSaveToLibrary({ pmid: ps.pmid, doi: ps.doi, title: ps.title, authors: ps.authors, journal: ps.journal, year: ps.year })}
+                                      className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:text-emerald-700 transition-colors"
+                                      title="Save to library"
+                                    >
+                                      <BookmarkPlus className="h-3 w-3" />
+                                      Save
+                                    </button>
                                   </div>
                                 </div>
                               ))}
@@ -667,6 +738,20 @@ function ManuscriptCitationsContent() {
 
         <TabsContent value="write">
           <ManuscriptWriterTab />
+        </TabsContent>
+
+        <TabsContent value="library">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Citation Library</CardTitle>
+              <CardDescription>
+                Your saved citations for quick reuse across manuscripts.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CitationLibrary />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
