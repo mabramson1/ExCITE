@@ -156,8 +156,58 @@ const tiers = [
 /* ------------------------------------------------------------------ */
 
 export default function LandingPage() {
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Docs Squared",
+    alternateName: "Docs²",
+    applicationCategory: "HealthApplication",
+    operatingSystem: "Web",
+    url: "https://docsquared.app",
+    description:
+      "AI-powered medical writing suite for clinicians and researchers. Write A/P notes, find PubMed citations, detect AI text, and humanize AI writing — with built-in PHI auto-detection.",
+    offers: [
+      {
+        "@type": "Offer",
+        price: "0",
+        priceCurrency: "USD",
+        name: "Free",
+        description: "10 credits per month",
+      },
+      {
+        "@type": "Offer",
+        price: "19",
+        priceCurrency: "USD",
+        name: "Pro",
+        description: "100 credits per month",
+      },
+      {
+        "@type": "Offer",
+        price: "39",
+        priceCurrency: "USD",
+        name: "Unlimited",
+        description: "500 credits per month",
+      },
+    ],
+    featureList: [
+      "A/P Note Writer with E/M coding",
+      "PubMed citation finder and verifier",
+      "AI text detector with multi-source consensus",
+      "De-AI-ifier text humanizer",
+      "Prior authorization letter generator",
+      "Discharge summary writer",
+      "Manuscript writer with IMRAD format",
+      "Batch processing",
+      "Built-in PHI auto-detection and redaction",
+    ],
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* ── Header ─────────────────────────────────────────────── */}
       <header className="sticky top-0 z-50 border-b bg-background/80 backdrop-blur-sm">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
