@@ -9,18 +9,18 @@ import { checkCreditLimit, recordUsage } from "@/lib/usage";
 
 export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0] ?? "unknown";
-    const rl = checkRateLimit(ip);
+
+    const authResult = await requireUser();
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
+
+    const rl = checkRateLimit(userId);
     if (!rl.ok) {
       return NextResponse.json(
         { error: "Too many requests. Please wait a moment." },
         { status: 429 }
       );
     }
-
-    const authResult = await requireUser();
-    if (authResult instanceof NextResponse) return authResult;
-    const { userId } = authResult;
 
     const credit = await checkCreditLimit(userId, "manuscript_citations");
     if (!credit.allowed) {

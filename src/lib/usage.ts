@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { usageMeter } from "@/lib/db/schema";
+import { usageMeter, user as userTable } from "@/lib/db/schema";
 import { eq, and, gte, sql } from "drizzle-orm";
 import { getUserPlan } from "@/lib/stripe";
 import {
@@ -9,6 +9,7 @@ import {
   type Tool,
   type PlanName,
 } from "@/lib/credits";
+import { sendCreditWarningEmail } from "@/lib/email";
 import type Anthropic from "@anthropic-ai/sdk";
 
 /**
@@ -54,6 +55,9 @@ export async function getMonthlyCredits(userId: string): Promise<number> {
 /**
  * Record a single Claude API call against the meter. Failures are swallowed
  * so they never break the user's analysis flow.
+ *
+ * After inserting, checks whether the user just crossed the 80% credit
+ * threshold and, if so, fires off a warning email (at most once per month).
  */
 export async function recordUsage(
   userId: string,
@@ -61,18 +65,82 @@ export async function recordUsage(
   usage: Anthropic.Messages.Usage
 ): Promise<void> {
   try {
+    const cost = TOOL_CREDITS[tool];
+
     await db.insert(usageMeter).values({
       userId,
       tool,
-      credits: TOOL_CREDITS[tool],
+      credits: cost,
       inputTokens: usage.input_tokens ?? 0,
       outputTokens: usage.output_tokens ?? 0,
       cacheReadTokens: usage.cache_read_input_tokens ?? 0,
       cacheWriteTokens: usage.cache_creation_input_tokens ?? 0,
       costMillicents: computeCostMillicents(usage),
     });
+
+    // --- Credit warning check (fire-and-forget) ---
+    // We intentionally do NOT await this so it never blocks the response.
+    void checkAndSendCreditWarning(userId, cost);
   } catch (err) {
     console.error("Failed to record usage:", err);
+  }
+}
+
+/**
+ * If this usage pushed the user past 80% of their monthly limit AND we
+ * haven't already warned them this calendar month, send a warning email.
+ */
+async function checkAndSendCreditWarning(
+  userId: string,
+  cost: number
+): Promise<void> {
+  try {
+    const plan = ((await getUserPlan(userId)) as PlanName) || "free";
+    const limit = PLAN_CREDIT_LIMITS[plan] ?? PLAN_CREDIT_LIMITS.free;
+    const threshold = Math.floor(limit * 0.8);
+
+    const usedAfter = await getMonthlyCredits(userId);
+    const usedBefore = usedAfter - cost;
+
+    // Only act when this call is the one that crosses the threshold
+    if (usedBefore >= threshold || usedAfter < threshold) return;
+
+    // Dedup: check lastCreditWarning on the user row
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const rows = await db
+      .select({
+        email: userTable.email,
+        name: userTable.name,
+        lastCreditWarning: userTable.lastCreditWarning,
+      })
+      .from(userTable)
+      .where(eq(userTable.id, userId))
+      .limit(1);
+
+    const usr = rows[0];
+    if (!usr) return;
+
+    // Already warned this month — skip
+    if (usr.lastCreditWarning && usr.lastCreditWarning >= startOfMonth) return;
+
+    // Mark as warned (do this before sending so a slow send doesn't cause dupes)
+    await db
+      .update(userTable)
+      .set({ lastCreditWarning: now })
+      .where(eq(userTable.id, userId));
+
+    await sendCreditWarningEmail({
+      email: usr.email,
+      name: usr.name,
+      used: usedAfter,
+      limit,
+      plan,
+    });
+  } catch (err) {
+    // Never let email failures propagate — the usage was already recorded.
+    console.error("Credit warning email failed:", err);
   }
 }
 

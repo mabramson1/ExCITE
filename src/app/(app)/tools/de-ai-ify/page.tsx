@@ -19,6 +19,7 @@ import { PrivacyBanner } from "@/components/privacy-banner";
 import { ResultActions } from "@/components/result-actions";
 import { scanAndCensorPhi, deepReinject, reinjectTokens } from "@/lib/phi-detection";
 import { saveTokenMap, getTokenMap } from "@/lib/phi-tokenmap-storage";
+import { computeWordDiff } from "@/lib/word-diff";
 
 const MAX_LENGTH = 50_000;
 
@@ -82,6 +83,7 @@ function DeAiIfyContent() {
   const [loadedVoiceSample, setLoadedVoiceSample] = useState("");
   const [loadedWritingStyle, setLoadedWritingStyle] = useState("general");
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showDiff, setShowDiff] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const progressMsg = useProgressMessage(loading);
 
@@ -455,45 +457,93 @@ function DeAiIfyContent() {
             </Card>
           )}
 
-          {/* Side by Side Comparison */}
+          {/* Comparison — side-by-side (default) or inline diff (optional) */}
           {result.rewritten_text && (
-            <div className="grid md:grid-cols-2 gap-4">
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm">Original</CardTitle>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => copyText(input, setCopiedOriginal)}
-                    >
-                      {copiedOriginal ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm whitespace-pre-wrap text-muted-foreground">{input}</p>
-                </CardContent>
-              </Card>
+            <>
+              <div className="flex items-center justify-end gap-2">
+                <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={showDiff}
+                    onChange={(e) => setShowDiff(e.target.checked)}
+                    className="rounded border-muted-foreground/30"
+                  />
+                  Show inline diff
+                </label>
+              </div>
 
-              <Card className="border-primary/30">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm text-primary">Humanized</CardTitle>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => copyText(result.rewritten_text!, setCopiedRewrite)}
-                    >
-                      {copiedRewrite ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm whitespace-pre-wrap">{result.rewritten_text}</p>
-                </CardContent>
-              </Card>
-            </div>
+              {showDiff ? (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-sm">Inline Diff</CardTitle>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyText(result.rewritten_text!, setCopiedRewrite)}
+                      >
+                        {copiedRewrite ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400 px-1 rounded">Removed</span>{" "}
+                      <span className="bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400 px-1 rounded">Added</span>
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                      {computeWordDiff(input, result.rewritten_text!).map((seg, i) =>
+                        seg.type === "same" ? (
+                          <span key={i}>{seg.text}</span>
+                        ) : seg.type === "removed" ? (
+                          <span key={i} className="bg-red-100 dark:bg-red-950/50 text-red-700 dark:text-red-400 line-through">{seg.text}</span>
+                        ) : (
+                          <span key={i} className="bg-green-100 dark:bg-green-950/50 text-green-700 dark:text-green-400">{seg.text}</span>
+                        )
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid md:grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm">Original</CardTitle>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyText(input, setCopiedOriginal)}
+                        >
+                          {copiedOriginal ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm whitespace-pre-wrap text-muted-foreground">{input}</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-primary/30">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm text-primary">Humanized</CardTitle>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyText(result.rewritten_text!, setCopiedRewrite)}
+                        >
+                          {copiedRewrite ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm whitespace-pre-wrap">{result.rewritten_text}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+            </>
           )}
 
           {/* AI Patterns Found */}

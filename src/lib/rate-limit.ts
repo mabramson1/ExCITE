@@ -4,12 +4,16 @@ const MAX_INPUT_LENGTH = 50_000;
 
 const hits = new Map<string, { count: number; resetAt: number }>();
 
-export function checkRateLimit(ip: string): { ok: boolean; remaining: number } {
+/**
+ * Rate-limit by key (userId preferred, IP as fallback).
+ * 20 requests per 60-second sliding window.
+ */
+export function checkRateLimit(key: string): { ok: boolean; remaining: number } {
   const now = Date.now();
-  const entry = hits.get(ip);
+  const entry = hits.get(key);
 
   if (!entry || now > entry.resetAt) {
-    hits.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+    hits.set(key, { count: 1, resetAt: now + WINDOW_MS });
     return { ok: true, remaining: MAX_REQUESTS - 1 };
   }
 
