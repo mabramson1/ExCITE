@@ -43,8 +43,46 @@ If you cannot complete your task safely or the input is empty/garbled, return th
 
 `;
 
-function buildSystem(toolPrompt: string): string {
+export function buildSystem(toolPrompt: string): string {
   return SECURITY_GUARDRAILS + toolPrompt;
+}
+
+/** Stream Claude response as SSE events (token-by-token, then a final "done" event). */
+export async function streamClaudeMessage(opts: {
+  system: string;
+  userMessage: string;
+  maxTokens?: number;
+}): Promise<ReadableStream<Uint8Array>> {
+  const encoder = new TextEncoder();
+
+  const stream = anthropic.messages.stream({
+    model: "claude-sonnet-4-20250514",
+    max_tokens: opts.maxTokens ?? 6144,
+    system: cachedSystem(buildSystem(opts.system)),
+    messages: [{ role: "user", content: opts.userMessage }],
+  });
+
+  return new ReadableStream({
+    async start(controller) {
+      stream.on("text", (text) => {
+        controller.enqueue(
+          encoder.encode(
+            `data: ${JSON.stringify({ type: "token", text })}\n\n`
+          )
+        );
+      });
+
+      const finalMessage = await stream.finalMessage();
+      const content = finalMessage.content[0];
+      const fullText = content.type === "text" ? content.text : "";
+      controller.enqueue(
+        encoder.encode(
+          `data: ${JSON.stringify({ type: "done", text: fullText, usage: finalMessage.usage })}\n\n`
+        )
+      );
+      controller.close();
+    },
+  });
 }
 
 // ── Clinical Note Analysis ─────────────────────────────────────────
@@ -180,7 +218,7 @@ Respond with this exact JSON structure:
 
 // ── A/P Note Writer ────────────────────────────────────────────────
 
-const AP_WRITER_SYSTEM = `You are an expert clinical documentation specialist who writes Assessment & Plan (A/P) sections that are medically accurate, thorough, and optimized for appropriate E&M coding per 2024-2025 AMA/CMS guidelines.
+export const AP_WRITER_SYSTEM = `You are an expert clinical documentation specialist who writes Assessment & Plan (A/P) sections that are medically accurate, thorough, and optimized for appropriate E&M coding per 2024-2025 AMA/CMS guidelines.
 
 YOUR GOAL: Given a skeleton outline, generate a robust A/P that:
 1. Accurately reflects disease severity, acuity, and clinical complexity
@@ -807,7 +845,7 @@ const STYLE_INSTRUCTIONS: Record<string, string> = {
 - Preserve all medical accuracy exactly`,
 };
 
-function getDeAiSystem(writingStyle: string): string {
+export function getDeAiSystem(writingStyle: string): string {
   const styleInstructions = STYLE_INSTRUCTIONS[writingStyle] || STYLE_INSTRUCTIONS.general;
   return `${DEAI_SYSTEM_BASE}\n\n${styleInstructions}`;
 }

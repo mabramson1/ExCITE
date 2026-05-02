@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { deAiifyText } from "@/lib/ai/claude";
+import { deAiifyText, streamClaudeMessage, getDeAiSystem } from "@/lib/ai/claude";
 import { scanAndCensorPhi } from "@/lib/phi-detection";
 import { runExternalDetectors } from "@/lib/ai-detection";
 import { autoSaveProject } from "@/lib/auto-save";
@@ -7,8 +7,55 @@ import { checkRateLimit, validateInput } from "@/lib/rate-limit";
 import { requireUser } from "@/lib/api-auth";
 import { checkCreditLimit, recordUsage } from "@/lib/usage";
 
+/** Build the De-AI-ifier user message (mirrors the logic in deAiifyText). */
+function buildDeAiUserMessage(censoredText: string, writingStyle: string, voiceSample?: string): string {
+  const styleName = writingStyle.replace(/-/g, " ");
+  let userMessage = "";
+
+  if (voiceSample) {
+    userMessage += `VOICE CALIBRATION: The user provided a sample of their own writing. Analyze their sentence rhythm, word choices, punctuation habits, and quirks. Apply these patterns to the rewrite so the output sounds like THEM, not like generic human writing.
+
+Voice sample:
+"""
+${voiceSample}
+"""
+
+`;
+  }
+
+  userMessage += `Rewrite this text for the "${styleName}" style using a 2-PASS process. Preserve all meaning and factual content exactly.
+
+PASS 1: Rewrite the text, eliminating all 29 identified AI patterns.
+PASS 2: Audit your Pass 1 rewrite for any lingering AI-isms — subtle structural habits, residual hedging, synonym cycling, metronomic rhythm, etc. Fix every issue you find.
+
+Return the final (Pass 2) text as "rewritten_text" and list any issues you caught during the audit in "first_pass_issues".
+
+Text:
+"""
+${censoredText}
+"""
+
+Respond with this exact JSON structure:
+{
+  "rewritten_text": "final text after both passes",
+  "first_pass_issues": ["issues found in initial rewrite during audit"],
+  "changes_made": [
+    {"original": "AI-sounding phrase", "replacement": "human-sounding replacement", "reason": "specific pattern fixed"}
+  ],
+  "ai_patterns_found": ["specific pattern 1", "specific pattern 2"],
+  "confidence_score": 0.85,
+  "style_applied": "${styleName}"
+}
+
+confidence_score: 1.0 = definitely human, 0.0 = still obviously AI. Be honest.`;
+
+  return userMessage;
+}
+
 export async function POST(req: NextRequest) {
   try {
+    const url = new URL(req.url);
+    const isStream = url.searchParams.get("stream") === "true";
 
     const authResult = await requireUser();
     if (authResult instanceof NextResponse) return authResult;
@@ -37,6 +84,44 @@ export async function POST(req: NextRequest) {
     }
 
     const phiResult = scanAndCensorPhi(text);
+
+    // ── Streaming path ────────────────────────────────────────────
+    if (isStream) {
+      const system = getDeAiSystem(writingStyle);
+      const userMessage = buildDeAiUserMessage(phiResult.censoredText, writingStyle, voiceSample);
+      const rawStream = await streamClaudeMessage({ system, userMessage, maxTokens: 4096 });
+
+      const transformStream = new TransformStream<Uint8Array, Uint8Array>({
+        transform(chunk, controller) {
+          controller.enqueue(chunk);
+          // Intercept "done" event to record usage server-side
+          const decoded = new TextDecoder().decode(chunk);
+          if (decoded.includes('"type":"done"')) {
+            try {
+              const match = decoded.match(/data: (.+)/);
+              if (match) {
+                const data = JSON.parse(match[1]);
+                if (data.usage) {
+                  recordUsage(userId, "de_ai_ify", data.usage);
+                }
+              }
+            } catch {
+              // best-effort usage recording
+            }
+          }
+        },
+      });
+
+      return new Response(rawStream.pipeThrough(transformStream), {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+        },
+      });
+    }
+
+    // ── Non-streaming path (unchanged) ────────────────────────────
     const { text: analysis, usage } = await deAiifyText(phiResult.censoredText, writingStyle, voiceSample);
     recordUsage(userId, "de_ai_ify", usage);
 

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Wand2, Loader2, Copy, Check, ArrowRight, ArrowDown, Shield, Upload, Fingerprint, X } from "lucide-react";
 import { useKeyboardSubmit } from "@/hooks/use-keyboard-submit";
 import { useProgressMessage } from "@/hooks/use-progress-message";
+import { useStreaming } from "@/hooks/use-streaming";
 import { SuccessFlash } from "@/components/success-flash";
 import { toast } from "sonner";
 import { handleCreditError } from "@/lib/credit-error";
@@ -86,6 +87,7 @@ function DeAiIfyContent() {
   const [showDiff, setShowDiff] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const progressMsg = useProgressMessage(loading);
+  const { streaming, streamedText, startStream, reset: resetStream } = useStreaming();
 
   useKeyboardSubmit(handleProcess, !loading && !!input.trim());
 
@@ -161,33 +163,69 @@ function DeAiIfyContent() {
         setPhiWarnings(combinedWarnings);
       }
 
-      const res = await fetch("/api/analyze/de-ai-ify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text: phiInput.censoredText,
-          writingStyle,
-          voiceSample: phiVoice ? phiVoice.censoredText : undefined,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        if (handleCreditError(res.status, data)) return;
-        toast.error(data.error || "Analysis failed");
-        return;
+      const requestBody = {
+        text: phiInput.censoredText,
+        writingStyle,
+        voiceSample: phiVoice ? phiVoice.censoredText : undefined,
+      };
+
+      // ── Try streaming first ─────────────────────────────────────
+      let streamingSucceeded = false;
+      try {
+        resetStream();
+        const streamResult = await startStream("/api/analyze/de-ai-ify", requestBody);
+        if (streamResult?.text) {
+          streamingSucceeded = true;
+          let parsed: DeAiResult;
+          try {
+            const jsonMatch = streamResult.text.match(/\{[\s\S]*\}/);
+            parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : { raw: streamResult.text };
+          } catch {
+            parsed = { raw: streamResult.text };
+          }
+          const restored = deepReinject(parsed, tokenMap);
+          setResult(restored);
+          toast.success("Analysis complete");
+          setShowSuccess(true);
+          setTimeout(() => setShowSuccess(false), 2000);
+          setTimeout(() => {
+            document.getElementById("deai-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 100);
+        }
+      } catch (e) {
+        // If it's a credit error, handle and bail
+        if (e && typeof e === "object" && "status" in e) {
+          const err = e as { status: number; data: Record<string, unknown> };
+          if (handleCreditError(err.status, err.data)) return;
+        }
+        // Otherwise fall through to non-streaming path
       }
-      if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
-      const restored = deepReinject(data.result, tokenMap);
-      setResult(restored);
-      setSavedId(data.savedId || null);
-      // Persist tokenMap locally so reload-from-history still shows real values
-      if (data.savedId) saveTokenMap(data.savedId, tokenMap);
-      toast.success("Analysis complete");
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 2000);
-      setTimeout(() => {
-        document.getElementById("deai-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 100);
+
+      // ── Fallback: non-streaming path ────────────────────────────
+      if (!streamingSucceeded) {
+        const res = await fetch("/api/analyze/de-ai-ify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          if (handleCreditError(res.status, data)) return;
+          toast.error(data.error || "Analysis failed");
+          return;
+        }
+        if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
+        const restored = deepReinject(data.result, tokenMap);
+        setResult(restored);
+        setSavedId(data.savedId || null);
+        if (data.savedId) saveTokenMap(data.savedId, tokenMap);
+        toast.success("Analysis complete");
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 2000);
+        setTimeout(() => {
+          document.getElementById("deai-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 100);
+      }
 
       // Persist preferences if user opted in or values changed from loaded defaults
       const trimmedSampleForSave = voiceSample.trim();
@@ -340,8 +378,8 @@ function DeAiIfyContent() {
                 >
                   Try an example
                 </Button>
-                <Button className="bg-violet-600 hover:bg-violet-700 text-white" onClick={handleProcess} disabled={loading || loadingSaved || !input.trim() || input.length > MAX_LENGTH}>
-                  {loading ? (
+                <Button className="bg-violet-600 hover:bg-violet-700 text-white" onClick={handleProcess} disabled={loading || streaming || loadingSaved || !input.trim() || input.length > MAX_LENGTH}>
+                  {loading || streaming ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
                       {progressMsg}
@@ -395,6 +433,24 @@ function DeAiIfyContent() {
       </Card>
 
       {phiWarnings.length > 0 && <PhiWarning warnings={phiWarnings} />}
+
+      {/* Streaming preview — live tokens as they arrive */}
+      {streaming && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Generating...
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm whitespace-pre-wrap font-mono text-muted-foreground">
+              {streamedText}
+              <span className="animate-pulse">&#9610;</span>
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {result && !result.raw && (
         <div id="deai-results" className="space-y-4 border-t-2 border-violet-500">

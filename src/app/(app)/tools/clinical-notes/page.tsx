@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { FileText, Loader2, Copy, Check, Download, BookOpen, ExternalLink, AlertTriangle, CheckCircle2, XCircle, Activity, PenTool, RefreshCw, SkipForward, MessageSquarePlus, LayoutTemplate, Star, Upload, Fingerprint, Wand2, DollarSign, FileCheck, ClipboardList, Send, X } from "lucide-react";
 import { useKeyboardSubmit } from "@/hooks/use-keyboard-submit";
+import { useStreaming } from "@/hooks/use-streaming";
 import { SuccessFlash } from "@/components/success-flash";
 import { toast } from "sonner";
 import { handleCreditError } from "@/lib/credit-error";
@@ -850,6 +851,7 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
   const [loadedVoiceSample, setLoadedVoiceSample] = useState("");
   const [loadedBrevity, setLoadedBrevity] = useState("standard");
   const [showSuccess, setShowSuccess] = useState(false);
+  const { streaming, streamedText, startStream, reset: resetStream } = useStreaming();
 
   // Load saved preferences (voice sample, brevity, custom templates) from DB
   useEffect(() => {
@@ -1001,66 +1003,104 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
 
     if (allWarnings.length > 0) setPhiWarnings(allWarnings);
 
+    const requestBody = {
+      skeleton: phi.censoredText,
+      encounterType,
+      voiceSample: censoredVoice,
+      brevity: brevity !== "standard" ? brevity : undefined,
+      customTemplate: censoredTemplate,
+    };
+
     try {
-      const res = await fetch("/api/analyze/ap-writer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          skeleton: phi.censoredText,
-          encounterType,
-          voiceSample: censoredVoice,
-          brevity: brevity !== "standard" ? brevity : undefined,
-          customTemplate: censoredTemplate,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        if (handleCreditError(res.status, data)) return;
-        toast.error(data.error || "Generation failed");
-        return;
+      // ── Try streaming first ─────────────────────────────────────
+      let streamingSucceeded = false;
+      let parsedResult: ApResult | null = null;
+      try {
+        resetStream();
+        const streamResult = await startStream("/api/analyze/ap-writer", requestBody);
+        if (streamResult?.text) {
+          streamingSucceeded = true;
+          try {
+            const jsonMatch = streamResult.text.match(/\{[\s\S]*\}/);
+            parsedResult = jsonMatch ? JSON.parse(jsonMatch[0]) : { raw: streamResult.text };
+          } catch {
+            parsedResult = { raw: streamResult.text };
+          }
+          const restored = deepReinject(parsedResult!, tokenMap) as ApResult;
+          setResult(restored);
+          setShowSuccess(true);
+          setTimeout(() => setShowSuccess(false), 2000);
+          setTimeout(() => {
+            document.getElementById("ap-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 100);
+
+          // Auto-show clarification dialog if there are items
+          if (restored.clarification_needed?.length && !additionalContext) {
+            setClarificationAnswers({});
+            setShowClarificationDialog(true);
+          }
+        }
+      } catch (e) {
+        if (e && typeof e === "object" && "status" in e) {
+          const err = e as { status: number; data: Record<string, unknown> };
+          if (handleCreditError(err.status, err.data)) return;
+        }
+        // Otherwise fall through to non-streaming path
       }
-      if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
-      setResult(deepReinject(data.result, tokenMap));
-      setSavedId(data.savedId || null);
-      // Persist tokenMap locally so reload-from-history still shows real values
-      if (data.savedId) saveTokenMap(data.savedId, tokenMap);
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 2000);
-      setTimeout(() => {
-        document.getElementById("ap-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 100);
+
+      // ── Fallback: non-streaming path ────────────────────────────
+      if (!streamingSucceeded) {
+        const res = await fetch("/api/analyze/ap-writer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          if (handleCreditError(res.status, data)) return;
+          toast.error(data.error || "Generation failed");
+          return;
+        }
+        if (data.phi?.detected) setPhiWarnings(data.phi.warnings);
+        setResult(deepReinject(data.result, tokenMap) as ApResult);
+        setSavedId(data.savedId || null);
+        if (data.savedId) saveTokenMap(data.savedId, tokenMap);
+        setShowSuccess(true);
+        setTimeout(() => setShowSuccess(false), 2000);
+        setTimeout(() => {
+          document.getElementById("ap-results")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 100);
+
+        // Auto-show clarification dialog if there are items
+        if (data.result?.clarification_needed?.length > 0 && !additionalContext) {
+          setClarificationAnswers({});
+          setShowClarificationDialog(true);
+        }
+      }
 
       // Persist voice sample / brevity preference changes to DB
-      if (res.ok) {
-        const prefUpdates: Record<string, string> = {};
-        if (trimmedVoice && trimmedVoice !== loadedVoiceSample.trim()) {
-          prefUpdates.voiceSampleClinical = trimmedVoice;
-        }
-        if (brevity !== loadedBrevity) {
-          prefUpdates.defaultBrevity = brevity;
-        }
-        if (Object.keys(prefUpdates).length > 0) {
-          fetch("/api/preferences", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(prefUpdates),
-          })
-            .then(() => {
-              if (prefUpdates.voiceSampleClinical !== undefined) {
-                setLoadedVoiceSample(prefUpdates.voiceSampleClinical);
-              }
-              if (prefUpdates.defaultBrevity !== undefined) {
-                setLoadedBrevity(prefUpdates.defaultBrevity);
-              }
-            })
-            .catch(() => {});
-        }
+      const prefUpdates: Record<string, string> = {};
+      if (trimmedVoice && trimmedVoice !== loadedVoiceSample.trim()) {
+        prefUpdates.voiceSampleClinical = trimmedVoice;
       }
-
-      // Auto-show clarification dialog if there are items
-      if (data.result?.clarification_needed?.length > 0 && !additionalContext) {
-        setClarificationAnswers({});
-        setShowClarificationDialog(true);
+      if (brevity !== loadedBrevity) {
+        prefUpdates.defaultBrevity = brevity;
+      }
+      if (Object.keys(prefUpdates).length > 0) {
+        fetch("/api/preferences", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(prefUpdates),
+        })
+          .then(() => {
+            if (prefUpdates.voiceSampleClinical !== undefined) {
+              setLoadedVoiceSample(prefUpdates.voiceSampleClinical);
+            }
+            if (prefUpdates.defaultBrevity !== undefined) {
+              setLoadedBrevity(prefUpdates.defaultBrevity);
+            }
+          })
+          .catch(() => {});
       }
     } catch {
       setResult({ raw: "An error occurred. Please check your API key and try again." });
@@ -1380,9 +1420,9 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
                 >
                   Try an example
                 </Button>
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => handleGenerate()} disabled={loading || refining || !skeleton.trim()}>
-                  {loading || refining ? (
-                    <><Loader2 className="h-4 w-4 animate-spin" /> {refining ? "Refining..." : "Generating..."}</>
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white" onClick={() => handleGenerate()} disabled={loading || refining || streaming || !skeleton.trim()}>
+                  {loading || refining || streaming ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> {refining ? "Refining..." : streaming ? "Streaming..." : "Generating..."}</>
                   ) : (
                     <><PenTool className="h-4 w-4" /> Generate A/P</>
                   )}
@@ -1489,6 +1529,24 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
       </Card>
 
       {phiWarnings.length > 0 && <PhiWarning warnings={phiWarnings} />}
+
+      {/* Streaming preview — live tokens as they arrive */}
+      {streaming && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Generating...
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm whitespace-pre-wrap font-mono text-muted-foreground">
+              {streamedText}
+              <span className="animate-pulse">&#9610;</span>
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {result && !result.raw && (
         <div id="ap-results" className="space-y-4 border-t-2 border-blue-500">
