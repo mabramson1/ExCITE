@@ -194,10 +194,21 @@ export default function ClinicalNotesPage() {
 function ClinicalNotesContent() {
   const searchParams = useSearchParams();
   const loadId = searchParams.get("load");
+  const trySample = searchParams.get("trySample");
 
   const [activeTab, setActiveTab] = useState("analyze");
   const [analyzePrefill, setAnalyzePrefill] = useState<Prefill | null>(null);
   const [apWriterPrefill, setApWriterPrefill] = useState<Prefill | null>(null);
+
+  useEffect(() => {
+    if (!trySample) return;
+    const sample = sessionStorage.getItem(`docsq-sample-${trySample}`);
+    if (sample) {
+      setActiveTab("ap-writer");
+      setApWriterPrefill({ input: sample, savedId: "", metadata: {}, outputText: null });
+      sessionStorage.removeItem(`docsq-sample-${trySample}`);
+    }
+  }, [trySample]);
 
   useEffect(() => {
     if (!loadId) return;

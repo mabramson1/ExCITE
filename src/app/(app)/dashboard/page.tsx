@@ -15,6 +15,8 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { UsageMeter } from "@/components/usage-meter";
+import { QuickStart } from "@/components/quick-start";
+import { useSession } from "@/lib/auth-client";
 
 const tools = [
   {
@@ -78,13 +80,16 @@ function timeAgo(dateStr: string): string {
 }
 
 export default function DashboardPage() {
+  const { data: session } = useSession();
   const [stats, setStats] = useState({ total: 0, thisWeek: 0, favorites: 0 });
   const [recent, setRecent] = useState<Project[]>([]);
+  const [isNewUser, setIsNewUser] = useState(false);
 
   useEffect(() => {
     fetch("/api/history").then(r => r.ok ? r.json() : { projects: [] }).then(data => {
       const projects: Project[] = data.projects || [];
       const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      setIsNewUser(projects.length === 0);
       setStats({
         total: projects.length,
         thisWeek: projects.filter(p => new Date(p.createdAt).getTime() > weekAgo).length,
@@ -108,6 +113,9 @@ export default function DashboardPage() {
           Choose a tool to get started with your citation workflow.
         </p>
       </div>
+
+      {/* Quick Start for new users */}
+      {isNewUser && <QuickStart userName={session?.user?.name} />}
 
       {/* Quick Stats + Usage Meter */}
       <div className="grid md:grid-cols-2 gap-4">

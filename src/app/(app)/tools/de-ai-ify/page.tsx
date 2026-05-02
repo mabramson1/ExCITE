@@ -68,6 +68,7 @@ export default function DeAiIfyPage() {
 function DeAiIfyContent() {
   const searchParams = useSearchParams();
   const loadId = searchParams.get("load");
+  const trySample = searchParams.get("trySample");
 
   const [input, setInput] = useState("");
   const [voiceSample, setVoiceSample] = useState("");
@@ -92,6 +93,15 @@ function DeAiIfyContent() {
   useKeyboardSubmit(handleProcess, !loading && !!input.trim());
 
   const EXAMPLE_TEXT = `In today's rapidly evolving digital landscape, the intersection of technology and human creativity represents a multifaceted tapestry of innovation. It is not just about the tools we use — it is about the way we think, the way we collaborate, and ultimately, the way we reimagine what is possible. As we move forward into this new era, the opportunities are truly limitless.`;
+
+  useEffect(() => {
+    if (!trySample) return;
+    const sample = sessionStorage.getItem(`docsq-sample-${trySample}`);
+    if (sample) {
+      setInput(sample);
+      sessionStorage.removeItem(`docsq-sample-${trySample}`);
+    }
+  }, [trySample]);
 
   // Load persisted preferences on mount
   useEffect(() => {

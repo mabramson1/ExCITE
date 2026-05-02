@@ -112,6 +112,7 @@ export default function ManuscriptCitationsPage() {
 function ManuscriptCitationsContent() {
   const searchParams = useSearchParams();
   const loadId = searchParams.get("load");
+  const trySample = searchParams.get("trySample");
 
   const [activeTab, setActiveTab] = useState("citations");
   const [input, setInput] = useState("");
@@ -126,6 +127,15 @@ function ManuscriptCitationsContent() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useKeyboardSubmit(handleAnalyze, !loading && !!input.trim());
+
+  useEffect(() => {
+    if (!trySample) return;
+    const sample = sessionStorage.getItem(`docsq-sample-${trySample}`);
+    if (sample) {
+      setInput(sample);
+      sessionStorage.removeItem(`docsq-sample-${trySample}`);
+    }
+  }, [trySample]);
 
   useEffect(() => {
     if (!loadId) return;

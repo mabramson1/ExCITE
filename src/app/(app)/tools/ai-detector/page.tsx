@@ -81,6 +81,16 @@ export default function AiDetectorPage() {
 function AiDetectorContent() {
   const searchParams = useSearchParams();
   const loadId = searchParams.get("load");
+  const trySample = searchParams.get("trySample");
+
+  useEffect(() => {
+    if (!trySample) return;
+    const sample = sessionStorage.getItem(`docsq-sample-${trySample}`);
+    if (sample) {
+      setInput(sample);
+      sessionStorage.removeItem(`docsq-sample-${trySample}`);
+    }
+  }, [trySample]);
 
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);

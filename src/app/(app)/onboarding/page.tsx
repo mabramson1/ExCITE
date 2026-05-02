@@ -2,39 +2,52 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileText, BookOpen, Wand2, ScanSearch, Check } from "lucide-react";
+import {
+  FileText,
+  BookOpen,
+  Wand2,
+  ScanSearch,
+  Shield,
+  Layers,
+  Sparkles,
+  ArrowRight,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useSession } from "@/lib/auth-client";
 
-const tools = [
+const highlights = [
   {
-    id: "clinical-notes",
     icon: FileText,
-    title: "Clinical Notes",
-    description: "Cite notes with ICD-10 & CPT codes",
-    color: "text-blue-600",
+    title: "Clinical Documentation",
+    description: "A/P Writer, Prior Auth Letters, Discharge Summaries, Referral Letters, ICD-10/CPT Coding",
+    color: "text-blue-600 bg-blue-50 dark:bg-blue-950/40",
   },
   {
-    id: "manuscript-citations",
     icon: BookOpen,
-    title: "Manuscript Citations",
-    description: "Format and verify academic citations",
-    color: "text-emerald-600",
+    title: "Academic Writing",
+    description: "Manuscript Writer, Citation Finder with PubMed verification, Peer Review Response",
+    color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40",
   },
   {
-    id: "de-ai-ifier",
     icon: Wand2,
-    title: "De-AI-ifier",
-    description: "Humanize AI-generated text",
-    color: "text-purple-600",
+    title: "AI Writing Tools",
+    description: "De-AI-ifier with 29-pattern rewrite, AI Detector with multi-source consensus",
+    color: "text-violet-600 bg-violet-50 dark:bg-violet-950/40",
   },
   {
-    id: "ai-detector",
-    icon: ScanSearch,
-    title: "AI Detector",
-    description: "Detect AI-generated content",
-    color: "text-orange-600",
+    icon: Layers,
+    title: "Batch Processing",
+    description: "Process multiple notes at once — upload CSV or paste, get results for all",
+    color: "text-amber-600 bg-amber-50 dark:bg-amber-950/40",
   },
 ];
 
@@ -42,17 +55,8 @@ export default function OnboardingPage() {
   const router = useRouter();
   const { data: session } = useSession();
   const [step, setStep] = useState(0);
-  const [selectedTools, setSelectedTools] = useState<string[]>(
-    tools.map((t) => t.id)
-  );
 
   const firstName = session?.user?.name?.split(" ")[0] || "there";
-
-  function toggleTool(id: string) {
-    setSelectedTools((prev) =>
-      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
-    );
-  }
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4">
@@ -80,19 +84,26 @@ export default function OnboardingPage() {
                 Welcome to Docs&sup2;, {firstName}!
               </CardTitle>
               <CardDescription className="text-base">
-                Your AI-powered platform for clinical documentation, citation
-                management, and content analysis.
+                The AI-powered medical writing suite — built for clinicians
+                and researchers.
               </CardDescription>
             </CardHeader>
-            <CardContent className="text-center text-sm text-muted-foreground">
+            <CardContent className="text-center text-sm text-muted-foreground space-y-3">
+              <div className="flex items-center justify-center gap-2">
+                <Badge variant="success" className="gap-1.5">
+                  <Shield className="h-3 w-3" />
+                  Built-in PHI auto-detection
+                </Badge>
+              </div>
               <p>
-                Docs&sup2; helps healthcare professionals and researchers work
-                smarter with AI tools built for accuracy and compliance.
+                Patient identifiers are automatically detected and redacted
+                in your browser before any text is sent to AI. Clinical
+                details the AI needs pass through untouched.
               </p>
             </CardContent>
             <CardFooter className="flex justify-center">
               <Button onClick={() => setStep(1)} size="lg">
-                Get Started
+                See what&apos;s included
               </Button>
             </CardFooter>
           </>
@@ -101,40 +112,29 @@ export default function OnboardingPage() {
         {step === 1 && (
           <>
             <CardHeader className="text-center">
-              <CardTitle className="text-xl">Choose your tools</CardTitle>
+              <CardTitle className="text-xl">Your full toolkit</CardTitle>
               <CardDescription>
-                These are the tools available to you. You can access all of them
-                anytime from your dashboard.
+                All tools are available on every plan — no feature gates.
               </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3">
-              {tools.map((tool) => {
-                const Icon = tool.icon;
-                const selected = selectedTools.includes(tool.id);
+              {highlights.map((item) => {
+                const Icon = item.icon;
                 return (
-                  <button
-                    key={tool.id}
-                    type="button"
-                    onClick={() => toggleTool(tool.id)}
-                    className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
-                      selected
-                        ? "border-primary bg-primary/5"
-                        : "border-border hover:bg-muted/50"
-                    }`}
+                  <div
+                    key={item.title}
+                    className="flex items-start gap-3 rounded-lg border p-3"
                   >
-                    <div className={`rounded-md p-2 bg-muted ${tool.color}`}>
+                    <div className={`shrink-0 rounded-md p-2 ${item.color}`}>
                       <Icon className="h-4 w-4" />
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium">{tool.title}</div>
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium">{item.title}</div>
                       <div className="text-xs text-muted-foreground">
-                        {tool.description}
+                        {item.description}
                       </div>
                     </div>
-                    {selected && (
-                      <Check className="h-4 w-4 text-primary shrink-0" />
-                    )}
-                  </button>
+                  </div>
                 );
               })}
             </CardContent>
@@ -150,20 +150,31 @@ export default function OnboardingPage() {
         {step === 2 && (
           <>
             <CardHeader className="text-center">
+              <div className="flex justify-center mb-3">
+                <Sparkles className="h-8 w-8 text-primary" />
+              </div>
               <CardTitle className="text-2xl">You&apos;re all set!</CardTitle>
               <CardDescription className="text-base">
-                Your account is ready to go.
+                Your dashboard has pre-filled samples for each tool — try
+                one to see how it works.
               </CardDescription>
             </CardHeader>
             <CardContent className="text-center text-sm text-muted-foreground space-y-2">
-              <p>Your analysis history will be saved automatically.</p>
               <p>
-                Access all tools from the dashboard sidebar at any time.
+                Free plan: <strong>10 credits/month</strong>. Most tools
+                cost 1 credit per use.
+              </p>
+              <p>
+                Your analysis history is saved automatically.
               </p>
             </CardContent>
             <CardFooter className="flex justify-center">
-              <Button onClick={() => router.push("/dashboard")} size="lg">
-                Go to Dashboard
+              <Button
+                onClick={() => router.push("/dashboard")}
+                size="lg"
+                className="gap-2"
+              >
+                Go to Dashboard <ArrowRight className="h-4 w-4" />
               </Button>
             </CardFooter>
           </>
