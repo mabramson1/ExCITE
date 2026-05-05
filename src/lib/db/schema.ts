@@ -188,6 +188,23 @@ export const usageMeter = pgTable("usage_meter", {
 
 export type UsageMeter = typeof usageMeter.$inferSelect;
 
+// ── Blog posts ────────────────────────────────────────────────────
+export const blogPost = pgTable("blog_post", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  slug: text("slug").notNull().unique(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  category: text("category").notNull(),
+  readTime: text("read_time").notNull().default("5 min"),
+  content: text("content").notNull(),
+  published: boolean("published").notNull().default(true),
+  authorId: text("author_id").references(() => user.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type BlogPost = typeof blogPost.$inferSelect;
+
 // ── Shared Template Marketplace ──────────────────────────────────────
 export const sharedTemplate = pgTable("shared_template", {
   id: uuid("id").defaultRandom().primaryKey(),

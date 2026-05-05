@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { sql } from "drizzle-orm";
+import { blogPost } from "@/lib/db/schema";
+import { BLOG_POSTS } from "@/lib/blog-posts";
 
 /**
  * Public one-shot migration endpoint. Runs all pending schema changes
@@ -154,6 +156,53 @@ export async function GET() {
       END $$
     `));
     results.push("session + account cascade FKs patched");
+
+    // 7. Blog post table
+    await db.execute(sql.raw(`
+      CREATE TABLE IF NOT EXISTS "blog_post" (
+        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "slug" text NOT NULL UNIQUE,
+        "title" text NOT NULL,
+        "description" text NOT NULL,
+        "category" text NOT NULL,
+        "read_time" text DEFAULT '5 min' NOT NULL,
+        "content" text NOT NULL,
+        "published" boolean DEFAULT true NOT NULL,
+        "author_id" text,
+        "created_at" timestamp DEFAULT now() NOT NULL,
+        "updated_at" timestamp DEFAULT now() NOT NULL
+      )
+    `));
+    await db.execute(sql.raw(`
+      DO $$ BEGIN
+        ALTER TABLE "blog_post"
+          ADD CONSTRAINT "blog_post_author_id_fk"
+          FOREIGN KEY ("author_id") REFERENCES "user"("id") ON DELETE set null;
+      EXCEPTION WHEN duplicate_object THEN null;
+      END $$
+    `));
+    await db.execute(sql.raw(`CREATE INDEX IF NOT EXISTS "blog_post_published_idx" ON "blog_post" ("published")`));
+    results.push("blog_post table ready");
+
+    // 8. Seed initial blog posts if table is empty
+    const existing = await db.select({ id: blogPost.id }).from(blogPost).limit(1);
+    if (existing.length === 0) {
+      for (const post of BLOG_POSTS) {
+        await db.insert(blogPost).values({
+          slug: post.slug,
+          title: post.title,
+          description: post.description,
+          category: post.category,
+          readTime: post.readTime,
+          content: post.content,
+          published: true,
+          createdAt: new Date(post.date),
+        });
+      }
+      results.push(`seeded ${BLOG_POSTS.length} initial blog posts`);
+    } else {
+      results.push("blog posts already seeded, skipping");
+    }
 
     return NextResponse.json({
       ok: true,

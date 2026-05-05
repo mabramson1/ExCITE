@@ -4,15 +4,32 @@ import type { Metadata } from "next";
 import { ArrowLeft, Calendar, Clock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { BLOG_POSTS, getPostBySlug } from "@/lib/blog-posts";
+import { db } from "@/lib/db";
+import { blogPost } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
 
 interface Props {
   params: Promise<{ slug: string }>;
 }
 
+export const revalidate = 60;
+
+async function getPost(slug: string) {
+  try {
+    const [post] = await db
+      .select()
+      .from(blogPost)
+      .where(and(eq(blogPost.slug, slug), eq(blogPost.published, true)))
+      .limit(1);
+    return post;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const post = getPostBySlug(slug);
+  const post = await getPost(slug);
   if (!post) return { title: "Not Found" };
 
   return {
@@ -22,18 +39,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: post.title,
       description: post.description,
       type: "article",
-      publishedTime: post.date,
+      publishedTime: post.createdAt.toISOString(),
     },
   };
 }
 
-export function generateStaticParams() {
-  return BLOG_POSTS.map((p) => ({ slug: p.slug }));
-}
-
 export default async function BlogPostPage({ params }: Props) {
   const { slug } = await params;
-  const post = getPostBySlug(slug);
+  const post = await getPost(slug);
   if (!post) notFound();
 
   const jsonLd = {
@@ -41,7 +54,8 @@ export default async function BlogPostPage({ params }: Props) {
     "@type": "BlogPosting",
     headline: post.title,
     description: post.description,
-    datePublished: post.date,
+    datePublished: post.createdAt.toISOString(),
+    dateModified: post.updatedAt.toISOString(),
     publisher: {
       "@type": "Organization",
       name: "Docs Squared",
@@ -63,11 +77,11 @@ export default async function BlogPostPage({ params }: Props) {
             All posts
           </Button>
         </Link>
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-3 flex-wrap">
           <Badge variant="secondary">{post.category}</Badge>
           <span className="text-xs text-muted-foreground flex items-center gap-1">
             <Calendar className="h-3 w-3" />
-            {new Date(post.date).toLocaleDateString("en-US", {
+            {new Date(post.createdAt).toLocaleDateString("en-US", {
               month: "long",
               day: "numeric",
               year: "numeric",
@@ -91,10 +105,10 @@ export default async function BlogPostPage({ params }: Props) {
               </h2>
             );
           }
-          if (paragraph.startsWith("**") && paragraph.endsWith("**")) {
+          if (paragraph.startsWith("### ")) {
             return (
               <h3 key={i} className="text-lg font-semibold mt-6 mb-2">
-                {paragraph.replace(/\*\*/g, "")}
+                {paragraph.replace("### ", "")}
               </h3>
             );
           }
@@ -102,7 +116,7 @@ export default async function BlogPostPage({ params }: Props) {
             return (
               <blockquote
                 key={i}
-                className="border-l-4 border-primary/30 pl-4 my-4 text-muted-foreground italic"
+                className="border-l-4 border-primary/30 pl-4 my-4 text-muted-foreground italic whitespace-pre-line"
               >
                 {paragraph.replace(/^> /gm, "")}
               </blockquote>
@@ -110,29 +124,24 @@ export default async function BlogPostPage({ params }: Props) {
           }
           if (paragraph.startsWith("- ") || paragraph.match(/^\d+\.\s/)) {
             const items = paragraph.split("\n").filter(Boolean);
-            const isOrdered = items[0]?.match(/^\d+\.\s/);
+            const isOrdered = !!items[0]?.match(/^\d+\.\s/);
             const Tag = isOrdered ? "ol" : "ul";
             return (
-              <Tag key={i} className={`my-4 space-y-1 ${isOrdered ? "list-decimal" : "list-disc"} pl-5`}>
+              <Tag
+                key={i}
+                className={`my-4 space-y-1 ${isOrdered ? "list-decimal" : "list-disc"} pl-5`}
+              >
                 {items.map((item, j) => (
                   <li key={j} className="text-sm leading-relaxed">
-                    {item.replace(/^[-\d]+[.)]\s*/, "")}
+                    {renderInline(item.replace(/^[-\d]+[.)]\s*/, ""))}
                   </li>
                 ))}
               </Tag>
             );
           }
-          // Inline bold
-          const parts = paragraph.split(/(\*\*[^*]+\*\*)/g);
           return (
             <p key={i} className="text-sm leading-relaxed mb-4">
-              {parts.map((part, j) =>
-                part.startsWith("**") && part.endsWith("**") ? (
-                  <strong key={j}>{part.slice(2, -2)}</strong>
-                ) : (
-                  <span key={j}>{part}</span>
-                )
-              )}
+              {renderInline(paragraph)}
             </p>
           );
         })}
@@ -153,4 +162,24 @@ export default async function BlogPostPage({ params }: Props) {
       </div>
     </article>
   );
+}
+
+function renderInline(text: string): React.ReactNode {
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith("`") && part.endsWith("`")) {
+      return (
+        <code
+          key={i}
+          className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono"
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
 }

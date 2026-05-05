@@ -21,6 +21,9 @@ import {
   Server,
   TrendingUp,
   Gauge,
+  PenSquare,
+  Edit3,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -202,6 +205,10 @@ export default function AdminContent() {
               <Gauge className="h-4 w-4" />
               Meter
             </TabsTrigger>
+            <TabsTrigger value="blog">
+              <PenSquare className="h-4 w-4" />
+              Blog
+            </TabsTrigger>
             <TabsTrigger value="database">
               <Database className="h-4 w-4" />
               Database
@@ -232,6 +239,9 @@ export default function AdminContent() {
               <SelectItem value="meter">
                 <span className="flex items-center gap-2"><Gauge className="h-4 w-4" /> Meter</span>
               </SelectItem>
+              <SelectItem value="blog">
+                <span className="flex items-center gap-2"><PenSquare className="h-4 w-4" /> Blog</span>
+              </SelectItem>
               <SelectItem value="database">
                 <span className="flex items-center gap-2"><Database className="h-4 w-4" /> Database</span>
               </SelectItem>
@@ -256,6 +266,9 @@ export default function AdminContent() {
         </TabsContent>
         <TabsContent value="meter">
           <MeterTab />
+        </TabsContent>
+        <TabsContent value="blog">
+          <BlogTab />
         </TabsContent>
         <TabsContent value="database">
           <DatabaseTab />
@@ -1593,6 +1606,326 @@ function CellDisplay({
     >
       {strValue}
     </span>
+  );
+}
+
+/* ---------- Blog Tab ---------- */
+
+interface AdminBlogPost {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  category: string;
+  readTime: string;
+  content: string;
+  published: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+function BlogTab() {
+  const [posts, setPosts] = useState<AdminBlogPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<AdminBlogPost | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    fetch("/api/admin/blog")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.posts) setPosts(d.posts);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (editing || creating) {
+    return (
+      <BlogEditor
+        post={editing}
+        onClose={() => {
+          setEditing(null);
+          setCreating(false);
+          load();
+        }}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold">Blog Posts</h2>
+          <p className="text-sm text-muted-foreground">
+            {posts.length} post{posts.length === 1 ? "" : "s"}
+          </p>
+        </div>
+        <Button size="sm" onClick={() => setCreating(true)}>
+          <Plus className="h-4 w-4 mr-1.5" />
+          New Post
+        </Button>
+      </div>
+
+      {loading ? (
+        <p className="text-sm text-muted-foreground py-8 text-center">Loading...</p>
+      ) : posts.length === 0 ? (
+        <Card>
+          <CardContent className="py-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              No posts yet. Click &ldquo;New Post&rdquo; to write one.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {posts.map((post) => (
+            <Card key={post.id} className="hover:shadow-sm transition-shadow">
+              <CardContent className="py-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <Badge variant="secondary" className="text-[10px]">
+                        {post.category}
+                      </Badge>
+                      {!post.published && (
+                        <Badge variant="outline" className="text-[10px]">
+                          Draft
+                        </Badge>
+                      )}
+                      <span className="text-xs text-muted-foreground font-mono">
+                        /{post.slug}
+                      </span>
+                    </div>
+                    <h3 className="font-semibold text-sm truncate">{post.title}</h3>
+                    <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                      {post.description}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Updated {new Date(post.updatedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditing(post)}
+                    >
+                      <Edit3 className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        if (!window.confirm(`Delete "${post.title}"?`)) return;
+                        const res = await fetch(`/api/admin/blog/${post.id}`, {
+                          method: "DELETE",
+                        });
+                        if (res.ok) {
+                          toast.success("Post deleted");
+                          load();
+                        } else {
+                          toast.error("Delete failed");
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BlogEditor({
+  post,
+  onClose,
+}: {
+  post: AdminBlogPost | null;
+  onClose: () => void;
+}) {
+  const isNew = !post;
+  const [slug, setSlug] = useState(post?.slug ?? "");
+  const [title, setTitle] = useState(post?.title ?? "");
+  const [description, setDescription] = useState(post?.description ?? "");
+  const [category, setCategory] = useState(post?.category ?? "General");
+  const [readTime, setReadTime] = useState(post?.readTime ?? "5 min");
+  const [content, setContent] = useState(post?.content ?? "");
+  const [published, setPublished] = useState(post?.published ?? true);
+  const [saving, setSaving] = useState(false);
+
+  // Auto-derive slug from title for new posts
+  useEffect(() => {
+    if (isNew && title && !slug) {
+      setSlug(
+        title
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+      );
+    }
+  }, [title, isNew, slug]);
+
+  async function handleSave() {
+    if (!title.trim() || !content.trim()) {
+      toast.error("Title and content are required");
+      return;
+    }
+    setSaving(true);
+    const url = isNew ? "/api/admin/blog" : `/api/admin/blog/${post!.id}`;
+    const method = isNew ? "POST" : "PATCH";
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        slug,
+        title,
+        description,
+        category,
+        readTime,
+        content,
+        published,
+      }),
+    });
+    setSaving(false);
+    if (res.ok) {
+      toast.success(isNew ? "Post created" : "Post saved");
+      onClose();
+    } else {
+      const data = await res.json().catch(() => ({}));
+      toast.error(data.error || "Save failed");
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <h2 className="text-lg font-semibold">
+            {isNew ? "New Post" : "Edit Post"}
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            Markdown supported: ## heading, ### subheading, **bold**, `code`,
+            &gt; quote, - list, 1. numbered list
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button size="sm" onClick={handleSave} disabled={saving}>
+            {saving ? "Saving..." : "Save"}
+          </Button>
+        </div>
+      </div>
+
+      <Card>
+        <CardContent className="pt-6 space-y-4">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                Title
+              </label>
+              <Input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Post title"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                Slug (URL path)
+              </label>
+              <Input
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
+                placeholder="my-post-slug"
+                className="font-mono text-xs"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">
+              Description (shown on listing + meta)
+            </label>
+            <Input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="One or two sentence summary"
+            />
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                Category
+              </label>
+              <Input
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                Read Time
+              </label>
+              <Input
+                value={readTime}
+                onChange={(e) => setReadTime(e.target.value)}
+                placeholder="5 min"
+              />
+            </div>
+            <div className="flex items-end">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={published}
+                  onChange={(e) => setPublished(e.target.checked)}
+                  className="rounded"
+                />
+                Published
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-1 block">
+              Content (markdown)
+            </label>
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              rows={24}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm font-mono leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              placeholder={`## Section heading
+
+Paragraph text. **Bold** and \`code\` work inline.
+
+- Bullet item
+- Another item
+
+> Quoted text appears with a colored left border.`}
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">
+              {content.length.toLocaleString()} characters,{" "}
+              {content.split(/\s+/).filter(Boolean).length.toLocaleString()} words
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
