@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/api-auth";
 import { getMonthlyBreakdown, getMonthlyCredits } from "@/lib/usage";
 import { getUserPlan } from "@/lib/stripe";
+import { getReferralBonusForMonth } from "@/lib/referral";
 import {
   PLAN_CREDIT_LIMITS,
   TOOL_CREDITS,
@@ -20,13 +21,17 @@ export async function GET() {
   const { userId } = auth;
 
   const plan = ((await getUserPlan(userId)) as PlanName) || "free";
-  const limit = PLAN_CREDIT_LIMITS[plan] ?? PLAN_CREDIT_LIMITS.free;
+  const baseLimit = PLAN_CREDIT_LIMITS[plan] ?? PLAN_CREDIT_LIMITS.free;
+  const referralBonus = await getReferralBonusForMonth(userId);
+  const limit = baseLimit + referralBonus;
   const used = await getMonthlyCredits(userId);
   const breakdown = await getMonthlyBreakdown(userId);
 
   return NextResponse.json({
     plan,
     limit,
+    baseLimit,
+    referralBonus,
     used,
     remaining: Math.max(0, limit - used),
     pctUsed: Math.min(100, Math.round((used / limit) * 100)),

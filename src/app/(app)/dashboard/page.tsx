@@ -85,6 +85,19 @@ export default function DashboardPage() {
   const [recent, setRecent] = useState<Project[]>([]);
   const [isNewUser, setIsNewUser] = useState(false);
 
+  // Redeem any pending referral code from sessionStorage (set during signup
+  // pre-OAuth, redeemed once user lands here post-auth).
+  useEffect(() => {
+    const code = sessionStorage.getItem("docsq-referral-code");
+    if (!code) return;
+    sessionStorage.removeItem("docsq-referral-code");
+    fetch("/api/referral/redeem", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+    }).catch(() => {});
+  }, []);
+
   useEffect(() => {
     fetch("/api/history").then(r => r.ok ? r.json() : { projects: [] }).then(data => {
       const projects: Project[] = data.projects || [];

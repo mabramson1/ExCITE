@@ -204,6 +204,58 @@ export async function GET() {
       results.push("blog posts already seeded, skipping");
     }
 
+    // 9. Referral table
+    await db.execute(sql.raw(`
+      CREATE TABLE IF NOT EXISTS "referral" (
+        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "referrer_id" text NOT NULL,
+        "referred_user_id" text NOT NULL UNIQUE,
+        "credits_awarded" integer DEFAULT 10 NOT NULL,
+        "created_at" timestamp DEFAULT now() NOT NULL
+      )
+    `));
+    await db.execute(sql.raw(`
+      DO $$ BEGIN
+        ALTER TABLE "referral"
+          ADD CONSTRAINT "referral_referrer_fk"
+          FOREIGN KEY ("referrer_id") REFERENCES "user"("id") ON DELETE cascade;
+      EXCEPTION WHEN duplicate_object THEN null;
+      END $$
+    `));
+    await db.execute(sql.raw(`
+      DO $$ BEGIN
+        ALTER TABLE "referral"
+          ADD CONSTRAINT "referral_referred_fk"
+          FOREIGN KEY ("referred_user_id") REFERENCES "user"("id") ON DELETE cascade;
+      EXCEPTION WHEN duplicate_object THEN null;
+      END $$
+    `));
+    await db.execute(sql.raw(`CREATE INDEX IF NOT EXISTS "referral_referrer_idx" ON "referral" ("referrer_id")`));
+    results.push("referral table ready");
+
+    // 10. API key table for the browser extension
+    await db.execute(sql.raw(`
+      CREATE TABLE IF NOT EXISTS "api_key" (
+        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        "user_id" text NOT NULL,
+        "key_hash" text NOT NULL UNIQUE,
+        "key_hint" text NOT NULL,
+        "name" text DEFAULT 'Browser Extension' NOT NULL,
+        "last_used_at" timestamp,
+        "created_at" timestamp DEFAULT now() NOT NULL
+      )
+    `));
+    await db.execute(sql.raw(`
+      DO $$ BEGIN
+        ALTER TABLE "api_key"
+          ADD CONSTRAINT "api_key_user_fk"
+          FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE cascade;
+      EXCEPTION WHEN duplicate_object THEN null;
+      END $$
+    `));
+    await db.execute(sql.raw(`CREATE INDEX IF NOT EXISTS "api_key_user_idx" ON "api_key" ("user_id")`));
+    results.push("api_key table ready");
+
     return NextResponse.json({
       ok: true,
       migrations: results,

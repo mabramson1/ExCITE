@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { handleCreditError } from "@/lib/credit-error";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { VoiceInput } from "@/components/voice-input";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -1380,10 +1381,15 @@ function ApWriterTab({ prefill }: { prefill: Prefill | null }) {
         </CardHeader>
         <CardContent className="space-y-4">
           <Textarea
-            placeholder={"Enter your skeleton here. Click 'Templates' for specialty-specific starters.\n\nOr include:\n• Diagnoses (e.g., HTN uncontrolled, DM2 with A1c 8.2%)\n• Key findings (vitals, exam, labs)\n• Current medications\n• What you're planning (med changes, orders, referrals)\n• Any relevant history or complications\n\nExample:\n62M, established patient\nDx: HTN uncontrolled (BP 158/94), DM2 (A1c 8.2%), CKD stage 3a (GFR 52)\nMeds: lisinopril 20mg, metformin 1000 BID, atorvastatin 40mg\nLabs: BMP shows Cr 1.4, K 4.8, A1c 8.2%, lipid panel LDL 118\nPlan: increase lisinopril to 40mg, add empagliflozin 10mg, recheck labs 3 months"}
+            placeholder={"Enter your skeleton here. Click 'Templates' for specialty-specific starters, or click 'Dictate' to use voice.\n\nOr include:\n• Diagnoses (e.g., HTN uncontrolled, DM2 with A1c 8.2%)\n• Key findings (vitals, exam, labs)\n• Current medications\n• What you're planning (med changes, orders, referrals)\n• Any relevant history or complications\n\nExample:\n62M, established patient\nDx: HTN uncontrolled (BP 158/94), DM2 (A1c 8.2%), CKD stage 3a (GFR 52)\nMeds: lisinopril 20mg, metformin 1000 BID, atorvastatin 40mg\nLabs: BMP shows Cr 1.4, K 4.8, A1c 8.2%, lipid panel LDL 118\nPlan: increase lisinopril to 40mg, add empagliflozin 10mg, recheck labs 3 months"}
             value={skeleton}
             onChange={(e) => setSkeleton(e.target.value)}
             className="min-h-[250px]"
+          />
+          <VoiceInput
+            currentText={skeleton}
+            onTranscript={setSkeleton}
+            label="Dictate skeleton"
           />
           <div className="sticky bottom-0 bg-card pt-2 pb-1 -mx-6 px-6 border-t sm:static sm:border-t-0 sm:mx-0 sm:px-0 sm:pt-0 sm:pb-0 z-10">
             <div className="flex flex-wrap items-center gap-3">

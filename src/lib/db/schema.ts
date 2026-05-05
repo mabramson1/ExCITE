@@ -205,6 +205,46 @@ export const blogPost = pgTable("blog_post", {
 
 export type BlogPost = typeof blogPost.$inferSelect;
 
+// ── Referrals ────────────────────────────────────────────────────
+// Each user gets a unique referral code. When a new user signs up with
+// a referrer's code, both sides get bonus credits added to their next
+// monthly cycle.
+export const referral = pgTable("referral", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  referrerId: text("referrer_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  referredUserId: text("referred_user_id")
+    .notNull()
+    .unique()
+    .references(() => user.id, { onDelete: "cascade" }),
+  // Bonus credits awarded to the referrer (added on top of plan limit
+  // for the rest of the current month — see usage.ts logic)
+  creditsAwarded: integer("credits_awarded").notNull().default(10),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type Referral = typeof referral.$inferSelect;
+
+// ── API keys for the browser extension ───────────────────────────
+// Long-lived tokens that authenticate the browser extension to the
+// /api/extension endpoints without requiring a session cookie.
+export const apiKey = pgTable("api_key", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: text("user_id")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  // Store the SHA-256 hash, never the raw token
+  keyHash: text("key_hash").notNull().unique(),
+  // Last 4 chars of the raw token for display ("dsq_...AB12")
+  keyHint: text("key_hint").notNull(),
+  name: text("name").notNull().default("Browser Extension"),
+  lastUsedAt: timestamp("last_used_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type ApiKey = typeof apiKey.$inferSelect;
+
 // ── Shared Template Marketplace ──────────────────────────────────────
 export const sharedTemplate = pgTable("shared_template", {
   id: uuid("id").defaultRandom().primaryKey(),

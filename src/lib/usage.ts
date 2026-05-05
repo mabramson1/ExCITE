@@ -10,6 +10,7 @@ import {
   type PlanName,
 } from "@/lib/credits";
 import { sendCreditWarningEmail } from "@/lib/email";
+import { getReferralBonusForMonth } from "@/lib/referral";
 import type Anthropic from "@anthropic-ai/sdk";
 
 /**
@@ -18,7 +19,9 @@ import type Anthropic from "@anthropic-ai/sdk";
  */
 export async function checkCreditLimit(userId: string, tool: Tool) {
   const plan = ((await getUserPlan(userId)) as PlanName) || "free";
-  const limit = PLAN_CREDIT_LIMITS[plan] ?? PLAN_CREDIT_LIMITS.free;
+  const baseLimit = PLAN_CREDIT_LIMITS[plan] ?? PLAN_CREDIT_LIMITS.free;
+  const referralBonus = await getReferralBonusForMonth(userId);
+  const limit = baseLimit + referralBonus;
   const used = await getMonthlyCredits(userId);
   const cost = TOOL_CREDITS[tool];
 
@@ -29,6 +32,7 @@ export async function checkCreditLimit(userId: string, tool: Tool) {
     plan,
     cost,
     remaining: Math.max(0, limit - used),
+    referralBonus,
   };
 }
 

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Loader2, Gift } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,13 +12,56 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { signUp, signIn } from "@/lib/auth-client";
 
 export default function SignUpPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <SignUpContent />
+    </Suspense>
+  );
+}
+
+function SignUpContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  // Capture ?ref= from URL or sessionStorage (so it survives Google OAuth round-trip)
+  useEffect(() => {
+    const fromUrl = searchParams.get("ref")?.trim().toUpperCase();
+    if (fromUrl) {
+      setReferralCode(fromUrl);
+      sessionStorage.setItem("docsq-referral-code", fromUrl);
+      return;
+    }
+    const stored = sessionStorage.getItem("docsq-referral-code");
+    if (stored) setReferralCode(stored);
+  }, [searchParams]);
+
+  async function redeemReferralIfPresent() {
+    const code = referralCode || sessionStorage.getItem("docsq-referral-code");
+    if (!code) return;
+    try {
+      await fetch("/api/referral/redeem", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+    } catch {
+      // Silently ignore — referral is a bonus, not a blocker
+    }
+    sessionStorage.removeItem("docsq-referral-code");
+  }
 
   async function handleGoogleSignIn() {
     setGoogleLoading(true);
@@ -47,6 +90,7 @@ export default function SignUpPage() {
       if (result.error) {
         setError(result.error.message || "Failed to create account");
       } else {
+        await redeemReferralIfPresent();
         router.push("/dashboard"); // TODO: change to "/verify-email" once email verification is enabled
       }
     } catch {
@@ -71,6 +115,14 @@ export default function SignUpPage() {
             {error && (
               <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
                 {error}
+              </div>
+            )}
+            {referralCode && (
+              <div className="rounded-md bg-primary/5 border border-primary/20 p-3 text-sm flex items-center gap-2">
+                <Gift className="h-4 w-4 text-primary shrink-0" />
+                <span>
+                  Referral code <strong className="font-mono">{referralCode}</strong> applied. Your friend will get bonus credits.
+                </span>
               </div>
             )}
             <div className="space-y-2">
