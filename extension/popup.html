@@ -4,102 +4,93 @@
   <meta charset="UTF-8">
   <title>Docs Squared</title>
   <style>
+    * { box-sizing: border-box; margin: 0; }
     body {
-      width: 320px;
-      margin: 0;
-      padding: 16px;
+      width: 340px;
+      padding: 20px;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
       font-size: 14px;
       color: #111827;
+      background: #fff;
     }
-    h1 {
-      font-size: 16px;
-      margin: 0 0 4px;
-      color: #4A90D2;
+    .brand {
+      display: flex;
+      align-items: baseline;
+      gap: 2px;
+      margin-bottom: 4px;
     }
-    .subtitle {
-      font-size: 12px;
-      color: #6b7280;
-      margin-bottom: 16px;
-    }
-    label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      color: #374151;
-      margin-bottom: 6px;
-    }
+    .brand-d { font-size: 20px; font-weight: 800; color: #111827; }
+    .brand-2 { font-size: 14px; font-weight: 800; color: #4A90D2; position: relative; top: -6px; }
+    .subtitle { font-size: 12px; color: #6b7280; margin-bottom: 20px; line-height: 1.4; }
+    label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px; }
     input {
       width: 100%;
-      padding: 8px 10px;
+      padding: 9px 11px;
       border: 1px solid #d1d5db;
-      border-radius: 6px;
+      border-radius: 8px;
       font-family: ui-monospace, SFMono-Regular, monospace;
       font-size: 12px;
-      box-sizing: border-box;
     }
-    input:focus {
-      outline: none;
-      border-color: #4A90D2;
-      box-shadow: 0 0 0 2px rgba(74, 144, 210, 0.2);
-    }
+    input:focus { outline: none; border-color: #4A90D2; box-shadow: 0 0 0 3px rgba(74,144,210,.15); }
+    .btn-row { display: flex; gap: 8px; margin-top: 12px; }
     button {
-      width: 100%;
-      margin-top: 10px;
-      padding: 8px;
-      background: #4A90D2;
-      color: white;
-      border: none;
-      border-radius: 6px;
+      flex: 1;
+      padding: 9px;
+      border-radius: 8px;
       font-size: 13px;
       font-weight: 500;
       cursor: pointer;
+      border: none;
+      transition: background .15s;
     }
-    button:hover { background: #3a7eb9; }
-    button.secondary {
-      background: white;
-      color: #4A90D2;
-      border: 1px solid #d1d5db;
-    }
+    .btn-primary { background: #4A90D2; color: #fff; }
+    .btn-primary:hover { background: #3a7eb9; }
+    .btn-secondary { background: #fff; color: #4A90D2; border: 1px solid #d1d5db; }
+    .btn-secondary:hover { background: #f9fafb; }
     .status {
-      margin-top: 10px;
-      padding: 10px;
-      border-radius: 6px;
-      font-size: 12px;
-    }
-    .status.ok { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
-    .status.err { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
-    .help {
-      font-size: 11px;
-      color: #6b7280;
       margin-top: 12px;
-      line-height: 1.5;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 1.4;
+      display: none;
     }
+    .status.ok { display: block; background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+    .status.err { display: block; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .status.info { display: block; background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+    hr { border: none; border-top: 1px solid #f3f4f6; margin: 16px 0; }
+    .help { font-size: 11px; color: #6b7280; line-height: 1.6; }
     .help a { color: #4A90D2; text-decoration: none; }
     .help a:hover { text-decoration: underline; }
-    code {
-      background: #f3f4f6;
-      padding: 1px 4px;
-      border-radius: 3px;
-      font-size: 11px;
-    }
+    .help strong { color: #374151; }
   </style>
 </head>
 <body>
-  <h1>Docs²</h1>
-  <p class="subtitle">Highlight any text on any webpage. Right-click to humanize or check for AI.</p>
+  <div class="brand">
+    <span class="brand-d">docs</span><span class="brand-2">2</span>
+  </div>
+  <p class="subtitle">
+    Highlight text on any webpage, right-click, and choose
+    <strong>Humanize</strong> or <strong>Check for AI</strong>.
+  </p>
 
   <label for="apikey">API Key</label>
-  <input type="password" id="apikey" placeholder="dsq_..." autocomplete="off">
+  <input type="password" id="apikey" placeholder="dsq_..." autocomplete="off" spellcheck="false">
 
-  <button id="save">Save Key</button>
-  <button id="clear" class="secondary">Clear</button>
+  <div class="btn-row">
+    <button id="save" class="btn-primary">Save</button>
+    <button id="clear" class="btn-secondary">Clear</button>
+  </div>
 
   <div id="status"></div>
 
+  <hr>
   <div class="help">
-    Get a key in <a href="https://docsquared.app/settings" target="_blank">your settings page</a>.
-    Right-click any selected text and pick "Humanize" or "Check for AI".
+    <strong>How to get a key:</strong><br>
+    1. Go to <a href="https://docsquared.app/settings" target="_blank">docsquared.app/settings</a><br>
+    2. Scroll to <strong>Browser Extension</strong><br>
+    3. Click <strong>New API Key</strong>, copy it, paste it here<br><br>
+    Each use costs 1 credit from your monthly allotment.
   </div>
 
   <script src="popup.js"></script>

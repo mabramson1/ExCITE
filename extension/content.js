@@ -1,5 +1,6 @@
-// Docs Squared content script
-// Listens for context menu actions and shows results in a floating panel.
+// Docs Squared content script.
+// Receives actions from the background worker, calls the API relay,
+// and shows results in a floating panel.
 
 (function () {
   if (window.__docsqLoaded) return;
@@ -7,22 +8,35 @@
 
   let panel = null;
 
-  window.addEventListener("docsq-action", async (e) => {
-    const { action, text } = e.detail;
+  // ── Receive action from background (via chrome.tabs.sendMessage) ──
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (msg.type !== "docsq-action") return;
+    handleAction(msg.action, msg.text);
+  });
+
+  async function handleAction(action, text) {
     showLoading(action, text);
 
     chrome.runtime.sendMessage(
       { type: "docsq-api", action, text },
       (response) => {
-        if (!response) {
+        if (chrome.runtime.lastError) {
           showError("Extension error. Try reloading the page.");
+          return;
+        }
+        if (!response) {
+          showError("No response from extension. Try reloading.");
           return;
         }
         if (response.error) {
           if (response.status === 401) {
-            showError("Set your API key in the extension popup first.");
+            showError(
+              "Set your API key first. Click the Docs² icon in the toolbar."
+            );
           } else if (response.status === 402) {
-            showError("Out of credits this month. Visit docsquared.app to upgrade.");
+            showError(
+              "Out of credits this month. Visit docsquared.app/pricing to upgrade."
+            );
           } else {
             showError(response.error);
           }
@@ -31,87 +45,99 @@
         showResult(action, response.result);
       }
     );
-  });
+  }
 
+  // ── Panel UI ────────────────────────────────────────────────────
   function ensurePanel() {
     if (panel) return panel;
     panel = document.createElement("div");
     panel.id = "docsq-panel";
-    panel.innerHTML = `
-      <div class="docsq-header">
-        <strong>Docs²</strong>
-        <button class="docsq-close" aria-label="Close">×</button>
-      </div>
-      <div class="docsq-body"></div>
-    `;
+    panel.innerHTML =
+      '<div class="docsq-header">' +
+      "  <strong>Docs²</strong>" +
+      '  <button class="docsq-close" aria-label="Close">&times;</button>' +
+      "</div>" +
+      '<div class="docsq-body"></div>';
     document.body.appendChild(panel);
-    panel.querySelector(".docsq-close").addEventListener("click", () => {
-      panel.style.display = "none";
-    });
+    panel
+      .querySelector(".docsq-close")
+      .addEventListener("click", () => {
+        panel.style.display = "none";
+      });
     return panel;
   }
 
   function showLoading(action, text) {
-    const p = ensurePanel();
+    var p = ensurePanel();
     p.style.display = "block";
-    const verb = action === "humanize" ? "Humanizing" : "Analyzing";
-    p.querySelector(".docsq-body").innerHTML = `
-      <div class="docsq-loading">
-        <div class="docsq-spinner"></div>
-        <p>${verb} ${text.length} characters...</p>
-      </div>
-    `;
+    var verb = action === "humanize" ? "Humanizing" : "Analyzing";
+    p.querySelector(".docsq-body").innerHTML =
+      '<div class="docsq-loading">' +
+      '  <div class="docsq-spinner"></div>' +
+      "  <p>" + verb + " " + text.length + " characters...</p>" +
+      "</div>";
   }
 
   function showError(message) {
-    const p = ensurePanel();
+    var p = ensurePanel();
     p.style.display = "block";
-    p.querySelector(".docsq-body").innerHTML = `
-      <div class="docsq-error">${escapeHtml(message)}</div>
-    `;
+    p.querySelector(".docsq-body").innerHTML =
+      '<div class="docsq-error">' + escapeHtml(message) + "</div>";
   }
 
   function showResult(action, result) {
-    const p = ensurePanel();
+    var p = ensurePanel();
     p.style.display = "block";
+    var body = p.querySelector(".docsq-body");
 
     if (action === "humanize") {
-      const rewritten = result?.rewritten_text || "(no rewrite returned)";
-      p.querySelector(".docsq-body").innerHTML = `
-        <h3>Humanized text</h3>
-        <textarea readonly>${escapeHtml(rewritten)}</textarea>
-        <button class="docsq-copy">Copy</button>
-      `;
-      const ta = p.querySelector("textarea");
-      p.querySelector(".docsq-copy").addEventListener("click", () => {
+      var rewritten = (result && result.rewritten_text) || "(no rewrite returned)";
+      body.innerHTML =
+        "<h3>Humanized text</h3>" +
+        "<textarea readonly>" + escapeHtml(rewritten) + "</textarea>" +
+        '<button class="docsq-copy">Copy to clipboard</button>';
+      var ta = body.querySelector("textarea");
+      body.querySelector(".docsq-copy").addEventListener("click", function () {
         navigator.clipboard.writeText(ta.value);
-        const btn = p.querySelector(".docsq-copy");
-        btn.textContent = "Copied";
-        setTimeout(() => { btn.textContent = "Copy"; }, 1500);
+        this.textContent = "Copied!";
+        var btn = this;
+        setTimeout(function () {
+          btn.textContent = "Copy to clipboard";
+        }, 1500);
       });
     } else {
-      const score = result?.consensus_score ?? result?.overall_ai_probability ?? 0;
-      const pct = Math.round(score * 100);
-      const verdict = result?.consensus_verdict || result?.verdict || "unknown";
-      const reasoning = result?.reasoning || "";
-      const color =
-        pct >= 80 ? "#dc2626" : pct >= 55 ? "#ea580c" : pct >= 30 ? "#ca8a04" : "#16a34a";
-      p.querySelector(".docsq-body").innerHTML = `
-        <h3>AI probability</h3>
-        <div class="docsq-score" style="color:${color}">${pct}%</div>
-        <p class="docsq-verdict">${escapeHtml(verdict.replace(/_/g, " "))}</p>
-        <p class="docsq-reasoning">${escapeHtml(reasoning)}</p>
-      `;
+      var score =
+        (result && result.consensus_score) ||
+        (result && result.overall_ai_probability) ||
+        0;
+      var pct = Math.round(score * 100);
+      var verdict =
+        (result && result.consensus_verdict) ||
+        (result && result.verdict) ||
+        "unknown";
+      var reasoning = (result && result.reasoning) || "";
+      var color =
+        pct >= 80
+          ? "#dc2626"
+          : pct >= 55
+          ? "#ea580c"
+          : pct >= 30
+          ? "#ca8a04"
+          : "#16a34a";
+
+      body.innerHTML =
+        "<h3>AI probability</h3>" +
+        '<div class="docsq-score" style="color:' + color + '">' + pct + "%</div>" +
+        '<p class="docsq-verdict">' + escapeHtml(verdict.replace(/_/g, " ")) + "</p>" +
+        (reasoning
+          ? '<p class="docsq-reasoning">' + escapeHtml(reasoning) + "</p>"
+          : "");
     }
   }
 
   function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, (c) => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;",
-    }[c]));
+    var div = document.createElement("div");
+    div.appendChild(document.createTextNode(String(s)));
+    return div.innerHTML;
   }
 })();

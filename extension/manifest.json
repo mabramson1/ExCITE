@@ -6,8 +6,7 @@
   "permissions": ["contextMenus", "storage", "activeTab", "scripting"],
   "host_permissions": ["https://docsquared.app/*"],
   "background": {
-    "service_worker": "background.js",
-    "type": "module"
+    "service_worker": "background.js"
   },
   "action": {
     "default_popup": "popup.html",

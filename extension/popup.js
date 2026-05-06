@@ -1,35 +1,37 @@
-const input = document.getElementById("apikey");
-const status = document.getElementById("status");
+var input = document.getElementById("apikey");
+var statusEl = document.getElementById("status");
 
-// Load existing key on open
-chrome.storage.local.get("apiKey", ({ apiKey }) => {
-  if (apiKey) {
-    input.value = apiKey;
-    showStatus("API key configured", "ok");
+// Load saved key on open
+chrome.storage.local.get("apiKey", function (data) {
+  if (data.apiKey) {
+    input.value = data.apiKey;
+    showStatus("Key configured. Select text on any page and right-click.", "ok");
   }
 });
 
-document.getElementById("save").addEventListener("click", async () => {
-  const value = input.value.trim();
+document.getElementById("save").addEventListener("click", function () {
+  var value = input.value.trim();
   if (!value) {
-    showStatus("Enter a key first", "err");
+    showStatus("Paste your API key first.", "err");
     return;
   }
   if (!value.startsWith("dsq_")) {
-    showStatus("Key should start with dsq_", "err");
+    showStatus("Keys start with dsq_. Check your settings page.", "err");
     return;
   }
-  await chrome.storage.local.set({ apiKey: value });
-  showStatus("Saved. Try right-clicking selected text.", "ok");
+  chrome.storage.local.set({ apiKey: value }, function () {
+    showStatus("Saved. Try selecting text on any page and right-clicking.", "ok");
+  });
 });
 
-document.getElementById("clear").addEventListener("click", async () => {
-  await chrome.storage.local.remove("apiKey");
-  input.value = "";
-  showStatus("Cleared.", "ok");
+document.getElementById("clear").addEventListener("click", function () {
+  chrome.storage.local.remove("apiKey", function () {
+    input.value = "";
+    showStatus("Key cleared.", "info");
+  });
 });
 
 function showStatus(message, type) {
-  status.className = "status " + type;
-  status.textContent = message;
+  statusEl.className = "status " + type;
+  statusEl.textContent = message;
 }

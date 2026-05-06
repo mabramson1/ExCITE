@@ -1,8 +1,9 @@
-// Docs Squared browser extension background worker
-// Sets up the right-click context menu and routes API requests.
+// Docs Squared browser extension background worker.
+// Right-click context menu + API relay for the content script.
 
 const API_BASE = "https://docsquared.app";
 
+// ── Context menu setup ────────────────────────────────────────────
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: "docsq-humanize",
@@ -16,23 +17,18 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+// ── Context menu click → forward to the content script ────────────
+chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (!tab?.id || !info.selectionText) return;
-
   const action = info.menuItemId === "docsq-humanize" ? "humanize" : "detect";
-
-  await chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    func: (action, text) => {
-      window.dispatchEvent(
-        new CustomEvent("docsq-action", { detail: { action, text } })
-      );
-    },
-    args: [action, info.selectionText],
+  chrome.tabs.sendMessage(tab.id, {
+    type: "docsq-action",
+    action,
+    text: info.selectionText,
   });
 });
 
-// Forward API requests from the content script (avoids CORS edge cases)
+// ── API relay: content script sends "docsq-api", we call the server ──
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type !== "docsq-api") return false;
 
@@ -40,7 +36,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     try {
       const { apiKey } = await chrome.storage.local.get("apiKey");
       if (!apiKey) {
-        sendResponse({ error: "No API key configured. Click the extension icon to set one." });
+        sendResponse({
+          error: "No API key set. Click the Docs² icon in the toolbar.",
+        });
         return;
       }
 
@@ -60,7 +58,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
       const data = await res.json();
       if (!res.ok) {
-        sendResponse({ error: data.error || `HTTP ${res.status}`, status: res.status });
+        sendResponse({
+          error: data.error || `HTTP ${res.status}`,
+          status: res.status,
+        });
         return;
       }
       sendResponse({ result: data.result });
@@ -69,5 +70,5 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     }
   })();
 
-  return true; // keep message channel open for async response
+  return true; // keep channel open for async response
 });
