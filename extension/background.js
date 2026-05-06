@@ -17,7 +17,6 @@ chrome.runtime.onInstalled.addListener(() => {
   });
 });
 
-// ── Context menu click → forward to the content script ────────────
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (!tab?.id || !info.selectionText) return;
   const action = info.menuItemId === "docsq-humanize" ? "humanize" : "detect";
@@ -28,31 +27,27 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   });
 });
 
-// ── API relay: content script sends "docsq-api", we call the server ──
+// ── API relay ─────────────────────────────────────────────────────
+// Tries the user's session cookie first (no setup needed if signed in to
+// docsquared.app). Falls back to an API key if the user has saved one.
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.type !== "docsq-api") return false;
 
   (async () => {
     try {
-      const { apiKey } = await chrome.storage.local.get("apiKey");
-      if (!apiKey) {
-        sendResponse({
-          error: "No API key set. Click the Docs² icon in the toolbar.",
-        });
-        return;
-      }
-
       const endpoint =
         msg.action === "humanize"
           ? `${API_BASE}/api/extension/de-ai-ify`
           : `${API_BASE}/api/extension/ai-detect`;
 
+      const headers = { "Content-Type": "application/json" };
+      const { apiKey } = await chrome.storage.local.get("apiKey");
+      if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
+        credentials: "include", // sends docsquared.app session cookie
+        headers,
         body: JSON.stringify({ text: msg.text }),
       });
 
@@ -70,5 +65,40 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     }
   })();
 
-  return true; // keep channel open for async response
+  return true;
+});
+
+// ── Connection status check (used by popup) ──────────────────────
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg.type !== "docsq-check-auth") return false;
+
+  (async () => {
+    try {
+      const { apiKey } = await chrome.storage.local.get("apiKey");
+      const headers = {};
+      if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
+
+      const res = await fetch(`${API_BASE}/api/extension/me`, {
+        method: "GET",
+        credentials: "include",
+        headers,
+      });
+
+      if (!res.ok) {
+        sendResponse({ signedIn: false });
+        return;
+      }
+      const data = await res.json();
+      sendResponse({
+        signedIn: true,
+        email: data.email,
+        name: data.name,
+        method: data.method,
+      });
+    } catch (err) {
+      sendResponse({ signedIn: false, error: err.message });
+    }
+  })();
+
+  return true;
 });

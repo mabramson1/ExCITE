@@ -21,20 +21,46 @@
     }
     .brand-d { font-size: 20px; font-weight: 800; color: #111827; }
     .brand-2 { font-size: 14px; font-weight: 800; color: #4A90D2; position: relative; top: -6px; }
-    .subtitle { font-size: 12px; color: #6b7280; margin-bottom: 20px; line-height: 1.4; }
-    label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 6px; }
-    input {
-      width: 100%;
-      padding: 9px 11px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      font-family: ui-monospace, SFMono-Regular, monospace;
-      font-size: 12px;
+    .subtitle { font-size: 12px; color: #6b7280; margin-bottom: 16px; line-height: 1.4; }
+
+    .status-card {
+      padding: 12px;
+      border-radius: 10px;
+      margin-bottom: 14px;
+      font-size: 13px;
     }
-    input:focus { outline: none; border-color: #4A90D2; box-shadow: 0 0 0 3px rgba(74,144,210,.15); }
-    .btn-row { display: flex; gap: 8px; margin-top: 12px; }
+    .status-card.connected {
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+    }
+    .status-card.disconnected {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+    }
+    .status-card.loading {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      color: #6b7280;
+      text-align: center;
+    }
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .dot.green { background: #16a34a; }
+    .dot.red { background: #dc2626; }
+
     button {
-      flex: 1;
+      width: 100%;
       padding: 9px;
       border-radius: 8px;
       font-size: 13px;
@@ -45,24 +71,56 @@
     }
     .btn-primary { background: #4A90D2; color: #fff; }
     .btn-primary:hover { background: #3a7eb9; }
-    .btn-secondary { background: #fff; color: #4A90D2; border: 1px solid #d1d5db; }
+    .btn-secondary { background: #fff; color: #4A90D2; border: 1px solid #d1d5db; margin-top: 8px; }
     .btn-secondary:hover { background: #f9fafb; }
-    .status {
-      margin-top: 12px;
-      padding: 10px 12px;
-      border-radius: 8px;
+    .btn-text {
+      background: none;
+      border: none;
+      color: #4A90D2;
+      text-decoration: underline;
       font-size: 12px;
-      line-height: 1.4;
+      padding: 4px 0;
+      cursor: pointer;
+      width: auto;
+    }
+
+    .advanced {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid #f3f4f6;
       display: none;
     }
-    .status.ok { display: block; background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
-    .status.err { display: block; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
-    .status.info { display: block; background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
-    hr { border: none; border-top: 1px solid #f3f4f6; margin: 16px 0; }
-    .help { font-size: 11px; color: #6b7280; line-height: 1.6; }
+    .advanced.visible { display: block; }
+    .advanced label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+    .advanced input {
+      width: 100%;
+      padding: 9px 11px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-family: ui-monospace, SFMono-Regular, monospace;
+      font-size: 12px;
+    }
+    .advanced .btn-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .advanced .btn-row button { flex: 1; }
+
+    .help {
+      font-size: 11px;
+      color: #6b7280;
+      line-height: 1.5;
+      margin-top: 12px;
+    }
     .help a { color: #4A90D2; text-decoration: none; }
     .help a:hover { text-decoration: underline; }
-    .help strong { color: #374151; }
   </style>
 </head>
 <body>
@@ -74,23 +132,31 @@
     <strong>Humanize</strong> or <strong>Check for AI</strong>.
   </p>
 
-  <label for="apikey">API Key</label>
-  <input type="password" id="apikey" placeholder="dsq_..." autocomplete="off" spellcheck="false">
-
-  <div class="btn-row">
-    <button id="save" class="btn-primary">Save</button>
-    <button id="clear" class="btn-secondary">Clear</button>
+  <div id="status" class="status-card loading">
+    <div class="status-row">
+      <span>Checking connection...</span>
+    </div>
   </div>
 
-  <div id="status"></div>
+  <button id="signin" class="btn-primary" style="display:none">
+    Sign in to Docs²
+  </button>
 
-  <hr>
-  <div class="help">
-    <strong>How to get a key:</strong><br>
-    1. Go to <a href="https://docsquared.app/settings" target="_blank">docsquared.app/settings</a><br>
-    2. Scroll to <strong>Browser Extension</strong><br>
-    3. Click <strong>New API Key</strong>, copy it, paste it here<br><br>
-    Each use costs 1 credit from your monthly allotment.
+  <button id="toggle-advanced" class="btn-text">
+    Use API key instead
+  </button>
+
+  <div id="advanced" class="advanced">
+    <label for="apikey">API Key (optional)</label>
+    <input type="password" id="apikey" placeholder="dsq_..." autocomplete="off" spellcheck="false">
+    <div class="btn-row">
+      <button id="save" class="btn-primary">Save</button>
+      <button id="clear" class="btn-secondary" style="margin-top:0">Clear</button>
+    </div>
+    <p class="help">
+      Get a key in <a href="https://docsquared.app/settings" target="_blank">your settings page</a>.
+      Useful for shared computers or scripted workflows.
+    </p>
   </div>
 
   <script src="popup.js"></script>

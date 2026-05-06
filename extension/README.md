@@ -15,11 +15,24 @@ Powered by your existing docsquared.app account.
 
 ## Setup
 
-1. Visit https://docsquared.app/settings
-2. Scroll to **Browser Extension** and click **New API Key**
-3. Copy the key (you only see it once)
-4. Click the Docs² extension icon in your browser toolbar
-5. Paste the key, click **Save Key**
+The extension uses your existing docsquared.app login. There's nothing to configure if you're already signed in.
+
+1. Sign in at https://docsquared.app
+2. Click the Docs² icon in your toolbar — you should see "Connected as your-email@example.com"
+3. Done.
+
+If the popup says "Not signed in", click the Sign In button or visit docsquared.app and log in normally. Then re-open the popup.
+
+### Optional: API key fallback
+
+If you can't (or don't want to) keep a browser session active, you can use an API key instead:
+
+1. In the popup, click "Use API key instead"
+2. Visit https://docsquared.app/settings → Browser Extension → New API Key
+3. Paste the `dsq_...` key into the popup
+4. Click Save
+
+Useful for: shared computers, scripted workflows, or sessions that frequently expire.
 
 ## Use
 
@@ -27,11 +40,13 @@ Powered by your existing docsquared.app account.
 2. Right-click and choose **Humanize selection (Docs²)** or **Check selection for AI (Docs²)**
 3. A floating panel appears in the top-right with results
 
+Each use costs 1 credit from your monthly allotment.
+
 ## Build for Chrome Web Store
 
-The extension is ready to package as-is. To submit:
+The extension is ready to package as-is.
 
-1. Add proper icons to `icons/` (16×16, 48×48, 128×128 PNG)
+1. Icons are already in `icons/` (16×16, 48×48, 128×128 PNG)
 2. Zip the entire `extension/` folder
 3. Upload to https://chrome.google.com/webstore/devconsole
 4. Pay the $5 one-time developer fee
@@ -39,6 +54,13 @@ The extension is ready to package as-is. To submit:
 ## Files
 
 - `manifest.json` — Manifest V3 config
-- `background.js` — Service worker, handles context menu and API calls
+- `background.js` — Service worker, handles context menu and API relay
 - `content.js` + `content.css` — Floating result panel injected into pages
-- `popup.html` + `popup.js` — Toolbar popup for setting the API key
+- `popup.html` + `popup.js` — Toolbar popup with auth status + optional API key
+- `generate-icons.js` — Regenerate brand icons from SVG (run with Node)
+
+## Auth flow
+
+- Cookie-based by default: extension sends docsquared.app session cookie via `credentials: 'include'`
+- API key fallback: Bearer token in Authorization header
+- Server tries cookie first, falls back to key (`src/lib/extension-auth.ts`)
