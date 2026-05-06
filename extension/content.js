@@ -31,14 +31,18 @@
         if (response.error) {
           if (response.status === 401) {
             showError(
-              "Set your API key first. Click the Docs² icon in the toolbar."
+              'Not signed in. Open <a href="https://docsquared.app/sign-in" target="_blank" style="color:#4A90D2">docsquared.app</a> and sign in, then try again.'
             );
           } else if (response.status === 402) {
             showError(
-              "Out of credits this month. Visit docsquared.app/pricing to upgrade."
+              'Out of credits this month. <a href="https://docsquared.app/pricing" target="_blank" style="color:#4A90D2">Upgrade</a> or wait for the monthly reset.'
+            );
+          } else if (response.status === 429) {
+            showError(
+              "Rate limit hit. Wait a few seconds and try again."
             );
           } else {
-            showError(response.error);
+            showError(response.error, /*allowHtml*/ false);
           }
           return;
         }
@@ -78,11 +82,13 @@
       "</div>";
   }
 
-  function showError(message) {
+  function showError(message, allowHtml) {
     var p = ensurePanel();
     p.style.display = "block";
     p.querySelector(".docsq-body").innerHTML =
-      '<div class="docsq-error">' + escapeHtml(message) + "</div>";
+      '<div class="docsq-error">' +
+      (allowHtml === false ? escapeHtml(message) : message) +
+      "</div>";
   }
 
   function showResult(action, result) {

@@ -4,7 +4,15 @@ Right-click any selected text on any webpage to:
 - **Humanize** AI-generated text
 - **Check** for AI patterns
 
-Powered by your existing docsquared.app account.
+Powered by your existing docsquared.app account. No API keys, no setup.
+
+## How auth works
+
+The extension reads your docsquared.app session cookies via the
+`chrome.cookies` API and forwards them with each request. As long as
+you're signed in at docsquared.app in any browser tab, the extension
+authenticates automatically. When your session expires, just sign in
+again.
 
 ## Install (developer mode)
 
@@ -13,54 +21,47 @@ Powered by your existing docsquared.app account.
 3. Click **Load unpacked**
 4. Select this `extension/` folder
 
-## Setup
-
-The extension uses your existing docsquared.app login. There's nothing to configure if you're already signed in.
-
-1. Sign in at https://docsquared.app
-2. Click the Docs² icon in your toolbar — you should see "Connected as your-email@example.com"
-3. Done.
-
-If the popup says "Not signed in", click the Sign In button or visit docsquared.app and log in normally. Then re-open the popup.
-
-### Optional: API key fallback
-
-If you can't (or don't want to) keep a browser session active, you can use an API key instead:
-
-1. In the popup, click "Use API key instead"
-2. Visit https://docsquared.app/settings → Browser Extension → New API Key
-3. Paste the `dsq_...` key into the popup
-4. Click Save
-
-Useful for: shared computers, scripted workflows, or sessions that frequently expire.
+If you've installed an older version, click **Remove** first, then
+reinstall — the new version requires a `cookies` permission that won't
+auto-update.
 
 ## Use
 
-1. Highlight any text on any webpage
-2. Right-click and choose **Humanize selection (Docs²)** or **Check selection for AI (Docs²)**
-3. A floating panel appears in the top-right with results
+1. Sign in at https://docsquared.app (any browser tab)
+2. Click the Docs² icon in your toolbar — should show
+   "Connected as your-email@example.com"
+3. Highlight text on any webpage
+4. Right-click → **Humanize selection (Docs²)** or **Check selection for AI (Docs²)**
+5. A floating panel appears in the top-right with results
 
 Each use costs 1 credit from your monthly allotment.
-
-## Build for Chrome Web Store
-
-The extension is ready to package as-is.
-
-1. Icons are already in `icons/` (16×16, 48×48, 128×128 PNG)
-2. Zip the entire `extension/` folder
-3. Upload to https://chrome.google.com/webstore/devconsole
-4. Pay the $5 one-time developer fee
 
 ## Files
 
 - `manifest.json` — Manifest V3 config
-- `background.js` — Service worker, handles context menu and API relay
+- `background.js` — Service worker, context menu, API relay, cookie forwarding
 - `content.js` + `content.css` — Floating result panel injected into pages
-- `popup.html` + `popup.js` — Toolbar popup with auth status + optional API key
-- `generate-icons.js` — Regenerate brand icons from SVG (run with Node)
+- `popup.html` + `popup.js` — Toolbar popup with connection status
+- `generate-icons.js` — Regenerate brand icons (run with `node`)
 
-## Auth flow
+## Build for Chrome Web Store
 
-- Cookie-based by default: extension sends docsquared.app session cookie via `credentials: 'include'`
-- API key fallback: Bearer token in Authorization header
-- Server tries cookie first, falls back to key (`src/lib/extension-auth.ts`)
+1. Icons are already in `icons/` (16, 48, 128 px PNG)
+2. Zip the `extension/` folder
+3. Upload to https://chrome.google.com/webstore/devconsole
+4. Pay the $5 one-time developer fee
+
+## Troubleshooting
+
+**"Not signed in to docsquared.app"** — sign in at the website first.
+The popup re-checks every time you open it, or click "Re-check
+connection".
+
+**"Failed to humanize" / "Failed to detect" with detail message** — the
+server returned an error. Check the detail for specifics. Common causes:
+- Cookie expired: sign in again
+- Out of credits: visit pricing page
+- Rate limited: wait a few seconds
+
+**Nothing happens on right-click** — reload the extension from
+`chrome://extensions` and refresh the webpage you're testing on.

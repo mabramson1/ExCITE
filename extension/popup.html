@@ -6,7 +6,7 @@
   <style>
     * { box-sizing: border-box; margin: 0; }
     body {
-      width: 340px;
+      width: 320px;
       padding: 20px;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
       font-size: 14px;
@@ -26,25 +26,15 @@
     .status-card {
       padding: 12px;
       border-radius: 10px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
       font-size: 13px;
+      line-height: 1.5;
     }
-    .status-card.connected {
-      background: #f0fdf4;
-      border: 1px solid #bbf7d0;
-      color: #166534;
-    }
-    .status-card.disconnected {
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      color: #991b1b;
-    }
-    .status-card.loading {
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      color: #6b7280;
-      text-align: center;
-    }
+    .status-card.connected { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+    .status-card.disconnected { background: #fff7ed; border: 1px solid #fed7aa; color: #9a3412; }
+    .status-card.error { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+    .status-card.loading { background: #f9fafb; border: 1px solid #e5e7eb; color: #6b7280; text-align: center; }
+
     .status-row {
       display: flex;
       align-items: center;
@@ -57,6 +47,7 @@
       flex-shrink: 0;
     }
     .dot.green { background: #16a34a; }
+    .dot.amber { background: #f59e0b; }
     .dot.red { background: #dc2626; }
 
     button {
@@ -73,51 +64,14 @@
     .btn-primary:hover { background: #3a7eb9; }
     .btn-secondary { background: #fff; color: #4A90D2; border: 1px solid #d1d5db; margin-top: 8px; }
     .btn-secondary:hover { background: #f9fafb; }
-    .btn-text {
-      background: none;
-      border: none;
-      color: #4A90D2;
-      text-decoration: underline;
-      font-size: 12px;
-      padding: 4px 0;
-      cursor: pointer;
-      width: auto;
-    }
-
-    .advanced {
-      margin-top: 16px;
-      padding-top: 14px;
-      border-top: 1px solid #f3f4f6;
-      display: none;
-    }
-    .advanced.visible { display: block; }
-    .advanced label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      color: #374151;
-      margin-bottom: 6px;
-    }
-    .advanced input {
-      width: 100%;
-      padding: 9px 11px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      font-family: ui-monospace, SFMono-Regular, monospace;
-      font-size: 12px;
-    }
-    .advanced .btn-row {
-      display: flex;
-      gap: 8px;
-      margin-top: 8px;
-    }
-    .advanced .btn-row button { flex: 1; }
 
     .help {
       font-size: 11px;
       color: #6b7280;
       line-height: 1.5;
       margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #f3f4f6;
     }
     .help a { color: #4A90D2; text-decoration: none; }
     .help a:hover { text-decoration: underline; }
@@ -141,22 +95,13 @@
   <button id="signin" class="btn-primary" style="display:none">
     Sign in to Docs²
   </button>
-
-  <button id="toggle-advanced" class="btn-text">
-    Use API key instead
+  <button id="recheck" class="btn-secondary" style="display:none">
+    Re-check connection
   </button>
 
-  <div id="advanced" class="advanced">
-    <label for="apikey">API Key (optional)</label>
-    <input type="password" id="apikey" placeholder="dsq_..." autocomplete="off" spellcheck="false">
-    <div class="btn-row">
-      <button id="save" class="btn-primary">Save</button>
-      <button id="clear" class="btn-secondary" style="margin-top:0">Clear</button>
-    </div>
-    <p class="help">
-      Get a key in <a href="https://docsquared.app/settings" target="_blank">your settings page</a>.
-      Useful for shared computers or scripted workflows.
-    </p>
+  <div class="help">
+    The extension uses your existing docsquared.app login.
+    Each use costs 1 credit from your monthly allotment.
   </div>
 
   <script src="popup.js"></script>

@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Docs Squared",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Humanize AI text or check any webpage selection for AI patterns. Powered by Docs Squared.",
-  "permissions": ["contextMenus", "storage", "activeTab", "scripting"],
+  "permissions": ["contextMenus", "storage", "activeTab", "scripting", "cookies"],
   "host_permissions": ["https://docsquared.app/*"],
   "background": {
     "service_worker": "background.js"

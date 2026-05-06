@@ -94,9 +94,13 @@ export async function POST(req: NextRequest) {
 
     return withExtensionCors(NextResponse.json({ result: parsed }), req);
   } catch (err) {
-    console.error("Extension ai-detect error:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("[ExtensionDetect] error:", message, err);
     return withExtensionCors(
-      NextResponse.json({ error: "Failed to detect" }, { status: 500 }),
+      NextResponse.json(
+        { error: "Failed to detect", detail: message },
+        { status: 500 }
+      ),
       req
     );
   }

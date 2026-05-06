@@ -76,9 +76,13 @@ export async function POST(req: NextRequest) {
     const restored = phi.hasPhi ? deepReinject(parsed, phi.tokenMap) : parsed;
     return withExtensionCors(NextResponse.json({ result: restored }), req);
   } catch (err) {
-    console.error("Extension de-ai-ify error:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error("[ExtensionHumanize] error:", message, err);
     return withExtensionCors(
-      NextResponse.json({ error: "Failed to process" }, { status: 500 }),
+      NextResponse.json(
+        { error: "Failed to humanize", detail: message },
+        { status: 500 }
+      ),
       req
     );
   }

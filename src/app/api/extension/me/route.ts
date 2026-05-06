@@ -38,7 +38,6 @@ export async function GET(req: NextRequest) {
     NextResponse.json({
       email: u?.email,
       name: u?.name,
-      method: auth.method,
     }),
     req
   );
