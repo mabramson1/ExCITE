@@ -123,19 +123,19 @@ export default function SettingsPage() {
             or check it for AI patterns. Uses your existing login.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Install the extension from{" "}
-            <a
-              href="https://github.com/mabramson1/ExCITE/tree/main/extension"
-              target="_blank"
-              rel="noreferrer"
-              className="text-primary hover:underline"
-            >
-              the repo
-            </a>
-            . No setup needed — as long as you&apos;re signed in here, the
-            extension authenticates automatically.
+        <CardContent className="space-y-3">
+          <a
+            href="https://chrome.google.com/webstore/detail/docs-squared/PLACEHOLDER"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <Button variant="outline" className="w-full gap-2">
+              <Puzzle className="h-4 w-4" />
+              Install Chrome Extension
+            </Button>
+          </a>
+          <p className="text-xs text-muted-foreground text-center">
+            Works with Chrome, Edge, and Brave. No setup needed.
           </p>
         </CardContent>
       </Card>
