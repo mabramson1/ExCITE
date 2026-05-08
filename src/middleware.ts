@@ -11,13 +11,16 @@ export function middleware(request: NextRequest) {
   // No password set = no protection
   if (!sitePassword) return NextResponse.next();
 
-  // Skip API routes, password page, shared pages, and static assets
+  // Skip API routes, password page, shared pages, static assets, and add-in resources
   if (
     request.nextUrl.pathname.startsWith("/api/") ||
     request.nextUrl.pathname === "/password" ||
     request.nextUrl.pathname.startsWith("/share/") ||
     request.nextUrl.pathname.startsWith("/_next/") ||
-    request.nextUrl.pathname === "/favicon.ico"
+    request.nextUrl.pathname === "/favicon.ico" ||
+    request.nextUrl.pathname === "/word-addin" ||
+    request.nextUrl.pathname.startsWith("/word-addin-") ||
+    request.nextUrl.pathname === "/word-addin-manifest.xml"
   ) {
     return NextResponse.next();
   }
