@@ -15,8 +15,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useSession } from "@/lib/auth-client";
+import { useSession, signIn } from "@/lib/auth-client";
 import { handleCreditError } from "@/lib/credit-error";
 import { toast } from "sonner";
 
@@ -164,22 +166,9 @@ export default function WordAddinPage() {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  // Not signed in
+  // Not signed in — show inline sign-in form
   if (!isPending && !session?.user) {
-    return (
-      <div className="p-4 space-y-4 text-center">
-        <h1 className="text-lg font-bold">Docs²</h1>
-        <p className="text-sm text-muted-foreground">
-          Sign in to docsquared.app to use AI tools in Word.
-        </p>
-        <a href="https://docsquared.app/sign-in" target="_blank" rel="noreferrer">
-          <Button className="gap-2">
-            <LogIn className="h-4 w-4" />
-            Sign In
-          </Button>
-        </a>
-      </div>
-    );
+    return <WordAddinSignIn />;
   }
 
   return (
@@ -287,6 +276,90 @@ export default function WordAddinPage() {
         Each use costs 1 credit.{" "}
         <a href="https://docsquared.app/settings" target="_blank" rel="noreferrer" className="underline">
           Settings
+        </a>
+      </p>
+    </div>
+  );
+}
+
+function WordAddinSignIn() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!email || !password) return;
+    setLoading(true);
+    setError("");
+
+    try {
+      const result = await signIn.email({ email, password });
+      if (result.error) {
+        setError(result.error.message || "Invalid credentials");
+      }
+      // useSession will detect the new session and re-render the parent
+    } catch {
+      setError("Sign-in failed. Check your connection.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="p-4 space-y-4">
+      <div className="text-center">
+        <h1 className="text-lg font-bold">Docs²</h1>
+        <p className="text-sm text-muted-foreground">
+          Sign in to use AI tools in Word.
+        </p>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-3">
+        {error && (
+          <div className="rounded-md bg-destructive/10 border border-destructive/20 p-2 text-xs text-destructive">
+            {error}
+          </div>
+        )}
+        <div className="space-y-1">
+          <Label htmlFor="addin-email" className="text-xs">Email</Label>
+          <Input
+            id="addin-email"
+            type="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="h-9 text-sm"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="addin-pw" className="text-xs">Password</Label>
+          <Input
+            id="addin-pw"
+            type="password"
+            placeholder="Your password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="h-9 text-sm"
+          />
+        </div>
+        <Button type="submit" disabled={loading} className="w-full gap-2">
+          {loading ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <LogIn className="h-4 w-4" />
+          )}
+          {loading ? "Signing in..." : "Sign In"}
+        </Button>
+      </form>
+
+      <p className="text-[10px] text-muted-foreground text-center">
+        Don&apos;t have an account?{" "}
+        <a href="https://docsquared.app/sign-up" target="_blank" rel="noreferrer" className="underline">
+          Sign up free
         </a>
       </p>
     </div>
