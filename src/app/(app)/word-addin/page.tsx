@@ -66,7 +66,6 @@ export default function WordAddinPage() {
       }
     };
     script.onerror = () => {
-      // Not running in Word, that's fine — work as a standalone page
       setOfficeReady(false);
     };
     document.head.appendChild(script);
@@ -166,14 +165,13 @@ export default function WordAddinPage() {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  // Not signed in — show inline sign-in form
+  // Not signed in
   if (!isPending && !session?.user) {
     return <WordAddinSignIn />;
   }
 
   return (
     <div className="p-3 space-y-3 max-w-[360px]">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-base font-bold">Docs²</h1>
         {officeReady && (
@@ -183,7 +181,6 @@ export default function WordAddinPage() {
         )}
       </div>
 
-      {/* Tool selector */}
       <div className="grid grid-cols-2 gap-1.5">
         {TOOLS.map((tool) => {
           const Icon = tool.icon;
@@ -208,7 +205,6 @@ export default function WordAddinPage() {
         })}
       </div>
 
-      {/* Input */}
       {!officeReady && (
         <Textarea
           placeholder="Paste text here (or select text in Word if running as an add-in)"
@@ -225,7 +221,6 @@ export default function WordAddinPage() {
         </p>
       )}
 
-      {/* Run button */}
       <Button onClick={handleRun} disabled={loading} className="w-full gap-2">
         {loading ? (
           <>
@@ -244,7 +239,6 @@ export default function WordAddinPage() {
         )}
       </Button>
 
-      {/* Result */}
       {result && (
         <Card>
           <CardContent className="pt-4 space-y-2">
@@ -298,10 +292,13 @@ function WordAddinSignIn() {
       const result = await signIn.email({ email, password });
       if (result.error) {
         setError(result.error.message || "Invalid credentials");
+      } else {
+        // Force reload so the session is picked up fresh
+        window.location.reload();
       }
-      // useSession will detect the new session and re-render the parent
-    } catch {
-      setError("Sign-in failed. Check your connection.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      setError("Sign-in failed: " + msg);
     } finally {
       setLoading(false);
     }
