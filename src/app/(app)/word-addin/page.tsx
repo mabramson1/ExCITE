@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useSession, signIn } from "@/lib/auth-client";
+import { signIn } from "@/lib/auth-client";
 import { handleCreditError } from "@/lib/credit-error";
 import { toast } from "sonner";
 
@@ -47,8 +47,14 @@ const ENDPOINTS: Record<Tool, string> = {
   citations: "/api/analyze/manuscript",
 };
 
+interface UserInfo {
+  name: string;
+  email: string;
+}
+
 export default function WordAddinPage() {
-  const { data: session, isPending } = useSession();
+  const [user, setUser] = useState<UserInfo | null>(null);
+  const [authChecking, setAuthChecking] = useState(true);
   const [officeReady, setOfficeReady] = useState(false);
   const [selectedTool, setSelectedTool] = useState<Tool>("humanize");
   const [input, setInput] = useState("");
@@ -56,7 +62,25 @@ export default function WordAddinPage() {
   const [result, setResult] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // Load Office JS when running inside Word
+  const checkSession = useCallback(async () => {
+    try {
+      const res = await fetch("/api/auth/get-session", { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.user?.id) {
+          setUser({ name: data.user.name || "", email: data.user.email || "" });
+          return true;
+        }
+      }
+    } catch {}
+    setUser(null);
+    return false;
+  }, []);
+
+  useEffect(() => {
+    checkSession().finally(() => setAuthChecking(false));
+  }, [checkSession]);
+
   useEffect(() => {
     const script = document.createElement("script");
     script.src = "https://appsforoffice.microsoft.com/lib/1/hosted/office.js";
@@ -65,9 +89,7 @@ export default function WordAddinPage() {
         window.Office.onReady(() => setOfficeReady(true));
       }
     };
-    script.onerror = () => {
-      setOfficeReady(false);
-    };
+    script.onerror = () => setOfficeReady(false);
     document.head.appendChild(script);
   }, []);
 
@@ -99,7 +121,7 @@ export default function WordAddinPage() {
   );
 
   async function handleRun() {
-    let text = await getSelectedText();
+    const text = await getSelectedText();
     if (!text.trim()) {
       toast.error("Select text in your document first, or paste it below.");
       return;
@@ -109,17 +131,22 @@ export default function WordAddinPage() {
     setResult(null);
 
     const endpoint = ENDPOINTS[selectedTool];
-    const bodyKey =
-      selectedTool === "ap-writer" ? "skeleton" : "text";
+    const bodyKey = selectedTool === "ap-writer" ? "skeleton" : "text";
 
     try {
       const res = await fetch(endpoint, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [bodyKey]: text }),
       });
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 401) {
+          setUser(null);
+          toast.error("Session expired. Sign in again.");
+          return;
+        }
         if (handleCreditError(res.status, data)) return;
         toast.error(data.error || "Request failed");
         return;
@@ -134,22 +161,13 @@ export default function WordAddinPage() {
         const verdict = (r?.consensus_verdict || r?.verdict || "unknown").replace(/_/g, " ");
         setResult(`AI probability: ${pct}%\nVerdict: ${verdict}\n\n${r?.reasoning || ""}`);
       } else if (selectedTool === "ap-writer") {
-        if (r?.assessment_plan) {
-          setResult(r.assessment_plan);
-        } else if (r?.full_note) {
-          setResult(r.full_note);
-        } else {
-          setResult(JSON.stringify(r, null, 2));
-        }
+        setResult(r?.assessment_plan || r?.full_note || JSON.stringify(r, null, 2));
       } else if (selectedTool === "citations") {
         const parts: string[] = [];
         if (r?.summary) parts.push(r.summary);
-        if (r?.bibliography?.length) {
-          parts.push("\nReferences:\n" + r.bibliography.join("\n"));
-        }
+        if (r?.bibliography?.length) parts.push("\nReferences:\n" + r.bibliography.join("\n"));
         setResult(parts.join("\n") || JSON.stringify(r, null, 2));
       }
-
       toast.success("Done");
     } catch {
       toast.error("Network error. Check your connection.");
@@ -165,20 +183,30 @@ export default function WordAddinPage() {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  // Not signed in
-  if (!isPending && !session?.user) {
-    return <WordAddinSignIn />;
+  if (authChecking) {
+    return (
+      <div className="p-6 flex items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <WordAddinSignIn onSuccess={checkSession} />;
   }
 
   return (
     <div className="p-3 space-y-3 max-w-[360px]">
       <div className="flex items-center justify-between">
-        <h1 className="text-base font-bold">Docs²</h1>
-        {officeReady && (
-          <Badge variant="success" className="text-[10px]">
-            Word connected
-          </Badge>
-        )}
+        <h1 className="text-base font-bold">Docs&#178;</h1>
+        <div className="flex items-center gap-2">
+          {officeReady && (
+            <Badge variant="success" className="text-[10px]">Word</Badge>
+          )}
+          <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">
+            {user.email}
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-1.5">
@@ -188,14 +216,9 @@ export default function WordAddinPage() {
           return (
             <button
               key={tool.id}
-              onClick={() => {
-                setSelectedTool(tool.id);
-                setResult(null);
-              }}
+              onClick={() => { setSelectedTool(tool.id); setResult(null); }}
               className={`flex items-center gap-2 rounded-lg border p-2 text-xs font-medium transition-colors ${
-                active
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:bg-muted/50"
+                active ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"
               }`}
             >
               <Icon className={`h-3.5 w-3.5 ${active ? "text-primary" : tool.color}`} />
@@ -217,23 +240,16 @@ export default function WordAddinPage() {
 
       {officeReady && (
         <p className="text-xs text-muted-foreground text-center">
-          Select text in your document, then click the button below.
+          Select text in your document, then click below.
         </p>
       )}
 
       <Button onClick={handleRun} disabled={loading} className="w-full gap-2">
         {loading ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Processing...
-          </>
+          <><Loader2 className="h-4 w-4 animate-spin" /> Processing...</>
         ) : (
           <>
-            {TOOLS.find((t) => t.id === selectedTool)?.icon &&
-              (() => {
-                const Icon = TOOLS.find((t) => t.id === selectedTool)!.icon;
-                return <Icon className="h-4 w-4" />;
-              })()}
+            {(() => { const Icon = TOOLS.find((t) => t.id === selectedTool)!.icon; return <Icon className="h-4 w-4" />; })()}
             Run {TOOLS.find((t) => t.id === selectedTool)?.label}
           </>
         )}
@@ -252,13 +268,11 @@ export default function WordAddinPage() {
               </Button>
               {officeReady && selectedTool === "humanize" && (
                 <Button
-                  variant="default"
-                  size="sm"
+                  variant="default" size="sm"
                   onClick={() => replaceSelectedText(result)}
                   className="gap-1.5 flex-1"
                 >
-                  <Replace className="h-3 w-3" />
-                  Replace in doc
+                  <Replace className="h-3 w-3" /> Replace in doc
                 </Button>
               )}
             </div>
@@ -267,16 +281,13 @@ export default function WordAddinPage() {
       )}
 
       <p className="text-[10px] text-muted-foreground text-center">
-        Each use costs 1 credit.{" "}
-        <a href="https://docsquared.app/settings" target="_blank" rel="noreferrer" className="underline">
-          Settings
-        </a>
+        Each use costs 1 credit.
       </p>
     </div>
   );
 }
 
-function WordAddinSignIn() {
+function WordAddinSignIn({ onSuccess }: { onSuccess: () => Promise<boolean> }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -292,9 +303,13 @@ function WordAddinSignIn() {
       const result = await signIn.email({ email, password });
       if (result.error) {
         setError(result.error.message || "Invalid credentials");
-      } else {
-        // Force reload so the session is picked up fresh
-        window.location.reload();
+        setLoading(false);
+        return;
+      }
+      // Don't reload. Re-check session via API fetch instead.
+      const ok = await onSuccess();
+      if (!ok) {
+        setError("Signed in but session not detected. The Word webview may not support cookies. Try using docsquared.app directly in your browser.");
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
@@ -307,7 +322,7 @@ function WordAddinSignIn() {
   return (
     <div className="p-4 space-y-4">
       <div className="text-center">
-        <h1 className="text-lg font-bold">Docs²</h1>
+        <h1 className="text-lg font-bold">Docs&#178;</h1>
         <p className="text-sm text-muted-foreground">
           Sign in to use AI tools in Word.
         </p>
